@@ -9,8 +9,7 @@ import { $, escapeHTML, projectColor, projectInitial, toast } from "./utils";
 
 export async function refreshProjects(): Promise<void> {
 	try {
-		// biome-ignore lint/suspicious/noExplicitAny: Hono RPC client resolves fine at runtime; TS needs help in Astro client scripts
-		const res = await (api as any).api.projects.$get();
+		const res = await api.api.projects.$get();
 		if (!res.ok) throw new Error(`HTTP ${res.status}`);
 		const data = await res.json();
 		store.projects = data.projects as Project[];
@@ -96,8 +95,7 @@ export async function selectProject(id: string): Promise<void> {
 	store.projectsWithEvents.delete(id);
 	if (!store.sessions.has(id)) {
 		try {
-			// biome-ignore lint/suspicious/noExplicitAny: Hono RPC client resolves fine at runtime; TS needs help in Astro client scripts
-			const resp = await (api as any).api.projects[":id"].terminal.$post({
+			const resp = await api.api.projects[":id"].terminal.$post({
 				param: { id },
 			});
 			if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -132,8 +130,7 @@ export async function setActiveProject(id: string | null): Promise<void> {
 export async function closeSession(id: string): Promise<void> {
 	const sess = store.sessions.get(id);
 	try {
-		// biome-ignore lint/suspicious/noExplicitAny: Hono RPC client resolves fine at runtime; TS needs help in Astro client scripts
-		await (api as any).api.sessions[":id"].$delete({ param: { id } });
+		await api.api.sessions[":id"].$delete({ param: { id } });
 	} catch (e) {
 		// biome-ignore lint/suspicious/noConsole: Error logging
 		console.warn(`Failed to close session ${id}:`, e);

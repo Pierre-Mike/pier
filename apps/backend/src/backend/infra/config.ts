@@ -29,7 +29,7 @@ export const makeConfigLayer = (workerEnv: {
 				version: "0.0.0",
 				env: workerEnv.ENVIRONMENT ?? "production",
 				appPort: Number(process.env["PIGUY_PORT"] ?? 5273),
-				sandboxPort: Number(process.env["PIGUY_SANDBOX_PORT"] ?? 5274),
+				sandboxPort: Number(process.env["PIGUY_SANDBOX_PORT"] ?? 5275),
 				zellijWebUrl: process.env["PIGUY_ZELLIJ_URL"] ?? "https://127.0.0.1:8082",
 				projectsRoot: process.env["PIGUY_PROJECTS_ROOT"] ?? join(home, "Github"),
 				piRoot: process.env["PIGUY_PI_ROOT"] ?? join(home, ".pi"),

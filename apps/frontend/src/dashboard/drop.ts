@@ -48,8 +48,7 @@ async function handleOSFileDrop(files: File[]): Promise<void> {
 	const fd = new FormData();
 	for (const f of files) fd.append("files", f, f.name);
 	try {
-		// biome-ignore lint/suspicious/noExplicitAny: Hono RPC client resolves fine at runtime; TS needs help in Astro client scripts
-		const r = await (api as any).api.projects[":id"].drop.$post({
+		const r = await api.api.projects[":id"].drop.$post({
 			param: { id: store.activeProject },
 			form: fd,
 		});
