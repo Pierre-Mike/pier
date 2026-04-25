@@ -18,7 +18,7 @@ import { hc } from "hono/client";
 // AppType import is load-bearing: confirms backend types compile cleanly.
 type _BackendBuildsCleanly = AppType;
 
-const apiBase = import.meta.env.PUBLIC_API_URL ?? "http://127.0.0.1:5273";
+export const apiBase = import.meta.env.PUBLIC_API_URL ?? "http://127.0.0.1:5273";
 
 // biome-ignore lint/suspicious/noExplicitAny: deep AppType inference falls back to unknown — see comment above
 export const api: any = hc<AppType>(apiBase);

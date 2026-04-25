@@ -1,9 +1,10 @@
 /**
  * SSE connection wrapper with reconnection support
  */
+import { apiBase } from "../api";
 
 export function subscribeEvents(onEvent: (evt: unknown) => void): void {
-	const es = new EventSource("/api/stream/events");
+	const es = new EventSource(`${apiBase}/api/stream/events`);
 
 	es.onmessage = (e) => {
 		try {

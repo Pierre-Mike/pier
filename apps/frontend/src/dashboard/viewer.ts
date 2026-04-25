@@ -2,6 +2,7 @@
  * Artifact viewer modal
  */
 
+import { apiBase } from "../api";
 import { appConfig } from "./files";
 import { store } from "./state";
 import { $, escapeAttr, escapeHTML } from "./utils";
@@ -80,7 +81,7 @@ export async function openRepoFile(path: string, name: string): Promise<void> {
 	const viewer = $("#artifact-viewer");
 	// biome-ignore lint/style/noNonNullAssertion: called only from file tree which guards on activeProject
 	const projectId = store.activeProject!;
-	const blobUrl = `/api/projects/${encodeURIComponent(projectId)}/blob?path=${encodeURIComponent(path)}`;
+	const blobUrl = `${apiBase}/api/projects/${encodeURIComponent(projectId)}/blob?path=${encodeURIComponent(path)}`;
 	const kind = await detectKind(blobUrl);
 	const openUrl =
 		kind === "html"
