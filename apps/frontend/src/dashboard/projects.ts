@@ -124,6 +124,13 @@ export async function setActiveProject(id: string | null): Promise<void> {
 	store.logsSession = "";
 	const sel = document.getElementById("logs-project") as HTMLSelectElement | null;
 	if (sel) sel.value = store.logsProject;
+
+	// Reload logs history if modal is open
+	if (store.logsOpen) {
+		const { loadLogsHistory } = await import("./logs");
+		await loadLogsHistory();
+	}
+
 	if (id) await refreshFiles(id);
 }
 

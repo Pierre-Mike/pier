@@ -1,0 +1,41 @@
+---
+/**
+ * Logs modal — Claude activity stream
+ */
+---
+
+<button id="logs-fab" class="logs-fab" title="Open logs" aria-label="Open logs">≡</button>
+
+<div id="logs-modal" class="viewer-modal hidden" role="dialog" aria-modal="true" aria-label="Claude activity dashboard">
+	<div class="viewer-backdrop" data-close-logs></div>
+	<div class="viewer-dialog logs-dialog">
+		<button class="viewer-close" data-close-logs aria-label="Close">×</button>
+		<header class="logs-head">
+			<div class="logs-title-row">
+				<h2>Claude activity</h2>
+				<div class="logs-controls">
+					<select id="logs-project"><option value="">all projects</option></select>
+					<select id="logs-session"><option value="">all sessions</option></select>
+					<input id="logs-filter" type="search" placeholder="search name, input, output…" />
+					<label><input id="logs-follow" type="checkbox" checked /> follow</label>
+					<button id="logs-clear" title="Clear view (buffer untouched)">clear</button>
+				</div>
+			</div>
+			<div class="logs-cards" id="logs-cards"></div>
+			<div class="logs-tabs" role="tablist">
+				<button class="logs-tab active" data-tab="all" role="tab">All</button>
+				<button class="logs-tab" data-tab="tools" role="tab">Tools</button>
+				<button class="logs-tab" data-tab="agents" role="tab">Agents</button>
+				<button class="logs-tab" data-tab="errors" role="tab">Errors</button>
+			</div>
+		</header>
+		<div id="logs-body" class="logs-body">
+			<table class="logs-table">
+				<thead><tr>
+					<th>time</th><th>session</th><th>kind</th><th>name</th><th>status</th><th>dur</th><th>details</th>
+				</tr></thead>
+				<tbody id="logs-tbody"></tbody>
+			</table>
+		</div>
+	</div>
+</div>

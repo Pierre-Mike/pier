@@ -1,5 +1,6 @@
 ---
 import ArtifactsPane from "../components/ArtifactsPane.astro";
+import LogsModal from "../components/LogsModal.astro";
 import Sidebar from "../components/Sidebar.astro";
 import TerminalPane from "../components/TerminalPane.astro";
 import Base from "../layouts/Base.astro";
@@ -9,6 +10,7 @@ import Base from "../layouts/Base.astro";
 	<Sidebar />
 	<TerminalPane />
 	<ArtifactsPane />
+	<LogsModal />
 
 	<div id="viewer-modal" class="viewer-modal hidden" role="dialog" aria-modal="true" aria-label="File viewer">
 		<div class="viewer-backdrop" data-close></div>
@@ -37,10 +39,14 @@ import Base from "../layouts/Base.astro";
 	import { loadConfig, renderFileTree, wireFileTreeUI } from "../dashboard/files";
 	import { wireViewerModal } from "../dashboard/viewer";
 	import { wireTerminalDrop } from "../dashboard/drop";
+	import { wireLogsModal, renderLogs, renderLogsCards, pushLog } from "../dashboard/logs";
+	import { subscribeEvents } from "../dashboard/sse";
+	import type { ClaudeEvent } from "../dashboard/types";
 
 	async function init() {
 		await loadConfig();
 		await refreshProjects();
+		subscribeEvents(handleEvent);
 		wireObservers();
 		wireUI();
 		const last = localStorage.getItem("piguy:active-project");
@@ -49,11 +55,24 @@ import Base from "../layouts/Base.astro";
 		}
 	}
 
+	function handleEvent(evt: unknown): void {
+		const e = evt as ClaudeEvent;
+		if (!e) return;
+		if (e.project && e.project !== store.activeProject) {
+			store.projectsWithEvents.add(e.project);
+		}
+		pushLog(e);
+	}
+
 	function wireObservers() {
 		store.observe(() => renderProjects());
 		store.observe(() => renderSessions());
 		store.observe(() => renderTerminal());
 		store.observe(() => renderFileTree());
+		store.observe(() => {
+			if (store.logsOpen) renderLogs();
+		});
+		store.observe(() => renderLogsCards());
 	}
 
 	function wireUI() {
@@ -62,6 +81,7 @@ import Base from "../layouts/Base.astro";
 		wireTerminalRefit();
 		wireTerminalDrop();
 		wireViewerModal();
+		wireLogsModal();
 		wirePaneToggle("collapse-sidebar", "sidebar", "collapsed-left", "❮", "❯");
 		wirePaneToggle("collapse-artifacts", "artifacts", "collapsed-right", "❯", "❮");
 		wireResizeHandle();
