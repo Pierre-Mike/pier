@@ -1,0 +1,42 @@
+import { join } from "node:path";
+import { Effect, Layer } from "effect";
+import type { Context } from "hono";
+import { Hono } from "hono";
+import { BlobServer, makeBlobServerLive, makeBlobServerTest } from "../../infra/blob-server.ts";
+import { ConfigService, ConfigTest } from "../../infra/config.ts";
+import { type AppBindings, defineRoute } from "../effect-handler.ts";
+import type { RouteModule } from "./_types.ts";
+
+const artifactBlobHandler = (c: Context<{ Bindings: AppBindings }>) =>
+	Effect.gen(function* () {
+		const id = c.req.query("id");
+		if (!id || id.includes("..") || id.startsWith("/")) {
+			return c.text("bad id", 400);
+		}
+		const cfg = yield* ConfigService;
+		const config = yield* cfg.get();
+		const absPath = join(config.artifactsDir, id);
+		const blob = yield* BlobServer;
+		const response = yield* blob.serve(absPath);
+		return response;
+	}).pipe(Effect.catchAll(() => Effect.succeed(c.text("not found", 404))));
+
+const makeDeps = (c: Context<{ Bindings: AppBindings }>) =>
+	Layer.merge(c.env.makeConfigLayer, makeBlobServerLive());
+
+const app = new Hono<{ Bindings: AppBindings }>().get(
+	"/api/artifacts/blob",
+	defineRoute({ deps: makeDeps, handler: artifactBlobHandler }),
+);
+
+const testDeps = Layer.merge(
+	ConfigTest,
+	makeBlobServerTest(new Map([["/tmp/test-pi/artifacts/test.html", "<p>test</p>"]])),
+);
+
+const testApp = new Hono<{ Bindings: AppBindings }>().get(
+	"/api/artifacts/blob",
+	defineRoute({ deps: testDeps, handler: artifactBlobHandler }),
+);
+
+export const artifactsBlobRoute = { app, testApp } satisfies RouteModule<typeof app>;
