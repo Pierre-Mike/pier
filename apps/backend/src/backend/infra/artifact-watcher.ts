@@ -1,10 +1,11 @@
+import type { Stats } from "node:fs";
 import { watch } from "node:fs";
 import { mkdir, readdir, stat } from "node:fs/promises";
 import { extname, join, relative } from "node:path";
 import { Context, Effect, Layer } from "effect";
 import { classify } from "../core/blob-classify.ts";
 import { ConfigService } from "./config.ts";
-import type { Artifact, ArtifactBusService } from "./sse-bus.ts";
+import type { Artifact, ArtifactBusService, ArtifactEvent } from "./sse-bus.ts";
 import { ArtifactBus } from "./sse-bus.ts";
 
 export interface ArtifactWatcher {
@@ -14,13 +15,14 @@ export interface ArtifactWatcher {
 
 export const ArtifactWatcher = Context.GenericTag<ArtifactWatcher>("ArtifactWatcher");
 
-const toArtifact = (
-	absPath: string,
-	artifactsDir: string,
-): Effect.Effect<Artifact | null, never, never> =>
+const toArtifact = (opts: {
+	absPath: string;
+	artifactsDir: string;
+}): Effect.Effect<Artifact | null, never, never> =>
 	Effect.gen(function* () {
+		const { absPath, artifactsDir } = opts;
 		const s = yield* Effect.tryPromise(() => stat(absPath)).pipe(Effect.orElseSucceed(() => null));
-		if (!s || !s.isFile()) return null;
+		if (!s?.isFile()) return null;
 		const rel = relative(artifactsDir, absPath);
 		const parts = rel.split("/");
 		const project = parts[0] ?? "unknown";
@@ -39,10 +41,59 @@ const toArtifact = (
 			mtime: s.mtimeMs,
 			path: absPath,
 		};
-		if (run) {
-			artifact.run = run;
-		}
+		if (run) artifact.run = run;
 		return artifact;
+	});
+
+const safeStat = (p: string): Effect.Effect<Stats | null, never, never> =>
+	Effect.tryPromise(() => stat(p)).pipe(Effect.orElseSucceed(() => null));
+
+const safeReaddir = (p: string): Effect.Effect<string[], never, never> =>
+	Effect.tryPromise(() => readdir(p)).pipe(Effect.orElseSucceed(() => [] as string[]));
+
+type WalkContext = {
+	readonly artifactsDir: string;
+	readonly project: string | undefined;
+	readonly out: Artifact[];
+};
+
+type WalkEntryArgs = {
+	readonly ctx: WalkContext;
+	readonly parent: string;
+	readonly entry: string;
+	readonly depth: number;
+};
+
+type WalkArgs = {
+	readonly ctx: WalkContext;
+	readonly dir: string;
+	readonly depth: number;
+};
+
+const walkEntry = (args: WalkEntryArgs): Effect.Effect<void, never, never> =>
+	Effect.gen(function* () {
+		const { ctx, parent, entry, depth } = args;
+		if (entry.startsWith(".")) return;
+		const p = join(parent, entry);
+		const s = yield* safeStat(p);
+		if (!s) return;
+		if (s.isDirectory()) {
+			yield* walk({ ctx, dir: p, depth: depth + 1 });
+			return;
+		}
+		if (!s.isFile()) return;
+		const a = yield* toArtifact({ absPath: p, artifactsDir: ctx.artifactsDir });
+		if (a && (!ctx.project || a.project === ctx.project)) ctx.out.push(a);
+	});
+
+const walk = (args: WalkArgs): Effect.Effect<void, never, never> =>
+	Effect.gen(function* () {
+		const { ctx, dir, depth } = args;
+		if (depth > 5) return;
+		const entries = yield* safeReaddir(dir);
+		for (const e of entries) {
+			yield* walkEntry({ ctx, parent: dir, entry: e, depth });
+		}
 	});
 
 const listArtifactsImpl = (opts: {
@@ -53,31 +104,51 @@ const listArtifactsImpl = (opts: {
 	Effect.gen(function* () {
 		const { artifactsDir, project, limit = 200 } = opts;
 		const out: Artifact[] = [];
-		const walk = (dir: string, depth: number): Effect.Effect<void, never, never> =>
-			// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Effect generators require sequential logic
-			Effect.gen(function* () {
-				if (depth > 5) return;
-				const entries = yield* Effect.tryPromise(() => readdir(dir)).pipe(
-					Effect.orElseSucceed(() => [] as string[]),
-				);
-				for (const e of entries) {
-					if (e.startsWith(".")) continue;
-					const p = join(dir, e);
-					const s = yield* Effect.tryPromise(() => stat(p)).pipe(Effect.orElseSucceed(() => null));
-					if (!s) continue;
-					if (s.isDirectory()) {
-						yield* walk(p, depth + 1);
-					} else if (s.isFile()) {
-						const a = yield* toArtifact(p, artifactsDir);
-						if (a && (!project || a.project === project)) {
-							out.push(a);
-						}
-					}
-				}
-			});
-		yield* walk(artifactsDir, 0);
+		yield* walk({ ctx: { artifactsDir, project, out }, dir: artifactsDir, depth: 0 });
 		out.sort((a, b) => b.mtime - a.mtime);
 		return out.slice(0, limit);
+	});
+
+type ChangeOutcome =
+	| { kind: "ignore" }
+	| { kind: "unlink" }
+	| { kind: "emit"; event: "add" | "change"; mtime: number };
+
+const classifyChange = (args: { st: Stats | null; prev: number | undefined }): ChangeOutcome => {
+	const { st, prev } = args;
+	if (!st) return prev === undefined ? { kind: "ignore" } : { kind: "unlink" };
+	if (!st.isFile()) return { kind: "ignore" };
+	if (prev !== undefined && Math.abs(prev - st.mtimeMs) < 2) return { kind: "ignore" };
+	const event = prev === undefined ? "add" : "change";
+	return { kind: "emit", event, mtime: st.mtimeMs };
+};
+
+const isHidden = (filename: string): boolean => filename.split("/").some((p) => p.startsWith("."));
+
+type EmitArgs = {
+	readonly filename: string;
+	readonly artifactsDir: string;
+	readonly known: Map<string, number>;
+	readonly bus: ArtifactBusService;
+};
+
+const emitChange = (args: EmitArgs): Effect.Effect<void, never, never> =>
+	Effect.gen(function* () {
+		const { filename, artifactsDir, known, bus } = args;
+		if (isHidden(filename)) return;
+		const abs = join(artifactsDir, filename);
+		const st = yield* safeStat(abs);
+		const outcome = classifyChange({ st, prev: known.get(filename) });
+		if (outcome.kind === "ignore") return;
+		if (outcome.kind === "unlink") {
+			known.delete(filename);
+			const evt: ArtifactEvent = { kind: "unlink", artifact: null, id: filename };
+			yield* bus.emit(evt);
+			return;
+		}
+		known.set(filename, outcome.mtime);
+		const a = yield* toArtifact({ absPath: abs, artifactsDir });
+		if (a) yield* bus.emit({ kind: outcome.event, artifact: a, id: a.id });
 	});
 
 export const makeArtifactWatcherLive = (): Layer.Layer<
@@ -95,31 +166,6 @@ export const makeArtifactWatcherLive = (): Layer.Layer<
 			let started = false;
 			const known = new Map<string, number>();
 
-			const emit = (filename: string): Effect.Effect<void, never, never> =>
-				// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Effect generators require sequential logic
-				Effect.gen(function* () {
-					if (filename.split("/").some((p) => p.startsWith("."))) return;
-					const abs = join(artifactsDir, filename);
-					const st = yield* Effect.tryPromise(() => stat(abs)).pipe(
-						Effect.orElseSucceed(() => null),
-					);
-					if (!st) {
-						if (known.delete(filename)) {
-							yield* bus.emit({ kind: "unlink", artifact: null, id: filename });
-						}
-						return;
-					}
-					if (!st.isFile()) return;
-					const prev = known.get(filename);
-					const kind: "add" | "change" = prev === undefined ? "add" : "change";
-					if (prev !== undefined && Math.abs(prev - st.mtimeMs) < 2) return;
-					known.set(filename, st.mtimeMs);
-					const a = yield* toArtifact(abs, artifactsDir);
-					if (a) {
-						yield* bus.emit({ kind, artifact: a, id: a.id });
-					}
-				});
-
 			return {
 				start: () =>
 					Effect.gen(function* () {
@@ -131,13 +177,13 @@ export const makeArtifactWatcherLive = (): Layer.Layer<
 						const w = watch(artifactsDir, { recursive: true, persistent: true });
 						w.on("change", (_event, filename) => {
 							const f = typeof filename === "string" ? filename : (filename?.toString() ?? "");
-							if (f) {
-								Effect.runPromise(emit(f)).catch(() => {
-									/* ignore */
-								});
-							}
+							if (!f) return;
+							Effect.runPromise(emitChange({ filename: f, artifactsDir, known, bus })).catch(() => {
+								/* ignore */
+							});
 						});
 						w.on("error", (err) => {
+							// biome-ignore lint/suspicious/noConsole: watcher errors are diagnostic, not user-facing
 							console.error("[artifacts watcher]", err);
 						});
 					}),

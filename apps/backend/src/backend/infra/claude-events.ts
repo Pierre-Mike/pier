@@ -26,19 +26,44 @@ export interface ClaudeEventStream {
 
 export const ClaudeEventStream = Context.GenericTag<ClaudeEventStream>("ClaudeEventStream");
 
+const tryParse = (line: string): ClaudeEntry | null => {
+	try {
+		return JSON.parse(line) as ClaudeEntry;
+	} catch {
+		return null;
+	}
+};
+
+const entryToEvent = (entry: ClaudeEntry): PiEvent | null => {
+	if (!entry.cwd) return null;
+	const project = basename(entry.cwd);
+	const session = entry.sessionId ?? "unknown";
+	return adapt(entry, { project, session });
+};
+
+const processLine = (
+	line: string,
+	emit: (evt: PiEvent) => Effect.Effect<void, never, never>,
+): Effect.Effect<void, never, never> =>
+	Effect.gen(function* () {
+		const trimmed = line.trim();
+		if (!trimmed) return;
+		const parsed = tryParse(trimmed);
+		if (!parsed) return;
+		const evt = entryToEvent(parsed);
+		if (evt) yield* emit(evt);
+	});
+
 const readAppendedImpl = (opts: {
 	path: string;
 	offsetRef: { v: number };
 	emit: (evt: PiEvent) => Effect.Effect<void, never, never>;
 }): Effect.Effect<void, never, never> =>
-	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Effect generators require sequential logic
 	Effect.gen(function* () {
 		const { path, offsetRef, emit } = opts;
 		const s = yield* Effect.tryPromise(() => stat(path)).pipe(Effect.orElseSucceed(() => null));
 		if (!s) return;
-		if (s.size < offsetRef.v) {
-			offsetRef.v = 0;
-		}
+		if (s.size < offsetRef.v) offsetRef.v = 0;
 		if (s.size === offsetRef.v) return;
 		const fh = yield* Effect.tryPromise(() => open(path, "r")).pipe(
 			Effect.orElseSucceed(() => null),
@@ -51,29 +76,9 @@ const readAppendedImpl = (opts: {
 			await fh.close();
 		}).pipe(Effect.orElseSucceed(() => undefined));
 		offsetRef.v = s.size;
-		let tail = buf.toString("utf8");
-		let nl = tail.indexOf("\n");
-		while (nl !== -1) {
-			const line = tail.slice(0, nl).trim();
-			tail = tail.slice(nl + 1);
-			if (line) {
-				const parsed = yield* Effect.sync(() => {
-					try {
-						return JSON.parse(line) as ClaudeEntry;
-					} catch {
-						return null;
-					}
-				});
-				if (parsed?.cwd) {
-					const project = basename(parsed.cwd);
-					const session = parsed.sessionId ?? "unknown";
-					const evt = adapt(parsed, { project, session });
-					if (evt) {
-						yield* emit(evt);
-					}
-				}
-			}
-			nl = tail.indexOf("\n");
+		const lines = buf.toString("utf8").split("\n");
+		for (const line of lines) {
+			yield* processLine(line, emit);
 		}
 	});
 
@@ -146,6 +151,62 @@ const watchProjectDir = (
 	};
 };
 
+const splitLines = (buf: string): string[] => {
+	const lines: string[] = [];
+	let start = 0;
+	const len = buf.length;
+	for (let i = 0; i <= len; i++) {
+		if (i === len || buf.charCodeAt(i) === 10) {
+			if (i > start) lines.push(buf.slice(start, i));
+			start = i + 1;
+		}
+	}
+	return lines;
+};
+
+const collectFromHistoryFile = (opts: {
+	dir: string;
+	file: string;
+	project: string | undefined;
+	out: PiEvent[];
+}): Effect.Effect<void, never, never> =>
+	Effect.gen(function* () {
+		const { dir, file, project, out } = opts;
+		const buf = yield* Effect.tryPromise(() => readFile(join(dir, file), "utf8")).pipe(
+			Effect.orElseSucceed(() => ""),
+		);
+		for (const line of splitLines(buf)) {
+			const trimmed = line.trim();
+			if (!trimmed) continue;
+			const parsed = tryParse(trimmed);
+			if (!parsed?.cwd) continue;
+			if (project && basename(parsed.cwd) !== project) continue;
+			const evt = entryToEvent(parsed);
+			if (evt) out.push(evt);
+		}
+	});
+
+const collectFromHistoryDir = (opts: {
+	root: string;
+	dirEntry: string;
+	project: string | undefined;
+	session: string | undefined;
+	out: PiEvent[];
+}): Effect.Effect<void, never, never> =>
+	Effect.gen(function* () {
+		const { root, dirEntry, project, session, out } = opts;
+		if (!dirEntry.startsWith("-")) return;
+		const dir = join(root, dirEntry);
+		let files = yield* Effect.tryPromise(async () => {
+			const all = await readdir(dir);
+			return all.filter((f) => f.endsWith(".jsonl"));
+		}).pipe(Effect.orElseSucceed(() => [] as string[]));
+		if (session) files = files.filter((f) => f.startsWith(session));
+		for (const f of files) {
+			yield* collectFromHistoryFile({ dir, file: f, project, out });
+		}
+	});
+
 export const makeClaudeEventStreamLive = (): Layer.Layer<
 	ClaudeEventStream,
 	never,
@@ -176,9 +237,7 @@ export const makeClaudeEventStreamLive = (): Layer.Layer<
 					const entries = yield* Effect.tryPromise(() => readdir(claudeProjectsRoot)).pipe(
 						Effect.orElseSucceed(() => [] as string[]),
 					);
-					for (const e of entries) {
-						attach(e);
-					}
+					for (const e of entries) attach(e);
 				});
 
 			return {
@@ -196,7 +255,6 @@ export const makeClaudeEventStreamLive = (): Layer.Layer<
 						});
 					}),
 				readHistory: (q) =>
-					// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Effect generators require sequential logic
 					Effect.gen(function* () {
 						const limit = Math.max(1, Math.min(q.limit, 20000));
 						const out: PiEvent[] = [];
@@ -204,51 +262,13 @@ export const makeClaudeEventStreamLive = (): Layer.Layer<
 							Effect.orElseSucceed(() => [] as string[]),
 						);
 						for (const d of dirs) {
-							if (!d.startsWith("-")) continue;
-							const dir = join(claudeProjectsRoot, d);
-							let files = yield* Effect.tryPromise(async () => {
-								const all = await readdir(dir);
-								return all.filter((f) => f.endsWith(".jsonl"));
-							}).pipe(Effect.orElseSucceed(() => [] as string[]));
-							if (q.session) {
-								files = files.filter((f) => f.startsWith(q.session ?? ""));
-							}
-							for (const f of files) {
-								const buf = yield* Effect.tryPromise(() => readFile(join(dir, f), "utf8")).pipe(
-									Effect.orElseSucceed(() => ""),
-								);
-								let start = 0;
-								const len = buf.length;
-								for (let i = 0; i <= len; i++) {
-									if (i === len || buf.charCodeAt(i) === 10) {
-										if (i > start) {
-											const line = buf.slice(start, i).trim();
-											if (line) {
-												const parsed = yield* Effect.sync(() => {
-													try {
-														return JSON.parse(line) as ClaudeEntry;
-													} catch {
-														return null;
-													}
-												});
-												if (parsed?.cwd) {
-													const project = basename(parsed.cwd);
-													if (q.project && project !== q.project) {
-														start = i + 1;
-														continue;
-													}
-													const session = parsed.sessionId ?? "unknown";
-													const evt = adapt(parsed, { project, session });
-													if (evt) {
-														out.push(evt);
-													}
-												}
-											}
-										}
-										start = i + 1;
-									}
-								}
-							}
+							yield* collectFromHistoryDir({
+								root: claudeProjectsRoot,
+								dirEntry: d,
+								project: q.project,
+								session: q.session,
+								out,
+							});
 						}
 						out.sort((a, b) => a.ts - b.ts);
 						return out.length > limit ? out.slice(out.length - limit) : out;
