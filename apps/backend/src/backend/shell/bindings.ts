@@ -1,3 +1,6 @@
+import type { Layer } from "effect";
+import type { ConfigService } from "../infra/config.ts";
+
 /**
  * Hono bindings for the local Bun runtime.
  *
@@ -8,4 +11,5 @@
  */
 export interface AppBindings {
 	ENVIRONMENT?: string;
+	makeConfigLayer: Layer.Layer<ConfigService>;
 }
