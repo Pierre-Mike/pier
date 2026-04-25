@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import type { AppBindings } from "./bindings.ts";
 import { artifactsRoute } from "./routes/artifacts.ts";
 import { artifactsBlobRoute } from "./routes/artifacts-blob.ts";
@@ -17,6 +18,18 @@ import { localhostGuard, setSecurityHeaders } from "./security.ts";
 
 const app = new Hono<{ Bindings: AppBindings }>();
 
+// CORS for the local frontend (Astro on :5274). Restrict to loopback origins
+// to match the localhostGuard policy — same allowlist style.
+const LOOPBACK_ORIGIN = /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/;
+app.use(
+	"*",
+	cors({
+		origin: (o) => (o && LOOPBACK_ORIGIN.test(o) ? o : ""),
+		credentials: true,
+		allowMethods: ["GET", "POST", "DELETE", "OPTIONS"],
+		allowHeaders: ["Content-Type"],
+	}),
+);
 app.use("*", localhostGuard);
 app.use("*", async (c, next) => {
 	await next();

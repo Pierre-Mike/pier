@@ -11,7 +11,14 @@ export const localhostGuard: MiddlewareHandler = async (c, next) => {
 		return c.text(`Host '${host}' not allowed`, 403);
 	}
 	const fetchSite = c.req.header("sec-fetch-site");
-	if (fetchSite && fetchSite !== "same-origin" && fetchSite !== "none") {
+	// "same-site" allows the Astro dev server (different port, same host) to call
+	// the API; the loopback Host check above already restricts who can reach us.
+	if (
+		fetchSite &&
+		fetchSite !== "same-origin" &&
+		fetchSite !== "same-site" &&
+		fetchSite !== "none"
+	) {
 		return c.text(`sec-fetch-site '${fetchSite}' rejected`, 403);
 	}
 	await next();
