@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import type { Context } from "hono";
 import { Hono } from "hono";
-import { ConfigService, ConfigTest } from "../../infra/config.ts";
+import { ConfigService, ConfigTest, defaultConfigLayer } from "../../infra/config.ts";
 import { type AppBindings, defineRoute } from "../effect-handler.ts";
 import type { RouteModule } from "./_types.ts";
 
@@ -25,7 +25,7 @@ const configHandler = (c: Context<{ Bindings: AppBindings }>) =>
 const app = new Hono<{ Bindings: AppBindings }>().get(
 	"/api/config",
 	defineRoute({
-		deps: (c) => c.env.makeConfigLayer,
+		deps: () => defaultConfigLayer,
 		handler: configHandler,
 	}),
 );

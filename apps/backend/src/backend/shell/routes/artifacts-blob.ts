@@ -3,7 +3,7 @@ import { Effect, Layer } from "effect";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { BlobServer, makeBlobServerLive, makeBlobServerTest } from "../../infra/blob-server.ts";
-import { ConfigService, ConfigTest } from "../../infra/config.ts";
+import { ConfigService, ConfigTest, defaultConfigLayer } from "../../infra/config.ts";
 import { type AppBindings, defineRoute } from "../effect-handler.ts";
 import type { RouteModule } from "./_types.ts";
 
@@ -21,8 +21,7 @@ const artifactBlobHandler = (c: Context<{ Bindings: AppBindings }>) =>
 		return response;
 	}).pipe(Effect.catchAll(() => Effect.succeed(c.text("not found", 404))));
 
-const makeDeps = (c: Context<{ Bindings: AppBindings }>) =>
-	Layer.merge(c.env.makeConfigLayer, makeBlobServerLive());
+const makeDeps = () => Layer.merge(defaultConfigLayer, makeBlobServerLive());
 
 const app = new Hono<{ Bindings: AppBindings }>().get(
 	"/api/artifacts/blob",

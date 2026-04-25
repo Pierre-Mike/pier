@@ -28,8 +28,8 @@ export const makeConfigLayer = (workerEnv: {
 			Effect.succeed({
 				version: "0.0.0",
 				env: workerEnv.ENVIRONMENT ?? "production",
-				appPort: Number(process.env["PIGUY_PORT"] ?? 5173),
-				sandboxPort: Number(process.env["PIGUY_SANDBOX_PORT"] ?? 5174),
+				appPort: Number(process.env["PIGUY_PORT"] ?? 5273),
+				sandboxPort: Number(process.env["PIGUY_SANDBOX_PORT"] ?? 5274),
 				zellijWebUrl: process.env["PIGUY_ZELLIJ_URL"] ?? "https://127.0.0.1:8082",
 				projectsRoot: process.env["PIGUY_PROJECTS_ROOT"] ?? join(home, "Github"),
 				piRoot: process.env["PIGUY_PI_ROOT"] ?? join(home, ".pi"),
@@ -39,6 +39,14 @@ export const makeConfigLayer = (workerEnv: {
 			}),
 	});
 };
+
+/**
+ * Default config Layer for runtime — sources env from process.env.
+ * Use this in route `deps:` instead of constructing a new Layer per request.
+ */
+export const defaultConfigLayer: Layer.Layer<ConfigService> = makeConfigLayer({
+	...(process.env["NODE_ENV"] !== undefined ? { ENVIRONMENT: process.env["NODE_ENV"] } : {}),
+});
 
 export const ConfigTest: Layer.Layer<ConfigService> = Layer.succeed(ConfigService, {
 	get: () =>

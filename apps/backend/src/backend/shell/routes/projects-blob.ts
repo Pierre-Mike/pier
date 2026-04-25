@@ -2,7 +2,7 @@ import { Effect, Layer } from "effect";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { BlobServer, makeBlobServerLive, makeBlobServerTest } from "../../infra/blob-server.ts";
-import { ConfigTest } from "../../infra/config.ts";
+import { ConfigTest, defaultConfigLayer } from "../../infra/config.ts";
 import { makeRepoServiceLive, makeRepoServiceTest, RepoService } from "../../infra/repo.ts";
 import { type AppBindings, defineRoute } from "../effect-handler.ts";
 import type { RouteModule } from "./_types.ts";
@@ -20,8 +20,8 @@ const projectBlobHandler = (c: Context<{ Bindings: AppBindings }>) =>
 		return response;
 	}).pipe(Effect.catchAll(() => Effect.succeed(c.text("not found", 404))));
 
-const makeDeps = (c: Context<{ Bindings: AppBindings }>) =>
-	Layer.merge(Layer.provide(makeRepoServiceLive(), c.env.makeConfigLayer), makeBlobServerLive());
+const makeDeps = () =>
+	Layer.merge(Layer.provide(makeRepoServiceLive(), defaultConfigLayer), makeBlobServerLive());
 
 const app = new Hono<{ Bindings: AppBindings }>().get(
 	"/api/projects/:id/blob",

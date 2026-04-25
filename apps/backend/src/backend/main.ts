@@ -10,7 +10,8 @@ import app from "./shell/api.ts";
 import { createSandboxApp } from "./shell/sandbox-app.ts";
 
 const program = Effect.gen(function* () {
-	const configLayer = makeConfigLayer({ ENVIRONMENT: process.env["NODE_ENV"] });
+	const env = process.env["NODE_ENV"];
+	const configLayer = makeConfigLayer(env !== undefined ? { ENVIRONMENT: env } : {});
 	const cfg = yield* Effect.provide(
 		Effect.gen(function* () {
 			const svc = yield* ConfigService;

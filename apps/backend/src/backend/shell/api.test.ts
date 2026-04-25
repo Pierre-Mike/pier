@@ -13,7 +13,7 @@ describe("boundary invariant: no raw Effect.runPromise in api.ts", () => {
 
 describe("GET /health", () => {
 	it("returns 200 with ok status", async () => {
-		const res = await app.request("/health");
+		const res = await app.request("/health", { headers: { host: "127.0.0.1" } });
 		expect(res.status).toBe(200);
 		const body = await res.json();
 		expect(body).toMatchObject({ status: "ok" });

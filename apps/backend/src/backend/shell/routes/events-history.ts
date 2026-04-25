@@ -6,7 +6,7 @@ import {
 	ClaudeEventStreamTest,
 	makeClaudeEventStreamLive,
 } from "../../infra/claude-events.ts";
-import { ConfigTest } from "../../infra/config.ts";
+import { ConfigTest, defaultConfigLayer } from "../../infra/config.ts";
 import { EventBus, makeEventBusLive } from "../../infra/sse-bus.ts";
 import { type AppBindings, defineRoute } from "../effect-handler.ts";
 import type { RouteModule } from "./_types.ts";
@@ -42,8 +42,8 @@ const logsHandler = (c: Context<{ Bindings: AppBindings }>) =>
 		return c.json({ events }, 200);
 	}).pipe(Effect.catchAll(() => Effect.succeed(c.json({ error: "read failed" }, 500))));
 
-const makeDeps = (c: Context<{ Bindings: AppBindings }>) => {
-	const cfg = c.env.makeConfigLayer;
+const makeDeps = () => {
+	const cfg = defaultConfigLayer;
 	const bus = makeEventBusLive();
 	const stream = Layer.provide(makeClaudeEventStreamLive(), Layer.merge(bus, cfg));
 	return Layer.merge(bus, stream);

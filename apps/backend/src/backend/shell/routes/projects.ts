@@ -1,7 +1,7 @@
 import { Effect, Layer } from "effect";
 import type { Context } from "hono";
 import { Hono } from "hono";
-import { ConfigTest } from "../../infra/config.ts";
+import { ConfigTest, defaultConfigLayer } from "../../infra/config.ts";
 import {
 	makeProjectsServiceLive,
 	makeProjectsServiceTest,
@@ -46,14 +46,14 @@ const app = new Hono<{ Bindings: AppBindings }>()
 	.get(
 		"/api/projects",
 		defineRoute({
-			deps: (c) => Layer.provide(makeProjectsServiceLive(), c.env.makeConfigLayer),
+			deps: () => Layer.provide(makeProjectsServiceLive(), defaultConfigLayer),
 			handler: projectsListHandler,
 		}),
 	)
 	.get(
 		"/api/projects/:id/files",
 		defineRoute({
-			deps: (c) => Layer.provide(makeRepoServiceLive(), c.env.makeConfigLayer),
+			deps: () => Layer.provide(makeRepoServiceLive(), defaultConfigLayer),
 			handler: projectFilesHandler,
 		}),
 	);

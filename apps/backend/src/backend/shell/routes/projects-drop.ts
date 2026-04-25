@@ -1,7 +1,7 @@
 import { Effect, Layer } from "effect";
 import type { Context } from "hono";
 import { Hono } from "hono";
-import { ConfigTest } from "../../infra/config.ts";
+import { ConfigTest, defaultConfigLayer } from "../../infra/config.ts";
 import { makeRepoServiceLive, makeRepoServiceTest, RepoService } from "../../infra/repo.ts";
 import { type AppBindings, defineRoute } from "../effect-handler.ts";
 import type { RouteModule } from "./_types.ts";
@@ -44,8 +44,7 @@ const dropHandler = (c: Context<{ Bindings: AppBindings }>) =>
 		),
 	);
 
-const makeDeps = (c: Context<{ Bindings: AppBindings }>) =>
-	Layer.provide(makeRepoServiceLive(), c.env.makeConfigLayer);
+const makeDeps = () => Layer.provide(makeRepoServiceLive(), defaultConfigLayer);
 
 const app = new Hono<{ Bindings: AppBindings }>().post(
 	"/api/projects/:id/drop",

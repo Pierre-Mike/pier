@@ -6,7 +6,7 @@ import {
 	ArtifactWatcherTest,
 	makeArtifactWatcherLive,
 } from "../../infra/artifact-watcher.ts";
-import { ConfigTest } from "../../infra/config.ts";
+import { ConfigTest, defaultConfigLayer } from "../../infra/config.ts";
 import { makeArtifactBusLive } from "../../infra/sse-bus.ts";
 import { type AppBindings, defineRoute } from "../effect-handler.ts";
 import type { RouteModule } from "./_types.ts";
@@ -25,8 +25,8 @@ const artifactsListHandler = (c: Context<{ Bindings: AppBindings }>) =>
 		return c.json({ artifacts }, 200);
 	});
 
-const makeDeps = (c: Context<{ Bindings: AppBindings }>) => {
-	const cfg = c.env.makeConfigLayer;
+const makeDeps = () => {
+	const cfg = defaultConfigLayer;
 	const bus = makeArtifactBusLive();
 	const watcher = Layer.provide(makeArtifactWatcherLive(), Layer.merge(bus, cfg));
 	return Layer.merge(bus, watcher);

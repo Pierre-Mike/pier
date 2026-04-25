@@ -1,7 +1,7 @@
 import { Effect, Layer } from "effect";
 import type { Context } from "hono";
 import { Hono } from "hono";
-import { ConfigTest } from "../../infra/config.ts";
+import { ConfigTest, defaultConfigLayer } from "../../infra/config.ts";
 import {
 	makeTerminalSessionsLive,
 	TerminalSessions,
@@ -52,8 +52,7 @@ const deleteSessionHandler = (c: Context<{ Bindings: AppBindings }>) =>
 		return new Response(null, { status: 204 });
 	}).pipe(Effect.catchAll(() => Effect.succeed(new Response(null, { status: 204 }))));
 
-const makeDeps = (c: Context<{ Bindings: AppBindings }>) =>
-	Layer.provide(makeTerminalSessionsLive(), c.env.makeConfigLayer);
+const makeDeps = () => Layer.provide(makeTerminalSessionsLive(), defaultConfigLayer);
 
 const app = new Hono<{ Bindings: AppBindings }>()
 	.post("/api/projects/:id/terminal", defineRoute({ deps: makeDeps, handler: openSessionHandler }))

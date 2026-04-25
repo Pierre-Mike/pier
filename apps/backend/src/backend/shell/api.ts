@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { makeConfigLayer } from "../infra/config.ts";
 import type { AppBindings } from "./bindings.ts";
 import { artifactsRoute } from "./routes/artifacts.ts";
 import { artifactsBlobRoute } from "./routes/artifacts-blob.ts";
@@ -17,7 +16,6 @@ const app = new Hono<{ Bindings: AppBindings }>();
 
 app.use("*", localhostGuard);
 app.use("*", async (c, next) => {
-	c.env.makeConfigLayer = makeConfigLayer(c.env);
 	await next();
 	setSecurityHeaders(c);
 });

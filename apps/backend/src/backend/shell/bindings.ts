@@ -1,15 +1,10 @@
-import type { Layer } from "effect";
-import type { ConfigService } from "../infra/config.ts";
-
 /**
  * Hono bindings for the local Bun runtime.
  *
  * piguy-web is a long-lived local process — no Cloudflare D1, KV, R2, or
- * env bindings. The shape is kept as a typed object so future request-scoped
- * dependencies (e.g., a per-request request-id) can be added without
- * touching every route signature.
+ * env bindings. Routes inject their own Effect Layers via defineRoute's
+ * `deps:` callback rather than reading them off c.env.
  */
 export interface AppBindings {
 	ENVIRONMENT?: string;
-	makeConfigLayer: Layer.Layer<ConfigService>;
 }
