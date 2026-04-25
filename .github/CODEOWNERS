@@ -1,0 +1,25 @@
+# Infrastructure & guardrails — require human review
+# These files control how AI agents work, build pipelines, and code quality.
+# AI must NOT modify these without human approval.
+
+# AI behavior & instructions
+AGENTS.md                        @Pierre-Mike
+.claude/                         @Pierre-Mike
+
+# Build pipeline & CI/CD
+turbo.json                       @Pierre-Mike
+.github/                         @Pierre-Mike
+
+# Code quality & formatting
+biome.json                       @Pierre-Mike
+lefthook.yml                     @Pierre-Mike
+
+# TypeScript compiler config
+tsconfig.json                    @Pierre-Mike
+tsconfig.base.json               @Pierre-Mike
+
+# Workspace & dependency management
+/package.json                    @Pierre-Mike
+
+# Wrangler deployment config
+**/wrangler.toml                 @Pierre-Mike

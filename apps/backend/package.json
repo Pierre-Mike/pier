@@ -1,0 +1,25 @@
+{
+	"name": "@piguy/backend",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		"./types": "./src/backend/shell/api.ts"
+	},
+	"scripts": {
+		"dev": "bun run --watch src/backend/main.ts",
+		"build": "bun build src/backend/main.ts --target=bun --outdir=dist",
+		"start": "bun run src/backend/main.ts",
+		"test": "bun test",
+		"typecheck": "tsc --noEmit",
+		"lint:deps": "depcruise src --config .dependency-cruiser.cjs"
+	},
+	"dependencies": {
+		"@effect/schema": "^0.75.5",
+		"effect": "^3.20.0",
+		"hono": "^4.12.8"
+	},
+	"devDependencies": {
+		"dependency-cruiser": "^17.3.9"
+	}
+}

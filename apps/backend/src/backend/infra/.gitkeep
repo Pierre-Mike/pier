@@ -1,0 +1,6 @@
+# Infra — Effect Services (External Systems)
+#
+# One service per external system, behind Context.Tag for dependency injection.
+# Each service encapsulates I/O: databases, APIs, queues, storage, etc.
+#
+# Examples: DatabaseService, AuthService, StorageService, QueueService.

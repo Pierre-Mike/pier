@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# spawn — One-shot scoped Claude session.
+#
+# Usage:
+#   spawn/run --tools "Read,Write" --prompt "task" [--profile <name> --scope <path>] [flags]
+#
+# Profiles (require --scope for coder):
+#   coder        — Write/Edit allowed only under --scope, Bash denied
+#   dispatcher   — Bash allowed only for .claude/tools/spawn/run
+#   reviewer     — Write/Edit/Bash all denied
+#
+# Flags:
+#   --tools     Hard tool allowlist (required)
+#   --prompt    Task prompt (required)
+#   --profile   Rule profile (coder|dispatcher|reviewer)
+#   --scope     Path prefix for coder profile
+#   --agent     Agent file from .claude/agents/
+#   --model     Model (sonnet, opus, haiku)
+#   --skills    Skills (comma-separated, injected into prompt)
+#   --budget    Max spend in USD
+#   --effort    low | medium | high | max
+#   --worktree  Git worktree isolation
+#   --bare      Strip hooks, memory, CLAUDE.md (DOES NOT apply profile hooks)
+#   --no-mcp    Block MCP servers
+
+PROMPT=""
+TOOLS=""
+SKILLS=""
+MODEL=""
+AGENT=""
+BUDGET=""
+EFFORT=""
+PROFILE=""
+SCOPE=""
+BARE=false
+WORKTREE=false
+NO_MCP=false
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --prompt)    PROMPT="$2"; shift 2 ;;
+    --tools)     TOOLS="$2"; shift 2 ;;
+    --skills)    SKILLS="$2"; shift 2 ;;
+    --model)     MODEL="$2"; shift 2 ;;
+    --agent)     AGENT="$2"; shift 2 ;;
+    --budget)    BUDGET="$2"; shift 2 ;;
+    --effort)    EFFORT="$2"; shift 2 ;;
+    --profile)   PROFILE="$2"; shift 2 ;;
+    --scope)     SCOPE="$2"; shift 2 ;;
+    --bare)      BARE=true; shift ;;
+    --worktree)  WORKTREE=true; shift ;;
+    --no-mcp)    NO_MCP=true; shift ;;
+    *) echo "Unknown arg: $1" >&2; exit 1 ;;
+  esac
+done
+
+[[ -z "$PROMPT" ]] && { echo "Error: --prompt required" >&2; exit 1; }
+[[ -z "$TOOLS" ]]  && { echo "Error: --tools required" >&2; exit 1; }
+
+CMD=(claude -p --tools "$TOOLS" --no-session-persistence --permission-mode bypassPermissions)
+
+[[ -n "$AGENT" ]]  && CMD+=(--agent "$AGENT")
+[[ -n "$MODEL" ]]  && CMD+=(--model "$MODEL")
+[[ -n "$BUDGET" ]] && CMD+=(--max-budget-usd "$BUDGET")
+[[ -n "$EFFORT" ]] && CMD+=(--effort "$EFFORT")
+[[ "$BARE" == true ]]     && CMD+=(--bare)
+[[ "$WORKTREE" == true ]] && CMD+=(--worktree)
+[[ "$NO_MCP" == true ]]   && CMD+=(--strict-mcp-config --mcp-config '{"mcpServers":{}}')
+
+# Generate profile settings if requested
+if [[ -n "$PROFILE" ]]; then
+  SETTINGS_FILE=$(mktemp -t spawn-settings.XXXXXX.json)
+  trap 'rm -f "$SETTINGS_FILE"' EXIT
+
+  case "$PROFILE" in
+    coder)
+      [[ -z "$SCOPE" ]] && { echo "Error: coder profile requires --scope" >&2; exit 1; }
+      cat > "$SETTINGS_FILE" <<EOF
+{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Write", "hooks": [{ "type": "command", "command": ".claude/tools/gate/run write '$SCOPE'" }] },
+      { "matcher": "Edit",  "hooks": [{ "type": "command", "command": ".claude/tools/gate/run edit '$SCOPE'" }] },
+      { "matcher": "Bash",  "hooks": [{ "type": "command", "command": ".claude/tools/gate/run bash-deny" }] }
+    ]
+  }
+}
+EOF
+      ;;
+    dispatcher)
+      cat > "$SETTINGS_FILE" <<'EOF'
+{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Write", "hooks": [{ "type": "command", "command": ".claude/tools/gate/run deny-all" }] },
+      { "matcher": "Edit",  "hooks": [{ "type": "command", "command": ".claude/tools/gate/run deny-all" }] },
+      { "matcher": "Bash",  "hooks": [{ "type": "command", "command": ".claude/tools/gate/run bash-spawn" }] }
+    ]
+  }
+}
+EOF
+      ;;
+    reviewer)
+      cat > "$SETTINGS_FILE" <<'EOF'
+{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Write", "hooks": [{ "type": "command", "command": ".claude/tools/gate/run deny-all" }] },
+      { "matcher": "Edit",  "hooks": [{ "type": "command", "command": ".claude/tools/gate/run deny-all" }] },
+      { "matcher": "Bash",  "hooks": [{ "type": "command", "command": ".claude/tools/gate/run bash-deny" }] }
+    ]
+  }
+}
+EOF
+      ;;
+    *) echo "Unknown profile: $PROFILE" >&2; exit 1 ;;
+  esac
+
+  CMD+=(--settings "$SETTINGS_FILE")
+fi
+
+if [[ -n "$SKILLS" ]]; then
+  PROMPT="Activate and follow these skills: $SKILLS
+
+$PROMPT"
+fi
+
+echo "$PROMPT" | "${CMD[@]}"

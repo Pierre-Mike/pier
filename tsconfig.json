@@ -1,0 +1,6 @@
+{
+	"extends": "./tsconfig.base.json",
+	"compilerOptions": {},
+	"references": [{ "path": "apps/backend" }, { "path": "apps/frontend" }],
+	"files": []
+}

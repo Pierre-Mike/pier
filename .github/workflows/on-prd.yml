@@ -1,0 +1,419 @@
+name: PRD → Implement
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  prd-to-slices:
+    name: Create slices
+    runs-on: ubuntu-latest
+    if: contains(github.event.issue.labels.*.name, 'prd')
+    timeout-minutes: 30
+    outputs:
+      skip: ${{ steps.dedup.outputs.skip }}
+
+    steps:
+      - name: Skip if slices already exist
+        id: dedup
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EXISTING=$(gh api "repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/sub_issues" --jq '[.[] | select(.labels[].name == "slice" or .labels[].name == "slice-pending")] | length' 2>/dev/null || echo "0")
+          if [ "$EXISTING" -gt "0" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Slice sub-issues already exist ($EXISTING found) — skipping."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.dedup.outputs.skip != 'true'
+
+      - name: Ensure labels exist
+        if: steps.dedup.outputs.skip != 'true'
+        run: |
+          gh label create slice --color e4e669 --description "Vertical implementation slice" --force
+          gh label create slice-pending --color d4c5f9 --description "Slice waiting on blockers" --force
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Break PRD into vertical slices
+        if: steps.dedup.outputs.skip != 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          allowed_bots: '*'
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: '--allowedTools "Bash(gh:*),Bash(git:*),Read,Write,Glob,Grep,WebSearch"'
+          show_full_output: true
+          prompt: |
+            Fetch GitHub issue #${{ github.event.issue.number }} with:
+            gh issue view ${{ github.event.issue.number }} --comments
+
+            This is a PRD. Break it into tracer-bullet vertical slices:
+            1. Explore the codebase to understand the current architecture
+            2. Break the PRD into thin end-to-end slices (NOT horizontal layers)
+            3. Determine dependencies between slices before creating any issue
+
+            Use a two-pass approach so every issue has correct **Blocked by:** and **Unblocks:** fields:
+
+            PASS 1 — Create all slice issues (blockers first).
+            - Include **Blocked by:** #X, #Y at the top of the body (omit if none).
+            - Omit **Unblocks:** for now (dependent issue numbers are not known yet).
+            - Label: no blockers → "slice", has blockers → "slice-pending".
+            - Record a mapping of logical slice name → issue number as you go.
+            REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+            Write each slice body to /tmp/slice-<n>.md and use --body-file to avoid shell escaping issues:
+            SLICE_URL=$(gh issue create --title "Slice: <title>" --body-file /tmp/slice-<n>.md --label <slice|slice-pending>)
+            SLICE_NUMBER=$(echo "$SLICE_URL" | grep -o '[0-9]*$')
+            gh api repos/$REPO/issues/${{ github.event.issue.number }}/sub_issues \
+              --method POST --field sub_issue_id=$SLICE_NUMBER
+
+            PASS 2 — Back-fill **Unblocks:** on every blocker issue.
+            - For each slice that blocks others, fetch its current body, append **Unblocks:** #X, #Y
+              (using the real issue numbers from Pass 1), write to /tmp/edit-<n>.md, and run:
+            gh issue edit <NUMBER> --body-file /tmp/edit-<n>.md
+
+            Do not ask for approval — create and edit the issues directly.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Report failure
+        if: failure() && steps.dedup.outputs.skip != 'true'
+        run: |
+          gh issue comment ${{ github.event.issue.number }} --body "❌ **Failed** (PRD → Slices)
+
+          Workflow logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  implement:
+    name: Implement all slices
+    needs: prd-to-slices
+    if: needs.prd-to-slices.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Fetch slices and build implementation plan
+        id: plan
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT }}
+          PRD_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          REPO="${{ github.repository }}"
+
+          # Fetch all sub-issues of the PRD that are slices
+          SLICE_NUMBERS=$(gh api "repos/$REPO/issues/$PRD_NUMBER/sub_issues" \
+            --jq '[.[] | select((.labels[].name == "slice") or (.labels[].name == "slice-pending")) | .number]')
+
+          if [ "$SLICE_NUMBERS" = "[]" ] || [ -z "$SLICE_NUMBERS" ]; then
+            echo "No slice sub-issues found for PRD #$PRD_NUMBER"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "Found slices: $SLICE_NUMBERS"
+
+          # For each slice, extract blocked-by numbers
+          echo '{}' > /tmp/deps.json
+          for NUM in $(echo "$SLICE_NUMBERS" | jq -r '.[]'); do
+            BODY=$(gh issue view "$NUM" --repo "$REPO" --json body -q .body)
+
+            # Extract blocked-by section only
+            BLOCKED_SECTION=$(echo "$BODY" \
+              | sed -n '/^## Blocked by/,/^## /{ /^## Blocked by/d; /^## /d; p; }; /^\*\*Blocked by[:\*]/{ s/^\*\*Blocked by[:\*]*//; p; }')
+            BLOCKERS=$(echo "$BLOCKED_SECTION" | grep -oE '#[0-9]+' | grep -oE '[0-9]+' | sort -u | tr '\n' ',' | sed 's/,$//')
+
+            # Only keep blockers that are in our slice set
+            VALID_BLOCKERS=""
+            for B in $(echo "$BLOCKERS" | tr ',' ' '); do
+              if [ -n "$B" ] && echo "$SLICE_NUMBERS" | jq -e "index($B)" > /dev/null 2>&1; then
+                if [ -n "$VALID_BLOCKERS" ]; then
+                  VALID_BLOCKERS="$VALID_BLOCKERS,$B"
+                else
+                  VALID_BLOCKERS="$B"
+                fi
+              fi
+            done
+
+            jq --argjson num "$NUM" --arg deps "$VALID_BLOCKERS" \
+              '. + {($num | tostring): $deps}' /tmp/deps.json > /tmp/deps2.json
+            mv /tmp/deps2.json /tmp/deps.json
+          done
+
+          echo "Dependency map:"
+          cat /tmp/deps.json | jq .
+
+          # Topological sort via Kahn's algorithm
+          python3 << 'PYEOF' > /tmp/slice-order.json
+          import json
+          from collections import defaultdict, deque
+
+          with open('/tmp/deps.json') as f:
+              deps = json.load(f)
+
+          nodes = set(deps.keys())
+          in_degree = {n: 0 for n in nodes}
+          graph = defaultdict(list)
+
+          for node, dep_str in deps.items():
+              if dep_str:
+                  for dep in dep_str.split(','):
+                      dep = dep.strip()
+                      if dep in nodes:
+                          graph[dep].append(node)
+                          in_degree[node] += 1
+
+          queue = deque(sorted([n for n in nodes if in_degree[n] == 0]))
+          order = []
+
+          while queue:
+              node = queue.popleft()
+              order.append(int(node))
+              for neighbor in sorted(graph[node]):
+                  in_degree[neighbor] -= 1
+                  if in_degree[neighbor] == 0:
+                      queue.append(neighbor)
+
+          remaining = [int(n) for n in nodes if int(n) not in order]
+          order.extend(sorted(remaining))
+
+          result = []
+          for num in order:
+              dep_str = deps.get(str(num), '')
+              blockers = [int(x.strip()) for x in dep_str.split(',') if x.strip()] if dep_str else []
+              result.append({"number": num, "blocked_by": blockers})
+
+          print(json.dumps(result))
+          PYEOF
+
+          echo "Slice implementation order:"
+          cat /tmp/slice-order.json | jq .
+
+          PRD_TITLE=$(gh issue view "$PRD_NUMBER" --repo "$REPO" --json title -q .title)
+          echo "prd_title=$PRD_TITLE" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        if: steps.plan.outputs.skip != 'true'
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.PAT }}
+
+      - uses: actions/setup-node@v4
+        if: steps.plan.outputs.skip != 'true'
+        with:
+          node-version: "22"
+
+      - uses: oven-sh/setup-bun@v2
+        if: steps.plan.outputs.skip != 'true'
+
+      - uses: actions/cache@v4
+        if: steps.plan.outputs.skip != 'true'
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install dependencies and hooks
+        if: steps.plan.outputs.skip != 'true'
+        run: |
+          bun install --frozen-lockfile
+          bunx lefthook install
+
+      - name: Install gitleaks
+        if: steps.plan.outputs.skip != 'true'
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz \
+            | tar xz -C /usr/local/bin gitleaks
+
+      - name: Configure git
+        if: steps.plan.outputs.skip != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create implementation branch
+        if: steps.plan.outputs.skip != 'true'
+        run: git checkout -b "prd/issue-${{ github.event.issue.number }}"
+
+      - name: Implement all slices
+        if: steps.plan.outputs.skip != 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          allowed_bots: '*'
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: '--allowedTools "Bash(gh:*),Bash(git:*),Bash(bun:*),Bash(cat:*),Bash(python3:*),Read,Write,Edit,Glob,Grep,WebSearch"'
+          show_full_output: true
+          prompt: |
+            You are the **Architect Lead** implementing ALL slices for PRD #${{ github.event.issue.number }}.
+            You are on branch prd/issue-${{ github.event.issue.number }}.
+
+            Read the implementation plan:
+            cat /tmp/slice-order.json
+
+            This JSON array contains slices in TOPOLOGICAL ORDER (dependencies first).
+            Each entry: { "number": <issue_number>, "blocked_by": [<issue_numbers>] }
+
+            ---
+
+            ## Your Role: Architect Lead (delegate-only mindset)
+
+            You think like an architect who routes work to the correct layer. For every slice,
+            before writing any code, classify each piece of work into the correct layer:
+
+            ### Layer routing rules
+
+            **backend-core** (`apps/backend/src/backend/core/`)
+            - Pure functions, data transforms, validation, @effect/schema definitions
+            - NO I/O, NO side effects, NO imports from infra/ or shell/
+            - Every file gets a co-located .test.ts
+            - Use Effect-TS for errors (not try/catch), @effect/schema (not Zod)
+
+            **backend-infra** (`apps/backend/src/backend/infra/`)
+            - Effect services with Context.Tag + Layer. One file per external system.
+            - Provide both Live and Test layers
+            - NO business logic — only I/O adapters
+            - Every file gets a co-located .test.ts using the Test layer
+
+            **backend-shell** (`apps/backend/src/backend/shell/`)
+            - Effect.gen coordinators using impure→pure→impure sandwich pattern
+            - Hono routes with Effect.runPromise at the edge
+            - Orchestrates core + infra. NO business logic here.
+            - Export AppType from Hono app for frontend type safety
+
+            **frontend** (`apps/frontend/src/`)
+            - Astro SSR pages + typed Hono client (hc<AppType>)
+            - NEVER use raw fetch — always use the typed api client
+            - Import backend types via @template-bpe/backend/types
+
+            ### For each slice, follow this order:
+            1. core first (pure logic, schemas)
+            2. infra second (services)
+            3. shell third (coordinators, routes)
+            4. frontend last (pages, API client updates)
+
+            ---
+
+            ## Process
+
+            Maintain a list of SKIPPED slice numbers (starts empty).
+
+            For each slice in order:
+
+            1. **Check skip cascade**: if ANY of its `blocked_by` numbers are in the SKIPPED list,
+               skip this slice. Add it to the SKIPPED list. Post a comment on the issue:
+               gh issue comment <number> --body "Skipped — dependency was skipped in batch run."
+               Then move to the next slice.
+
+            2. **Fetch the issue**: gh issue view <number> --comments
+
+            3. **Plan the layer routing**: identify which layers this slice touches.
+               Write your plan as a comment before coding.
+
+            4. **Implement using TDD, layer by layer** (core → infra → shell → frontend):
+               - For each behavior: write a failing test (RED), write minimal code to pass (GREEN)
+               - Refactor after all tests pass
+
+            5. **Run full checks**: bun run check
+               - If checks fail, fix the issues. You have up to 3 fix attempts per slice.
+               - If still failing after 3 attempts: add to SKIPPED list, revert uncommitted changes
+                 with `git checkout -- .`, and post a comment:
+                 gh issue comment <number> --body "Skipped after 3 attempts — needs human intervention."
+                 Then move to the next slice.
+
+            6. **Commit**: git add -A && git commit -m "feat: implement #<number> — <short title>"
+
+            7. **Close the issue**:
+               gh issue close <number> --comment "Implemented in batch run."
+
+            ## Important rules
+
+            - Each slice gets its OWN commit. Never combine multiple slices in one commit.
+            - Process slices strictly in the given order.
+            - Do NOT create a PR — the workflow handles that after you finish.
+            - Do NOT push — the workflow handles that too.
+            - If ALL slices end up skipped, just exit cleanly.
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT }}
+
+      - name: Merge to main
+        if: steps.plan.outputs.skip != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT }}
+          PRD_NUMBER: ${{ github.event.issue.number }}
+          PRD_TITLE: ${{ steps.plan.outputs.prd_title }}
+        run: |
+          REPO="${{ github.repository }}"
+
+          # Check if there are any commits beyond main
+          COMMIT_COUNT=$(git rev-list --count origin/main..HEAD)
+          if [ "$COMMIT_COUNT" -eq "0" ]; then
+            echo "No commits produced — all slices were skipped or failed."
+            gh issue comment "$PRD_NUMBER" --repo "$REPO" --body "**Batch implementation produced no commits** — all slices were skipped or failed.
+
+          Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            exit 0
+          fi
+
+          # Rebase on latest main before merging
+          git fetch origin main
+          git rebase origin/main || {
+            echo "Rebase conflict — aborting merge."
+            git rebase --abort
+            gh issue comment "$PRD_NUMBER" --repo "$REPO" --body "**Batch implementation had rebase conflicts** — needs manual merge.
+
+          Branch: prd/issue-$PRD_NUMBER
+          Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            git push -u origin "prd/issue-$PRD_NUMBER"
+            exit 1
+          }
+
+          # Fast-forward merge to main
+          git checkout main
+          git merge --ff-only "prd/issue-$PRD_NUMBER"
+          git push origin main
+
+          # Clean up the temp branch
+          git push origin --delete "prd/issue-$PRD_NUMBER" || true
+
+          # Collect results for PRD comment
+          CLOSED_ISSUES=$(gh api "repos/$REPO/issues/$PRD_NUMBER/sub_issues" \
+            --jq '[.[] | select(.state == "closed") | select(any(.labels[]; .name == "slice" or .name == "slice-pending")) | .number] | unique | .[]' 2>/dev/null || true)
+
+          OPEN_ISSUES=$(gh api "repos/$REPO/issues/$PRD_NUMBER/sub_issues" \
+            --jq '[.[] | select(.state == "open") | select(any(.labels[]; .name == "slice" or .name == "slice-pending")) | .number] | unique | .[]' 2>/dev/null || true)
+
+          SUMMARY="**Batch implementation merged to main.**\n\n"
+          if [ -n "$CLOSED_ISSUES" ]; then
+            SUMMARY="${SUMMARY}Implemented slices:\n"
+            for NUM in $CLOSED_ISSUES; do
+              SUMMARY="${SUMMARY}- #${NUM}\n"
+            done
+          fi
+          if [ -n "$OPEN_ISSUES" ]; then
+            SUMMARY="${SUMMARY}\nSkipped slices (need manual implementation):\n"
+            for NUM in $OPEN_ISSUES; do
+              SUMMARY="${SUMMARY}- #${NUM}\n"
+            done
+          fi
+
+          echo -e "$SUMMARY" | gh issue comment "$PRD_NUMBER" --repo "$REPO" --body-file -
+
+      - name: Report failure
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT }}
+          PRD_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          gh issue comment "$PRD_NUMBER" --repo "${{ github.repository }}" \
+            --body "**Batch implementation failed**
+
+          Workflow logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

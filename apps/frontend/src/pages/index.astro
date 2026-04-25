@@ -1,0 +1,18 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="piguy-web">
+	<main>
+		<h1>piguy-web</h1>
+		<p>Local dashboard. Backend at <code>http://127.0.0.1:5173</code>.</p>
+		<p id="version-line">Version: <span id="version">…</span></p>
+	</main>
+</Base>
+
+<script>
+	import { api } from "../api";
+	const res = await api.version.$get();
+	const data = await res.json();
+	document.getElementById("version")!.textContent = `${data.version} (${data.env})`;
+</script>

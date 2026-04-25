@@ -1,0 +1,6 @@
+# Packages — Shared Workspace Libraries
+#
+# Reusable packages consumed by apps via workspace:* dependencies.
+# Each package gets its own package.json and tsconfig.json.
+#
+# Examples: @template-bpe/shared (domain types), @template-bpe/config (shared config).

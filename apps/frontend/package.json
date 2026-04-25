@@ -1,0 +1,21 @@
+{
+	"name": "@piguy/frontend",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "astro dev",
+		"build": "astro build",
+		"preview": "astro preview",
+		"test": "bun test",
+		"typecheck": "node -e \"if(parseInt(process.version.slice(1))>=22){process.exit(1)}else{console.log('astro check skipped: Node '+process.version+' < 22 (CI runs full check)')}\" || astro check"
+	},
+	"dependencies": {
+		"@astrojs/check": "^0.9.8",
+		"@piguy/api-contract": "workspace:*",
+		"@piguy/backend": "workspace:*",
+		"astro": "^6.0.5",
+		"hono": "^4.12.8",
+		"typescript": "^5.9.3"
+	}
+}

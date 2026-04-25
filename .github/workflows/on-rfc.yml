@@ -1,0 +1,83 @@
+name: RFC → PRD
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  rfc-to-prd:
+    name: RFC → PRD
+    runs-on: ubuntu-latest
+    if: contains(github.event.issue.labels.*.name, 'rfc')
+    timeout-minutes: 30
+
+    steps:
+      - name: Skip if PRD already exists
+        id: dedup
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EXISTING=$(gh api "repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/sub_issues" --jq '[.[] | select(.labels[].name == "prd")] | length' 2>/dev/null || echo "0")
+          if [ "$EXISTING" -gt "0" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "PRD sub-issue already exists — skipping."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.dedup.outputs.skip != 'true'
+
+      - name: Ensure labels exist
+        if: steps.dedup.outputs.skip != 'true'
+        run: |
+          gh label create prd --color 0075ca --description "Product Requirements Document" --force
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate PRD from RFC
+        if: steps.dedup.outputs.skip != 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          allowed_bots: '*'
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: '--allowedTools "Bash(gh:*),Bash(git:*),Read,Write,Glob,Grep,WebSearch"'
+          show_full_output: true
+          prompt: |
+            Fetch GitHub issue #${{ github.event.issue.number }} with:
+            gh issue view ${{ github.event.issue.number }} --comments
+
+            This is an architecture RFC. Generate a PRD from it without interviewing the user — all design decisions are already made. Map the RFC sections directly:
+            - Problem → Problem Statement
+            - Proposed Interface + Implementation Recommendations → Solution + Implementation Decisions
+            - Testing Strategy → Testing Decisions
+            - Infer user stories from the RFC context
+
+            Create the PRD as a GitHub issue with label "prd" and capture its number.
+            Write the issue body to /tmp/prd-body.md first, then use --body-file to avoid shell escaping issues:
+            PRD_URL=$(gh issue create --title "PRD: <title>" --body-file /tmp/prd-body.md --label prd)
+            PRD_NUMBER=$(echo "$PRD_URL" | grep -o '[0-9]*$')
+
+            Register the PRD as a sub-issue of this RFC:
+            REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+            gh api repos/$REPO/issues/${{ github.event.issue.number }}/sub_issues \
+              --method POST --field sub_issue_id=$PRD_NUMBER
+
+            Then post a comment on the source RFC issue linking to the new PRD issue.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Report failure
+        if: failure() && steps.dedup.outputs.skip != 'true'
+        run: |
+          gh issue comment ${{ github.event.issue.number }} --body "❌ **Skill chain failed** (RFC → PRD)
+
+          Workflow logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

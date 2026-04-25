@@ -1,0 +1,32 @@
+{
+	"name": "effect-ts",
+	"description": "Grounding reference for writing correct, idiomatic Effect-TS code with verified API surface, project patterns, and AI failure mode prevention",
+	"triggers": [
+		"Effect",
+		"Effect.gen",
+		"Effect.map",
+		"Effect.flatMap",
+		"Effect.pipe",
+		"Layer",
+		"Layer.succeed",
+		"Layer.effect",
+		"Layer.scoped",
+		"Context.Tag",
+		"Context.GenericTag",
+		"Data.TaggedError",
+		"Schema.Struct",
+		"Schema.decodeUnknown",
+		"@effect/schema",
+		"Effect.catchTag",
+		"Effect.retry",
+		"Schedule",
+		"Effect.acquireRelease",
+		"Effect.forEach",
+		"Effect.all",
+		"error channel",
+		"typed errors",
+		"service dependency",
+		"effect service",
+		"effect layer"
+	]
+}

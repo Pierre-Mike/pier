@@ -1,0 +1,35 @@
+name: PRD
+description: Product Requirements Document — triggers automatic slice decomposition
+labels: [prd]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What user problem are we solving?
+    validations:
+      required: true
+
+  - type: textarea
+    id: user-stories
+    attributes:
+      label: User Stories
+      description: "As a <user>, I want <goal> so that <reason>"
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solution
+      description: High-level approach
+    validations:
+      required: false
+
+  - type: textarea
+    id: decisions
+    attributes:
+      label: Implementation Decisions
+      description: Key technical decisions already made
+    validations:
+      required: false

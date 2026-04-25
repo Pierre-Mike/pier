@@ -1,0 +1,43 @@
+name: Slice
+description: Vertical implementation slice — triggers automatic TDD implementation
+labels: [slice]
+body:
+  - type: textarea
+    id: parent-prd
+    attributes:
+      label: Parent PRD
+      description: Link to the PRD this slice belongs to (e.g. #42)
+    validations:
+      required: true
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What end-to-end behavior does this slice deliver?
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Specific, testable conditions for completion
+    validations:
+      required: true
+
+  - type: textarea
+    id: blockers
+    attributes:
+      label: Blocked by
+      description: "Issue numbers this slice depends on — format: #10, #11"
+    validations:
+      required: false
+
+  - type: textarea
+    id: unblocks
+    attributes:
+      label: Unblocks
+      description: "Issue numbers this slice unblocks when closed — format: #12, #13"
+    validations:
+      required: false

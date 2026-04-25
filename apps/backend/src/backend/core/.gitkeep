@@ -1,0 +1,6 @@
+# Core — Pure Domain Logic
+#
+# Pure functions only. No I/O, no side effects, no imports from infra/ or shell/.
+# Returns Effect<A, E, never> (no service dependencies).
+#
+# Examples: validation, domain rules, data transformations, computations.

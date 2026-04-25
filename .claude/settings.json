@@ -1,0 +1,45 @@
+{
+	"env": {
+		"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+	},
+	"permissions": {
+		"allow": [
+			"Bash(gh:*)",
+			"Bash(git add:*)",
+			"Bash(git commit:*)",
+			"Bash(git push:*)"
+		],
+		"deny": [
+			"Bash(*--no-verify*)",
+			"Bash(*git push*--force*)",
+			"Bash(rm -rf*)",
+			"Bash(git reset --hard*)",
+			"Bash(gh repo delete:*)",
+			"Bash(find * -delete*)"
+		]
+	},
+	"hooks": {
+		"PreToolUse": [
+			{
+				"matcher": "Write|Edit",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bun .claude/hooks.ts"
+					}
+				]
+			}
+		],
+		"PostToolUse": [
+			{
+				"matcher": "Write|Edit",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bun .claude/hooks.ts"
+					}
+				]
+			}
+		]
+	}
+}

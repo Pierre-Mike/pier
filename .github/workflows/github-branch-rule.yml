@@ -1,0 +1,38 @@
+  name: Sync Branch Protection
+
+  on:
+    push:
+      branches: [main]
+      paths: [.github/branch-rules.json]
+
+  permissions:
+    contents: read
+
+  jobs:
+    sync:
+      name: Apply Branch Rules
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+
+        - name: Apply branch protection
+          env:
+            GH_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          run: |
+            REPO="${{ github.repository }}"
+            BRANCH=$(jq -r '.branch' .github/branch-rules.json)
+
+            PAYLOAD=$(jq '{
+              required_pull_request_reviews: .protection.required_pull_request_reviews,
+              required_status_checks: .protection.required_status_checks,
+              enforce_admins: .protection.enforce_admins,
+              restrictions: .protection.restrictions,
+              allow_force_pushes: .protection.allow_force_pushes,
+              allow_deletions: .protection.allow_deletions
+            }' .github/branch-rules.json)
+
+            gh api "repos/$REPO/branches/$BRANCH/protection" \
+              --method PUT \
+              --input - <<< "$PAYLOAD"
+
+            echo "Branch protection synced from branch-rules.json"

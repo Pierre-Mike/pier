@@ -1,0 +1,35 @@
+name: RFC
+description: Architecture proposal — triggers automatic PRD generation
+labels: [rfc]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem does this solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-interface
+    attributes:
+      label: Proposed Interface
+      description: Public API, types, or contracts being proposed
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation Recommendations
+      description: How should this be built? Key decisions and constraints.
+    validations:
+      required: false
+
+  - type: textarea
+    id: testing
+    attributes:
+      label: Testing Strategy
+      description: How will correctness be verified?
+    validations:
+      required: false

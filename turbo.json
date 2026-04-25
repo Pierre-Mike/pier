@@ -1,0 +1,45 @@
+{
+	"$schema": "https://turbo.build/schema.json",
+	"tasks": {
+		"dev": {
+			"cache": false,
+			"persistent": true
+		},
+		"build": {
+			"dependsOn": ["^build"],
+			"outputs": ["dist/**"]
+		},
+		"typecheck": {
+			"dependsOn": ["^build"]
+		},
+		"test": {
+			"dependsOn": ["^build"]
+		},
+		"//#lint:ci": {
+			"inputs": ["apps/**/*.{ts,js,json,astro}", "packages/**/*.{ts,js,json}", "biome.json"]
+		},
+		"//#colocated-tests": {
+			"inputs": ["apps/**/*.test.ts", "apps/**/*.ts", "packages/**/*.test.ts", "packages/**/*.ts"]
+		},
+		"//#secret-scan": {
+			"cache": false
+		},
+		"e2e": {
+			"dependsOn": ["build"],
+			"cache": false
+		},
+		"check:local": {
+			"dependsOn": [
+				"typecheck",
+				"test",
+				"//#lint:ci",
+				"//#colocated-tests",
+				"//#secret-scan",
+				"build"
+			]
+		},
+		"check": {
+			"dependsOn": ["check:local", "e2e"]
+		}
+	}
+}

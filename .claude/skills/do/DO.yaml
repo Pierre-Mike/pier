@@ -1,0 +1,117 @@
+# DO.yaml — delegation tree for /do skill.
+#
+# Config only. Spawn mechanism is implicit:
+#   Session    → Orchestrator : claude -p + worktree
+#   Orchestra. → Lead         : TaskCreate (subagent_type = <lead>-lead)
+#   Lead       → Specialist   : claude -p scoped (via .claude/tools/spawn/run)
+#
+# Specialist `type` maps to profile hooks:
+#   coder    — Write/Edit only under scope, Bash denied
+#   reviewer — read-only (no Write/Edit/Bash)
+
+orchestrator:
+  tools: Read,Glob,Grep,Bash
+  skills: expertise,concise
+  model: sonnet
+  prompt: >
+    Read codebase for context. Dispatch leads via TaskCreate using subagent_type
+    <lead>-lead. Sequence dependent leads (backend before frontend). Review
+    results. Return summary when all work is done.
+
+leads:
+
+  backend:
+    tools: Read,Glob,Grep,Bash
+    skills: effect-ts,expertise
+    model: sonnet
+    specialists:
+
+      core-coder:
+        type: coder
+        scope: apps/backend/src/backend/core/
+        description: "Pure functions, data transforms, validation, @effect/schema. No I/O."
+        tools: Read,Glob,Grep,Write,Edit
+        skills: effect-ts,expertise,concise
+        model: sonnet
+        boundaries:
+          - "No I/O — no fetch, DB, file reads, console.log"
+          - "Allowed imports: effect, @effect/schema, other core/ files, shared packages"
+          - "Forbidden imports: ../infra/, ../shell/, hono, cloudflare:workers"
+
+      infra-coder:
+        type: coder
+        scope: apps/backend/src/backend/infra/
+        description: "Effect services — one file per external system, Context.Tag + Layer."
+        tools: Read,Glob,Grep,Write,Edit
+        skills: effect-ts,expertise,concise
+        model: sonnet
+        boundaries:
+          - "One file per external system"
+          - "No business logic — only I/O adapters"
+          - "Live + Test layers for every service"
+          - "Allowed imports: effect, @effect/schema, ../core/ (types only), cloudflare:workers"
+          - "Forbidden imports: ../shell/"
+
+      shell-coder:
+        type: coder
+        scope: apps/backend/src/backend/shell/
+        description: "Effect.gen coordinators, Hono routes, composition root."
+        tools: Read,Glob,Grep,Write,Edit
+        skills: effect-ts,expertise,concise
+        model: sonnet
+        boundaries:
+          - "No business logic — pure computation belongs in core/"
+          - "Export AppType from Hono app for frontend type safety"
+          - "Effect.runPromise only at Hono handler boundaries"
+
+      reviewer:
+        type: reviewer
+        scope: apps/backend/src/backend/
+        description: "Read-only review of backend code."
+        tools: Read,Glob,Grep
+        skills: expertise,concise
+        model: haiku
+
+  frontend:
+    tools: Read,Glob,Grep,Bash
+    skills: expertise
+    model: sonnet
+    specialists:
+
+      coder:
+        type: coder
+        scope: apps/frontend/src/
+        description: "Astro SSR pages, typed api client from backend AppType."
+        tools: Read,Glob,Grep,Write,Edit
+        skills: expertise,concise
+        model: sonnet
+
+      reviewer:
+        type: reviewer
+        scope: apps/frontend/src/
+        description: "Read-only review of frontend code."
+        tools: Read,Glob,Grep
+        skills: expertise,concise
+        model: haiku
+
+  platform:
+    tools: Read,Glob,Grep,Bash
+    skills: ts-axioms,expertise
+    model: sonnet
+    specialists:
+
+      coder:
+        type: coder
+        scope: .github/workflows/
+        description: "CI workflows, build/test/deploy pipelines."
+        tools: Read,Glob,Grep,Write,Edit
+        skills: ts-axioms,expertise,concise
+        model: sonnet
+
+      reviewer:
+        type: reviewer
+        scope: .github/
+        description: "Read-only review of CI + platform config."
+        tools: Read,Glob,Grep
+        skills: ts-axioms,expertise,concise
+        model: haiku

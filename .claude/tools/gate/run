@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# gate — PreToolUse hook. Enforces rules based on mode passed as argv.
+#
+# Usage (from settings.json hook command):
+#   gate/run write <scope>     — allow Write only if file path starts with <scope>
+#   gate/run edit <scope>      — allow Edit only if file path starts with <scope>
+#   gate/run bash-deny         — deny all Bash
+#   gate/run bash-spawn        — allow Bash only for .claude/tools/spawn/run
+#   gate/run deny-all          — deny everything
+
+set -uo pipefail
+
+MODE="${1:-deny-all}"
+SCOPE="${2:-}"
+
+INPUT=$(cat)
+TOOL=$(echo "$INPUT" | jq -r '.tool_name // ""')
+
+decide() {
+  local decision="$1"
+  local reason="$2"
+  jq -n --arg d "$decision" --arg r "$reason" '{
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      permissionDecision: $d,
+      permissionDecisionReason: $r
+    }
+  }'
+  exit 0
+}
+
+case "$MODE" in
+  write|edit)
+    FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // ""')
+    # Convert absolute paths to relative
+    REL="${FILE#/Users/pierre-mikel/Github/template-BPE/}"
+    if [[ "$REL" == "$SCOPE"* ]]; then
+      decide "allow" "path in scope: $SCOPE"
+    else
+      decide "deny" "path '$REL' outside scope '$SCOPE'"
+    fi
+    ;;
+  bash-deny)
+    CMD=$(echo "$INPUT" | jq -r '.tool_input.command // ""')
+    decide "deny" "Bash not allowed in this profile. Blocked: $CMD"
+    ;;
+  bash-spawn)
+    CMD=$(echo "$INPUT" | jq -r '.tool_input.command // ""')
+    if echo "$CMD" | grep -qE '^\.claude/tools/spawn/run\b'; then
+      decide "allow" "spawn is allowed"
+    else
+      decide "deny" "Only .claude/tools/spawn/run is allowed. Blocked: $CMD"
+    fi
+    ;;
+  deny-all)
+    decide "deny" "Tool $TOOL denied by profile"
+    ;;
+  *)
+    decide "deny" "Unknown gate mode: $MODE"
+    ;;
+esac

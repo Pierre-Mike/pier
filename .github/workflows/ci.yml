@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - name: Install gitleaks
+        run: |
+          GITLEAKS_VERSION=8.21.2
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar xz -C /usr/local/bin gitleaks
+      - run: bun install --frozen-lockfile
+      - run: bunx turbo check:local
+
+  protected-file-check:
+    name: Protected File Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Skip for human PRs
+        if: github.actor != 'github-actions[bot]'
+        run: echo "Human PR — protected file check not applicable."
+      - uses: actions/checkout@v4
+        if: github.actor == 'github-actions[bot]'
+        with:
+          fetch-depth: 0
+      - name: Reject bot PRs that touch protected files
+        if: github.actor == 'github-actions[bot]'
+        run: |
+          PROTECTED_PATTERNS=(
+            "AGENTS.md"
+            ".claude/"
+            "turbo.json"
+            ".github/"
+            "biome.json"
+            "lefthook.yml"
+            "tsconfig.json"
+            "tsconfig.base.json"
+            "package.json"
+            "wrangler.toml"
+          )
+
+          CHANGED=$(git diff --name-only origin/main...HEAD)
+          VIOLATIONS=""
+
+          for file in $CHANGED; do
+            for pattern in "${PROTECTED_PATTERNS[@]}"; do
+              case "$file" in
+                $pattern|$pattern*|*/$pattern)
+                  VIOLATIONS="$VIOLATIONS\n  - $file (matches $pattern)"
+                  ;;
+              esac
+            done
+          done
+
+          if [ -n "$VIOLATIONS" ]; then
+            echo "::error::Bot PR touches protected files:$VIOLATIONS"
+            exit 1
+          fi
+
+          echo "No protected files touched."
