@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, PubSub, type Scope, Stream } from "effect";
+import { Context, Effect, Layer } from "effect";
 import type { ArtifactKind } from "../core/blob-classify.ts";
 import type { PiEvent } from "../core/event-adapt.ts";
 
@@ -20,87 +20,97 @@ export type ArtifactEvent = {
 	id: string;
 };
 
-export interface SSEBus<T> {
-	readonly emit: (event: T) => Effect.Effect<void, never, never>;
-	readonly subscribe: () => Effect.Effect<Stream.Stream<T>, never, Scope.Scope>;
-	readonly history: () => Effect.Effect<readonly T[], never, never>;
+/**
+ * Process-wide imperative pub/sub. The bus is a singleton because every
+ * subscriber must see emissions from every publisher across the whole
+ * runtime — Effect Layer scoping would create one PubSub per `Effect.provide`
+ * tree, leaving the file-watcher and the SSE handler talking past each other.
+ *
+ * The Effect Layer (e.g. `makeArtifactBusLive`) wraps the singleton so route
+ * handlers can still consume the bus via `Context.Tag`. Imperative consumers
+ * (Hono `streamSSE` callbacks) call `subscribe(callback)` directly.
+ */
+class ImperativeBus<T> {
+	private subs = new Set<(e: T) => void>();
+	private history: T[] = [];
+	constructor(private readonly historySize: number) {}
+
+	emit(event: T): void {
+		if (this.historySize > 0) {
+			this.history.push(event);
+			if (this.history.length > this.historySize) this.history.shift();
+		}
+		for (const cb of this.subs) {
+			try {
+				cb(event);
+			} catch {
+				// subscribers are best-effort; do not let one failure block others
+			}
+		}
+	}
+
+	subscribe(cb: (event: T) => void): () => void {
+		this.subs.add(cb);
+		return () => {
+			this.subs.delete(cb);
+		};
+	}
+
+	getHistory(): readonly T[] {
+		return [...this.history];
+	}
 }
 
-const makeSSEBus = <T>(historySize: number): Effect.Effect<SSEBus<T>> =>
-	Effect.gen(function* () {
-		const pubsub = yield* PubSub.unbounded<T>();
-		const historyBuffer: T[] = [];
+// ── Module-level singletons ─────────────────────────────────────────────────
+export const artifactBusInstance = new ImperativeBus<ArtifactEvent>(0);
+export const eventBusInstance = new ImperativeBus<PiEvent>(2000);
+export const reloadBusInstance = new ImperativeBus<string>(0);
 
-		return {
-			emit: (event: T) =>
-				Effect.gen(function* () {
-					if (historySize > 0) {
-						historyBuffer.push(event);
-						if (historyBuffer.length > historySize) {
-							historyBuffer.shift();
-						}
-					}
-					yield* PubSub.publish(pubsub, event);
-				}),
-			subscribe: () =>
-				Effect.gen(function* () {
-					const queue = yield* PubSub.subscribe(pubsub);
-					return Stream.fromQueue(queue);
-				}),
-			history: () => Effect.succeed([...historyBuffer]),
-		};
-	});
+// ── Effect Layer wrappers ───────────────────────────────────────────────────
 
 export interface ArtifactBusService {
 	readonly emit: (event: ArtifactEvent) => Effect.Effect<void, never, never>;
-	readonly subscribe: () => Effect.Effect<Stream.Stream<ArtifactEvent>, never, Scope.Scope>;
 	readonly history: () => Effect.Effect<readonly ArtifactEvent[], never, never>;
+	readonly subscribe: (
+		cb: (event: ArtifactEvent) => void,
+	) => Effect.Effect<() => void, never, never>;
 }
 
 export const ArtifactBus = Context.GenericTag<ArtifactBusService>("ArtifactBus");
 
 export const makeArtifactBusLive = (): Layer.Layer<ArtifactBusService> =>
-	Layer.effect(
-		ArtifactBus,
-		Effect.map(makeSSEBus<ArtifactEvent>(0), (bus) => ({
-			emit: bus.emit,
-			subscribe: bus.subscribe,
-			history: bus.history,
-		})),
-	);
+	Layer.succeed(ArtifactBus, {
+		emit: (event) => Effect.sync(() => artifactBusInstance.emit(event)),
+		history: () => Effect.sync(() => artifactBusInstance.getHistory()),
+		subscribe: (cb) => Effect.sync(() => artifactBusInstance.subscribe(cb)),
+	});
 
 export interface EventBusService {
 	readonly emit: (event: PiEvent) => Effect.Effect<void, never, never>;
-	readonly subscribe: () => Effect.Effect<Stream.Stream<PiEvent>, never, Scope.Scope>;
 	readonly history: () => Effect.Effect<readonly PiEvent[], never, never>;
+	readonly subscribe: (cb: (event: PiEvent) => void) => Effect.Effect<() => void, never, never>;
 }
 
 export const EventBus = Context.GenericTag<EventBusService>("EventBus");
 
 export const makeEventBusLive = (): Layer.Layer<EventBusService> =>
-	Layer.effect(
-		EventBus,
-		Effect.map(makeSSEBus<PiEvent>(2000), (bus) => ({
-			emit: bus.emit,
-			subscribe: bus.subscribe,
-			history: bus.history,
-		})),
-	);
+	Layer.succeed(EventBus, {
+		emit: (event) => Effect.sync(() => eventBusInstance.emit(event)),
+		history: () => Effect.sync(() => eventBusInstance.getHistory()),
+		subscribe: (cb) => Effect.sync(() => eventBusInstance.subscribe(cb)),
+	});
 
 export interface ReloadBusService {
 	readonly emit: (event: string) => Effect.Effect<void, never, never>;
-	readonly subscribe: () => Effect.Effect<Stream.Stream<string>, never, Scope.Scope>;
 	readonly history: () => Effect.Effect<readonly string[], never, never>;
+	readonly subscribe: (cb: (event: string) => void) => Effect.Effect<() => void, never, never>;
 }
 
 export const ReloadBus = Context.GenericTag<ReloadBusService>("ReloadBus");
 
 export const makeReloadBusLive = (): Layer.Layer<ReloadBusService> =>
-	Layer.effect(
-		ReloadBus,
-		Effect.map(makeSSEBus<string>(0), (bus) => ({
-			emit: bus.emit,
-			subscribe: bus.subscribe,
-			history: bus.history,
-		})),
-	);
+	Layer.succeed(ReloadBus, {
+		emit: (event) => Effect.sync(() => reloadBusInstance.emit(event)),
+		history: () => Effect.sync(() => reloadBusInstance.getHistory()),
+		subscribe: (cb) => Effect.sync(() => reloadBusInstance.subscribe(cb)),
+	});

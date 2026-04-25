@@ -9,6 +9,9 @@ import { projectsRoute } from "./routes/projects.ts";
 import { projectsBlobRoute } from "./routes/projects-blob.ts";
 import { projectsDropRoute } from "./routes/projects-drop.ts";
 import { sessionsRoute } from "./routes/sessions.ts";
+import { streamArtifactsRoute } from "./routes/stream-artifacts.ts";
+import { streamEventsRoute } from "./routes/stream-events.ts";
+import { streamReloadRoute } from "./routes/stream-reload.ts";
 import { versionRoute } from "./routes/version.ts";
 import { localhostGuard, setSecurityHeaders } from "./security.ts";
 
@@ -30,7 +33,10 @@ app
 	.route("/", sessionsRoute.app)
 	.route("/", artifactsRoute.app)
 	.route("/", artifactsBlobRoute.app)
-	.route("/", eventsHistoryRoute.app);
+	.route("/", eventsHistoryRoute.app)
+	.route("/", streamEventsRoute.app)
+	.route("/", streamArtifactsRoute.app)
+	.route("/", streamReloadRoute.app);
 
 export type AppType = typeof app;
 export default app;
