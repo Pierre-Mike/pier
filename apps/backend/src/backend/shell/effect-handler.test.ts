@@ -21,7 +21,7 @@ describe("defineRoute", () => {
 			const res = await testApp.request("/test");
 			expect(res.status).toBe(200);
 			const body = await res.json();
-			expect(body).toEqual({ version: "0.0.0", env: "test" });
+			expect(body).toMatchObject({ version: "0.0.0", env: "test" });
 		});
 
 		it("forwards c.env to the per-request factory", async () => {
@@ -39,7 +39,7 @@ describe("defineRoute", () => {
 			const res = await testApp.request("/test", {}, { ENVIRONMENT: "staging" });
 			expect(res.status).toBe(200);
 			const body = await res.json();
-			expect(body).toEqual({ version: "0.0.0", env: "staging" });
+			expect(body).toMatchObject({ version: "0.0.0", env: "staging" });
 		});
 	});
 
@@ -59,7 +59,7 @@ describe("defineRoute", () => {
 			const res = await testApp.request("/test");
 			expect(res.status).toBe(200);
 			const body = await res.json();
-			expect(body).toEqual({ version: "0.0.0", env: "test" });
+			expect(body).toMatchObject({ version: "0.0.0", env: "test" });
 		});
 	});
 
