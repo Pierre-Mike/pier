@@ -1,0 +1,19 @@
+---
+// Sidebar component - projects list and sessions
+---
+
+<aside id="sidebar">
+	<header class="pane-head">
+		<h1>piguy</h1>
+		<button id="refresh-projects" title="Refresh projects">↻</button>
+		<button class="collapse" id="collapse-sidebar" title="Collapse sidebar" aria-label="Collapse sidebar">❮</button>
+	</header>
+	<section id="sessions-section" class="sessions hidden">
+		<div class="section-label">Open</div>
+		<ul id="sessions"></ul>
+	</section>
+	<div class="sidebar-search">
+		<input id="project-filter" type="search" placeholder="search projects…" autocomplete="off" />
+	</div>
+	<ul id="projects"></ul>
+</aside>

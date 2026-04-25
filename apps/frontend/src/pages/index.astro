@@ -1,18 +1,53 @@
 ---
+import ArtifactsPane from "../components/ArtifactsPane.astro";
+import Sidebar from "../components/Sidebar.astro";
+import TerminalPane from "../components/TerminalPane.astro";
 import Base from "../layouts/Base.astro";
 ---
 
 <Base title="piguy-web">
-	<main>
-		<h1>piguy-web</h1>
-		<p>Local dashboard. Backend at <code>http://127.0.0.1:5173</code>.</p>
-		<p id="version-line">Version: <span id="version">…</span></p>
-	</main>
+	<Sidebar />
+	<TerminalPane />
+	<ArtifactsPane />
 </Base>
 
 <script>
-	import { api } from "../api";
-	const res = await api.version.$get();
-	const data = await res.json();
-	document.getElementById("version")!.textContent = `${data.version} (${data.env})`;
+	import { store } from "../dashboard/state";
+	import {
+		refreshProjects,
+		renderProjects,
+		renderSessions,
+		renderTerminal,
+		wireProjectsUI,
+		selectProject,
+	} from "../dashboard/projects";
+	import { wirePaneToggle, wireResizeHandle, wireTerminalRefit } from "../dashboard/ui";
+
+	async function init() {
+		await refreshProjects();
+		wireObservers();
+		wireUI();
+		const last = localStorage.getItem("piguy:active-project");
+		if (last && store.projects.some((p) => p.id === last)) {
+			void selectProject(last);
+		}
+	}
+
+	function wireObservers() {
+		store.observe(() => renderProjects());
+		store.observe(() => renderSessions());
+		store.observe(() => renderTerminal());
+	}
+
+	function wireUI() {
+		wireProjectsUI();
+		wireTerminalRefit();
+		wirePaneToggle("collapse-sidebar", "sidebar", "collapsed-left", "❮", "❯");
+		wirePaneToggle("collapse-artifacts", "artifacts", "collapsed-right", "❯", "❮");
+		wireResizeHandle();
+	}
+
+	init().catch((e) => {
+		console.error("Dashboard init failed:", e);
+	});
 </script>
