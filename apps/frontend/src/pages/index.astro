@@ -9,6 +9,18 @@ import Base from "../layouts/Base.astro";
 	<Sidebar />
 	<TerminalPane />
 	<ArtifactsPane />
+
+	<div id="viewer-modal" class="viewer-modal hidden" role="dialog" aria-modal="true" aria-label="File viewer">
+		<div class="viewer-backdrop" data-close></div>
+		<div class="viewer-dialog">
+			<button class="viewer-close" data-close aria-label="Close">×</button>
+			<section id="artifact-viewer" class="empty">
+				<div class="placeholder">Click a file to view.</div>
+			</section>
+		</div>
+	</div>
+
+	<div id="toast"></div>
 </Base>
 
 <script>
@@ -22,8 +34,12 @@ import Base from "../layouts/Base.astro";
 		selectProject,
 	} from "../dashboard/projects";
 	import { wirePaneToggle, wireResizeHandle, wireTerminalRefit } from "../dashboard/ui";
+	import { loadConfig, renderFileTree, wireFileTreeUI } from "../dashboard/files";
+	import { wireViewerModal } from "../dashboard/viewer";
+	import { wireTerminalDrop } from "../dashboard/drop";
 
 	async function init() {
+		await loadConfig();
 		await refreshProjects();
 		wireObservers();
 		wireUI();
@@ -37,11 +53,15 @@ import Base from "../layouts/Base.astro";
 		store.observe(() => renderProjects());
 		store.observe(() => renderSessions());
 		store.observe(() => renderTerminal());
+		store.observe(() => renderFileTree());
 	}
 
 	function wireUI() {
 		wireProjectsUI();
+		wireFileTreeUI();
 		wireTerminalRefit();
+		wireTerminalDrop();
+		wireViewerModal();
 		wirePaneToggle("collapse-sidebar", "sidebar", "collapsed-left", "❮", "❯");
 		wirePaneToggle("collapse-artifacts", "artifacts", "collapsed-right", "❯", "❮");
 		wireResizeHandle();

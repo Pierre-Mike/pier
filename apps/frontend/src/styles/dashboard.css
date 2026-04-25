@@ -43,10 +43,10 @@ body {
 	overflow: hidden;
 }
 body.collapsed-left {
-	--col-left: 32px !important;
+	--col-left: 32px;
 }
 body.collapsed-right {
-	--col-right: 32px !important;
+	--col-right: 32px;
 }
 
 .pane-head {
@@ -450,11 +450,11 @@ body.dragging-file #terminals iframe {
 }
 body.resizing,
 body.resizing * {
-	cursor: col-resize !important;
-	user-select: none !important;
+	cursor: col-resize;
+	user-select: none;
 }
 body.resizing iframe {
-	pointer-events: none !important;
+	pointer-events: none;
 }
 #artifacts.collapsed .resize-handle {
 	display: none;
@@ -646,7 +646,7 @@ body.resizing iframe {
 	box-sizing: border-box;
 }
 #artifact-viewer .md-body .markdown-body pre {
-	background: var(--bg-elev) !important;
+	background: var(--bg-elev);
 }
 #artifact-viewer .md-body .markdown-body code {
 	background: var(--bg-elev);

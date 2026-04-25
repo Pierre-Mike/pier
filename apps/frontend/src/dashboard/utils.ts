@@ -64,7 +64,7 @@ export function fmtTime(d: Date): string {
 export function fmtDur(ms: number): string {
 	const n = Number(ms);
 	if (!Number.isFinite(n)) return String(ms);
-	if (n < 1000) return n.toFixed(0) + "ms";
-	if (n < 60000) return (n / 1000).toFixed(2) + "s";
-	return (n / 60000).toFixed(1) + "m";
+	if (n < 1000) return `${n.toFixed(0)}ms`;
+	if (n < 60000) return `${(n / 1000).toFixed(2)}s`;
+	return `${(n / 60000).toFixed(1)}m`;
 }

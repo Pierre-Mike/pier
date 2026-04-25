@@ -44,7 +44,7 @@ export function wireResizeHandle(): void {
 	window.addEventListener("mousemove", (e) => {
 		if (!dragging) return;
 		const px = Math.min(900, Math.max(200, window.innerWidth - e.clientX));
-		document.body.style.setProperty("--col-right", px + "px");
+		document.body.style.setProperty("--col-right", `${px}px`);
 	});
 	window.addEventListener("mouseup", () => {
 		if (!dragging) return;
