@@ -14,7 +14,7 @@ export function wirePaneToggle(
 	const btn = document.getElementById(btnId);
 	const pane = document.getElementById(paneId);
 	if (!btn || !pane) return;
-	const key = `piguy:${bodyClass}`;
+	const key = `pier:${bodyClass}`;
 	const apply = (collapsed: boolean) => {
 		document.body.classList.toggle(bodyClass, collapsed);
 		pane.classList.toggle("collapsed", collapsed);
@@ -31,7 +31,7 @@ export function wirePaneToggle(
 
 export function wireResizeHandle(): void {
 	const handle = $("#resize-right");
-	const key = "piguy:col-right";
+	const key = "pier:col-right";
 	const saved = localStorage.getItem(key);
 	if (saved) document.body.style.setProperty("--col-right", saved);
 	let dragging = false;

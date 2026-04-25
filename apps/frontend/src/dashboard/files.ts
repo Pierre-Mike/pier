@@ -125,7 +125,7 @@ function renderTreeNode(
 			const shell = shellQuote(abs);
 			if (e.dataTransfer) {
 				e.dataTransfer.setData("text/plain", shell);
-				e.dataTransfer.setData("text/x-piguy-path", abs);
+				e.dataTransfer.setData("text/x-pier-path", abs);
 				e.dataTransfer.effectAllowed = "copy";
 			}
 		});

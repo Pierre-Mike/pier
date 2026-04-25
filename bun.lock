@@ -15,7 +15,7 @@
       },
     },
     "apps/backend": {
-      "name": "@piguy/backend",
+      "name": "@pier/backend",
       "version": "0.0.0",
       "dependencies": {
         "@effect/schema": "^0.75.5",
@@ -27,22 +27,22 @@
       },
     },
     "apps/frontend": {
-      "name": "@piguy/frontend",
+      "name": "@pier/frontend",
       "version": "0.0.0",
       "dependencies": {
         "@astrojs/check": "^0.9.8",
-        "@piguy/api-contract": "workspace:*",
-        "@piguy/backend": "workspace:*",
+        "@pier/api-contract": "workspace:*",
+        "@pier/backend": "workspace:*",
         "astro": "^6.1.9",
         "hono": "^4.12.8",
         "typescript": "^5.9.3",
       },
     },
     "packages/api-contract": {
-      "name": "@piguy/api-contract",
+      "name": "@pier/api-contract",
       "version": "0.0.0",
       "dependencies": {
-        "@piguy/backend": "workspace:*",
+        "@pier/backend": "workspace:*",
         "hono": "^4.12.8",
       },
       "devDependencies": {
@@ -227,11 +227,11 @@
 
     "@oslojs/encoding": ["@oslojs/encoding@1.1.0", "", {}, "sha512-70wQhgYmndg4GCPxPPxPGevRKqTIJ2Nh4OkiMWmDAVYsTQ+Ta7Sq+rPevXyXGdzr30/qZBnyOalCszoMxlyldQ=="],
 
-    "@piguy/api-contract": ["@piguy/api-contract@workspace:packages/api-contract"],
+    "@pier/api-contract": ["@pier/api-contract@workspace:packages/api-contract"],
 
-    "@piguy/backend": ["@piguy/backend@workspace:apps/backend"],
+    "@pier/backend": ["@pier/backend@workspace:apps/backend"],
 
-    "@piguy/frontend": ["@piguy/frontend@workspace:apps/frontend"],
+    "@pier/frontend": ["@pier/frontend@workspace:apps/frontend"],
 
     "@rollup/pluginutils": ["@rollup/pluginutils@5.3.0", "", { "dependencies": { "@types/estree": "^1.0.0", "estree-walker": "^2.0.2", "picomatch": "^4.0.2" }, "peerDependencies": { "rollup": "^1.20.0||^2.0.0||^3.0.0||^4.0.0" }, "optionalPeers": ["rollup"] }, "sha512-5EdhGZtnu3V88ces7s53hhfK5KSASnJZv8Lulpc04cWO3REESroJXg73DFsOmgbU2BhwV0E20bu2IDZb3VKW4Q=="],
 

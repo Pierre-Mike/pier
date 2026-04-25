@@ -1,8 +1,8 @@
-import type { AppType } from "@piguy/backend/types";
+import type { AppType } from "@pier/backend/types";
 import { hc } from "hono/client";
 
 /**
- * Typed Hono RPC client for the piguy-web backend.
+ * Typed Hono RPC client for the pier backend.
  *
  * Importing `AppType` proves the backend builds and exports the route tree.
  * `hc<AppType>(...)` should return a typed proxy that mirrors that tree,

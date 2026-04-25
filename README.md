@@ -1,4 +1,4 @@
-# piguy-web
+# pier
 
 Local dashboard for Claude Code (`pi`) + `zellij` — three-pane workspace showing projects, terminals, and artifacts.
 
@@ -14,8 +14,8 @@ A web UI that integrates:
 
 ```sh
 bun install
-bun --filter @piguy/backend dev    # :5273 + sandbox :5275
-bun --filter @piguy/frontend dev   # :5274 — open in browser
+bun --filter @pier/backend dev    # :5273 + sandbox :5275
+bun --filter @pier/frontend dev   # :5274 — open in browser
 ```
 
 ## Architecture

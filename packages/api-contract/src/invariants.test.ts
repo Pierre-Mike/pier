@@ -1,5 +1,5 @@
 /**
- * Structural invariants for @piguy/api-contract.
+ * Structural invariants for @pier/api-contract.
  *
  * Cycle 1: api-contract only has allowed runtime dependencies
  * Cycle 2: cast isolation — `as unknown as` never appears in apps/frontend/
@@ -12,11 +12,11 @@ const REPO_ROOT = resolve(import.meta.dir, "../../../");
 
 // --- Cycle 1: api-contract only has allowed runtime dependencies ---
 describe("api-contract: allowed runtime dependencies", () => {
-	it("only permits @piguy/backend and hono as dependencies", () => {
+	it("only permits @pier/backend and hono as dependencies", () => {
 		const pkgPath = join(REPO_ROOT, "packages/api-contract/package.json");
 		expect(
 			hasOnlyAllowedDeps(pkgPath),
-			"api-contract must only depend on @piguy/backend and hono",
+			"api-contract must only depend on @pier/backend and hono",
 		).toBe(true);
 	});
 });

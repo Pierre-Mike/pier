@@ -1,6 +1,6 @@
 /**
  * Auto-tracking reactive store using Proxy
- * Ported from piguy-web v1 store.js
+ * Ported from pier v1 (legacy pier) store.js
  */
 
 type Observer = () => void;

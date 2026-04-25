@@ -1,5 +1,5 @@
 /**
- * Composition root — boots piguy-web v2 backend with full Effect-TS Layer composition.
+ * Composition root — boots pier backend with full Effect-TS Layer composition.
  */
 import { Effect, Layer } from "effect";
 import { ArtifactWatcher, makeArtifactWatcherLive } from "./infra/artifact-watcher.ts";
@@ -48,17 +48,17 @@ const program = Effect.gen(function* () {
 	});
 
 	// biome-ignore lint/suspicious/noConsole: startup logs are diagnostic, not debugging
-	console.log(`[piguy-web] listening on http://127.0.0.1:${cfg.appPort}`);
+	console.log(`[pier] listening on http://127.0.0.1:${cfg.appPort}`);
 	// biome-ignore lint/suspicious/noConsole: startup logs are diagnostic, not debugging
-	console.log(`[piguy-web]   projects root: ${cfg.projectsRoot}`);
+	console.log(`[pier]   projects root: ${cfg.projectsRoot}`);
 	// biome-ignore lint/suspicious/noConsole: startup logs are diagnostic, not debugging
-	console.log(`[piguy-web]   artifacts:     ${cfg.artifactsDir}`);
+	console.log(`[pier]   artifacts:     ${cfg.artifactsDir}`);
 	// biome-ignore lint/suspicious/noConsole: startup logs are diagnostic, not debugging
-	console.log(`[piguy-web]   claude logs:   ${cfg.claudeProjectsRoot}`);
+	console.log(`[pier]   claude logs:   ${cfg.claudeProjectsRoot}`);
 	// biome-ignore lint/suspicious/noConsole: startup logs are diagnostic, not debugging
-	console.log(`[piguy-web]   zellij web:    ${cfg.zellijWebUrl}`);
+	console.log(`[pier]   zellij web:    ${cfg.zellijWebUrl}`);
 	// biome-ignore lint/suspicious/noConsole: startup logs are diagnostic, not debugging
-	console.log(`[piguy-web]   sandbox on:    http://127.0.0.1:${cfg.sandboxPort}`);
+	console.log(`[pier]   sandbox on:    http://127.0.0.1:${cfg.sandboxPort}`);
 
 	Bun.serve({
 		port: cfg.appPort,
@@ -69,7 +69,7 @@ const program = Effect.gen(function* () {
 
 Effect.runPromise(program).catch((err) => {
 	// biome-ignore lint/suspicious/noConsole: boot error must be logged before exit
-	console.error("[piguy-web] boot failed:", err);
+	console.error("[pier] boot failed:", err);
 	process.exit(1);
 });
 

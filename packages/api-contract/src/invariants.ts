@@ -1,5 +1,5 @@
 /**
- * Structural invariants for @piguy/api-contract.
+ * Structural invariants for @pier/api-contract.
  *
  * Pure functions that encode the repo-level rules enforced by CI.
  * Consumed by invariants.test.ts (local) and mirrored in .github/workflows/ci.yml.
@@ -8,7 +8,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 /** Allowed runtime dependencies for api-contract. */
-const ALLOWED_DEPS = new Set(["@piguy/backend", "hono"]);
+const ALLOWED_DEPS = new Set(["@pier/backend", "hono"]);
 
 /** Returns true if api-contract only has allowed runtime dependencies. */
 export function hasOnlyAllowedDeps(pkgJsonPath: string): boolean {

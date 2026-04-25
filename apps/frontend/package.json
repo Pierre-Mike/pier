@@ -1,5 +1,5 @@
 {
-	"name": "@piguy/frontend",
+	"name": "@pier/frontend",
 	"version": "0.0.0",
 	"private": true,
 	"type": "module",
@@ -12,8 +12,8 @@
 	},
 	"dependencies": {
 		"@astrojs/check": "^0.9.8",
-		"@piguy/api-contract": "workspace:*",
-		"@piguy/backend": "workspace:*",
+		"@pier/api-contract": "workspace:*",
+		"@pier/backend": "workspace:*",
 		"astro": "^6.1.9",
 		"hono": "^4.12.8",
 		"typescript": "^5.9.3"

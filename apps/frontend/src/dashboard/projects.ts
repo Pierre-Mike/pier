@@ -113,9 +113,9 @@ export async function selectProject(id: string): Promise<void> {
 export async function setActiveProject(id: string | null): Promise<void> {
 	store.activeProject = id;
 	if (id) {
-		localStorage.setItem("piguy:active-project", id);
+		localStorage.setItem("pier:active-project", id);
 	} else {
-		localStorage.removeItem("piguy:active-project");
+		localStorage.removeItem("pier:active-project");
 	}
 	store.fileFilter = "";
 	const ff = document.getElementById("file-filter") as HTMLInputElement | null;
@@ -151,7 +151,7 @@ export async function closeSession(id: string): Promise<void> {
 			return;
 		}
 		store.activeProject = null;
-		localStorage.removeItem("piguy:active-project");
+		localStorage.removeItem("pier:active-project");
 		store.files = [];
 		store.activeFilePath = null;
 		const filesTitle = document.getElementById("files-title");

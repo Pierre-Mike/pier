@@ -1,5 +1,5 @@
 {
-	"name": "@piguy/api-contract",
+	"name": "@pier/api-contract",
 	"version": "0.0.0",
 	"private": true,
 	"type": "module",
@@ -14,7 +14,7 @@
 		"typescript": "^5.9.3"
 	},
 	"dependencies": {
-		"@piguy/backend": "workspace:*",
+		"@pier/backend": "workspace:*",
 		"hono": "^4.12.8"
 	}
 }

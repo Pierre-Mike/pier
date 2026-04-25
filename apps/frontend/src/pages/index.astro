@@ -6,7 +6,7 @@ import TerminalPane from "../components/TerminalPane.astro";
 import Base from "../layouts/Base.astro";
 ---
 
-<Base title="piguy-web">
+<Base title="pier">
 	<Sidebar />
 	<TerminalPane />
 	<ArtifactsPane />
@@ -49,7 +49,7 @@ import Base from "../layouts/Base.astro";
 		subscribeEvents(handleEvent);
 		wireObservers();
 		wireUI();
-		const last = localStorage.getItem("piguy:active-project");
+		const last = localStorage.getItem("pier:active-project");
 		if (last && store.projects.some((p) => p.id === last)) {
 			void selectProject(last);
 		}
