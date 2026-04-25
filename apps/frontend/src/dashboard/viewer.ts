@@ -54,7 +54,11 @@ export function wireViewerModal(): void {
 		if (target.dataset && target.dataset.close !== undefined) closeViewer();
 	});
 	document.addEventListener("keydown", (e) => {
-		if (e.key === "Escape" && !modal.classList.contains("hidden")) closeViewer();
+		if (e.key === "Escape") {
+			const logsModal = document.getElementById("logs-modal");
+			const logsOpen = logsModal && !logsModal.classList.contains("hidden");
+			if (!logsOpen && !modal.classList.contains("hidden")) closeViewer();
+		}
 	});
 }
 
