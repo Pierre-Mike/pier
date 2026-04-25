@@ -13,7 +13,6 @@ const ALLOWED_DEPS = new Set(["@piguy/backend", "hono"]);
 /** Returns true if api-contract only has allowed runtime dependencies. */
 export function hasOnlyAllowedDeps(pkgJsonPath: string): boolean {
 	const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8")) as Record<string, unknown>;
-	// biome-ignore lint/complexity/useLiteralKeys: noPropertyAccessFromIndexSignature requires bracket notation
 	const deps = pkg["dependencies"] as Record<string, string> | undefined;
 	if (!deps) return true;
 	return Object.keys(deps).every((dep) => ALLOWED_DEPS.has(dep));

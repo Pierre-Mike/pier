@@ -28,7 +28,8 @@
 						"maxAllowedComplexity": 15
 					}
 				},
-				"noExcessiveNestedTestSuites": "error"
+				"noExcessiveNestedTestSuites": "error",
+				"useLiteralKeys": "off"
 			},
 			"style": {
 				"useConst": "error",

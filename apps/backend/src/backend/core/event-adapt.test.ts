@@ -39,8 +39,8 @@ test("adapt includes uuid and role when present", () => {
 		message: { role: "assistant" },
 	};
 	const evt = adapt(raw, ctx);
-	expect(evt?.["uuid"]).toBe("abc-123");
-	expect(evt?.["role"]).toBe("assistant");
+	expect(evt?.uuid).toBe("abc-123");
+	expect(evt?.role).toBe("assistant");
 	expect(evt?.source).toBe("file.jsonl");
 });
 
@@ -50,7 +50,7 @@ test("adapt handles string content", () => {
 		message: { content: "Hello world" },
 	};
 	const evt = adapt(raw, ctx);
-	expect(evt?.["text"]).toBe("Hello world");
+	expect(evt?.text).toBe("Hello world");
 });
 
 test("adapt ignores empty string content", () => {
@@ -59,7 +59,7 @@ test("adapt ignores empty string content", () => {
 		message: { content: "   " },
 	};
 	const evt = adapt(raw, ctx);
-	expect(evt?.["text"]).toBeUndefined();
+	expect(evt?.text).toBeUndefined();
 });
 
 test("adapt categorizes tool_use as tool when name not in AGENT_TOOL_NAMES", () => {
@@ -79,9 +79,9 @@ test("adapt categorizes tool_use as tool when name not in AGENT_TOOL_NAMES", () 
 	const evt = adapt(raw, ctx);
 	expect(evt?.kind).toBe("claude:tool_use");
 	expect(evt?.category).toBe("tool");
-	expect(evt?.["tool"]).toBe("Read");
-	expect(evt?.["tool_id"]).toBe("tool-1");
-	expect(evt?.["input"]).toEqual({ path: "/tmp/foo" });
+	expect(evt?.tool).toBe("Read");
+	expect(evt?.tool_id).toBe("tool-1");
+	expect(evt?.input).toEqual({ path: "/tmp/foo" });
 });
 
 test("adapt categorizes tool_use as agent when name in AGENT_TOOL_NAMES", () => {
@@ -102,7 +102,7 @@ test("adapt categorizes tool_use as agent when name in AGENT_TOOL_NAMES", () => 
 		const evt = adapt(raw, ctx);
 		expect(evt?.kind).toBe("claude:agent_use");
 		expect(evt?.category).toBe("agent");
-		expect(evt?.["tool"]).toBe(name);
+		expect(evt?.tool).toBe(name);
 	}
 });
 
@@ -123,10 +123,10 @@ test("adapt categorizes tool_result as tool when is_error is false", () => {
 	const evt = adapt(raw, ctx);
 	expect(evt?.kind).toBe("claude:tool_result");
 	expect(evt?.category).toBe("tool");
-	expect(evt?.["status"]).toBe("ok");
-	expect(evt?.["ok"]).toBe(true);
-	expect(evt?.["tool_id"]).toBe("tool-1");
-	expect(evt?.["text"]).toBe("Success");
+	expect(evt?.status).toBe("ok");
+	expect(evt?.ok).toBe(true);
+	expect(evt?.tool_id).toBe("tool-1");
+	expect(evt?.text).toBe("Success");
 });
 
 test("adapt categorizes tool_result as error when is_error is true", () => {
@@ -146,8 +146,8 @@ test("adapt categorizes tool_result as error when is_error is true", () => {
 	const evt = adapt(raw, ctx);
 	expect(evt?.kind).toBe("claude:tool_result");
 	expect(evt?.category).toBe("error");
-	expect(evt?.["status"]).toBe("error");
-	expect(evt?.["ok"]).toBe(false);
+	expect(evt?.status).toBe("error");
+	expect(evt?.ok).toBe(false);
 });
 
 test("adapt extracts text from tool_result content array", () => {
@@ -167,7 +167,7 @@ test("adapt extracts text from tool_result content array", () => {
 		},
 	};
 	const evt = adapt(raw, ctx);
-	expect(evt?.["text"]).toBe("Line 1\nLine 2");
+	expect(evt?.text).toBe("Line 1\nLine 2");
 });
 
 test("adapt handles text block with category=text", () => {
@@ -180,7 +180,7 @@ test("adapt handles text block with category=text", () => {
 	const evt = adapt(raw, ctx);
 	expect(evt?.kind).toBe("claude:text");
 	expect(evt?.category).toBe("text");
-	expect(evt?.["text"]).toBe("Some output");
+	expect(evt?.text).toBe("Some output");
 });
 
 test("adapt skips text block with empty text", () => {
@@ -204,7 +204,7 @@ test("adapt handles thinking block with category=thinking", () => {
 	const evt = adapt(raw, ctx);
 	expect(evt?.kind).toBe("claude:thinking");
 	expect(evt?.category).toBe("thinking");
-	expect(evt?.["text"]).toBe("Pondering...");
+	expect(evt?.text).toBe("Pondering...");
 });
 
 test("adapt returns first block when multiple blocks present", () => {
@@ -218,5 +218,5 @@ test("adapt returns first block when multiple blocks present", () => {
 		},
 	};
 	const evt = adapt(raw, ctx);
-	expect(evt?.["text"]).toBe("First");
+	expect(evt?.text).toBe("First");
 });

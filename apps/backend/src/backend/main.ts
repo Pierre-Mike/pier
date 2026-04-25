@@ -3,7 +3,6 @@
  */
 import app from "./shell/api.ts";
 
-// biome-ignore lint/complexity/useLiteralKeys: bracket notation required for TS noUncheckedIndexedAccess
 const port = Number(process.env["PIGUY_PORT"] ?? 5273);
 
 Bun.serve({
