@@ -1,17 +1,28 @@
 {
-	"env": {
-		"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
-	},
 	"permissions": {
 		"allow": [
+			"Bash(bun:*)",
+			"Bash(turbo:*)",
 			"Bash(gh:*)",
 			"Bash(git add:*)",
 			"Bash(git commit:*)",
-			"Bash(git push:*)"
+			"Bash(git push origin HEAD:*)",
+			"Bash(git push:*)",
+			"Bash(git status)",
+			"Bash(git diff:*)",
+			"Bash(git log:*)",
+			"Bash(git worktree:*)",
+			"Bash(git branch:*)",
+			"Bash(git show-ref:*)",
+			"Edit(.claude/hooks/**)",
+			"Write(.claude/hooks/**)",
+			"Edit(.agentic/worktrees/**/.claude/hooks/**)",
+			"Write(.agentic/worktrees/**/.claude/hooks/**)"
 		],
 		"deny": [
 			"Bash(*--no-verify*)",
 			"Bash(*git push*--force*)",
+			"Bash(*git push*origin main*)",
 			"Bash(rm -rf*)",
 			"Bash(git reset --hard*)",
 			"Bash(gh repo delete:*)",

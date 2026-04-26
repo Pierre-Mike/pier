@@ -68,6 +68,19 @@
 					}
 				}
 			}
+		},
+		{
+			"includes": ["scripts/**", ".claude/hooks/**", ".claude/hooks.ts"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": "off"
+					},
+					"suspicious": {
+						"noConsole": "off"
+					}
+				}
+			}
 		}
 	],
 	"files": {

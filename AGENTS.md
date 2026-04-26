@@ -4,6 +4,21 @@
 
 Turborepo monorepo using TypeScript, Effect-TS, Hono (Cloudflare Workers), Bun, Biome, and Lefthook.
 
+## Workflow: spec → worktree → PR
+
+Every change to production code (`apps/**`, `packages/**`, `.github/**`) lands as a spec. The flow:
+
+1. `/do <intent>` — runs `align`, authors `specs/active/NNN-slug/`, dispatches the dual-agent TDD chain (spec-tester → spec-judge → spec-implementer), opens a PR with auto-merge queued.
+2. `/retro [--since 7d]` — scans traces + archive, surfaces patterns, authors a follow-up `rule`/`workflow` spec via `/do`.
+
+Main is never edited directly. All work happens in `.agentic/worktrees/<slug>/` on branch `spec/<slug>`. Constitution: `specs/constitution.md`.
+
+Scripts:
+- `bun run spec:lint` — frontmatter/dep-cycle/gate-existence validation
+- `bun run tasks:verify` — runs every active spec's gate + boundary checks
+- `bun run spec:complete <slug>` — verifies + ticks + archives + commits
+- `bun scripts/worktree-open.ts <slug>` / `worktree-close.ts [<slug>]`
+
 ## Monorepo Structure
 
 ```
@@ -92,9 +107,14 @@ Runs automatically on `git commit`:
 
 Each stage blocks the next. No `--force` merges.
 
-## Protected Files (Human Review Required)
+## Protected Files (hook-enforced)
 
-> **Dev mode**: Protected file restrictions are currently relaxed. AI agents may modify all files directly.
+Pre-tool-use hook (`.claude/hooks/enforce.ts`) blocks edits to:
+
+- `packages/api-contract/**` — auto-derived from backend `AppType`. Change backend routes instead.
+- `apps/backend/wrangler.toml` — requires an active spec targeting it.
+- `specs/archive/**` — immutable. Supersede via a new spec.
+- A spec's frozen `gate:` path — once `.gate-frozen` exists, only the spec-implementer's writes elsewhere are allowed.
 
 ## Route Authoring Conventions
 
