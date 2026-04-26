@@ -14,8 +14,8 @@ from pathlib import Path
 
 def grade_core_pure_fn(task, trial, target) -> bool:
     target = Path(target)
-    src = target / "apps/backend/src/backend/core/math.ts"
-    tst = target / "apps/backend/src/backend/core/math.test.ts"
+    src = target / "apps/backend/src/core/math.ts"
+    tst = target / "apps/backend/src/core/math.test.ts"
     if not src.is_file() or not tst.is_file():
         return False
     content = src.read_text()

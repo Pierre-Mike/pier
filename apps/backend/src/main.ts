@@ -6,6 +6,12 @@ import { ArtifactWatcher, makeArtifactWatcherLive } from "./infra/artifact-watch
 import { ClaudeEventStream, makeClaudeEventStreamLive } from "./infra/claude-events.ts";
 import { ConfigService, makeConfigLayer } from "./infra/config.ts";
 import { makeArtifactBusLive, makeEventBusLive } from "./infra/sse-bus.ts";
+import { ensureZellijWeb } from "./infra/zellij-auth.ts";
+import {
+	handleZellijWsUpgrade,
+	type ZellijWsBridge,
+	zellijWsHandlers,
+} from "./infra/zellij-ws-proxy.ts";
 import app from "./shell/api.ts";
 import { createSandboxApp } from "./shell/sandbox-app.ts";
 
@@ -36,6 +42,16 @@ const program = Effect.gen(function* () {
 		Layer.provide(makeClaudeEventStreamLive(), Layer.merge(makeEventBusLive(), configLayer)),
 	);
 
+	yield* Effect.tryPromise(() => ensureZellijWeb(cfg.zellijWebUrl)).pipe(
+		Effect.tapError((err) =>
+			Effect.sync(() => {
+				// biome-ignore lint/suspicious/noConsole: startup warning is diagnostic
+				console.warn(`[pier] zellij web not ready: ${String(err)}`);
+			}),
+		),
+		Effect.orElseSucceed(() => undefined),
+	);
+
 	const sandboxApp = createSandboxApp({
 		artifactsDir: cfg.artifactsDir,
 		appPort: cfg.appPort,
@@ -60,10 +76,20 @@ const program = Effect.gen(function* () {
 	// biome-ignore lint/suspicious/noConsole: startup logs are diagnostic, not debugging
 	console.log(`[pier]   sandbox on:    http://127.0.0.1:${cfg.sandboxPort}`);
 
-	Bun.serve({
+	Bun.serve<ZellijWsBridge>({
 		port: cfg.appPort,
 		hostname: "127.0.0.1",
-		fetch: app.fetch,
+		fetch: (req, server) => {
+			const url = new URL(req.url);
+			if (
+				url.pathname.startsWith("/zellij/ws") &&
+				req.headers.get("upgrade")?.toLowerCase() === "websocket"
+			) {
+				return handleZellijWsUpgrade({ req, server, zellijUrl: cfg.zellijWebUrl });
+			}
+			return app.fetch(req);
+		},
+		websocket: zellijWsHandlers,
 	});
 });
 

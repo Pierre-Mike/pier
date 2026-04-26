@@ -192,7 +192,24 @@ export function renderTerminal(): void {
 	}
 }
 
+function wireIframeFocusGlow(): void {
+	const host = $("#terminals");
+	document.addEventListener("mousedown", (e) => {
+		const target = e.target as Node | null;
+		host.classList.toggle("iframe-focused", !!target && host.contains(target));
+	});
+	window.addEventListener("blur", () => {
+		setTimeout(() => {
+			const a = document.activeElement;
+			if (a?.tagName === "IFRAME" && host.contains(a)) {
+				host.classList.add("iframe-focused");
+			}
+		}, 0);
+	});
+}
+
 export function wireProjectsUI(): void {
+	wireIframeFocusGlow();
 	$("#refresh-projects").addEventListener("click", () => void refreshProjects());
 	const projFilter = $("#project-filter") as HTMLInputElement;
 	projFilter.addEventListener("input", (e) => {

@@ -4,12 +4,12 @@
 	"private": true,
 	"type": "module",
 	"exports": {
-		"./types": "./src/backend/shell/api.ts"
+		"./types": "./src/shell/api.ts"
 	},
 	"scripts": {
-		"dev": "bun run --watch src/backend/main.ts",
-		"build": "bun build src/backend/main.ts --target=bun --outdir=dist",
-		"start": "bun run src/backend/main.ts",
+		"dev": "bun run --watch src/main.ts",
+		"build": "bun build src/main.ts --target=bun --outdir=dist",
+		"start": "bun run src/main.ts",
 		"test": "bun test",
 		"typecheck": "tsc --noEmit",
 		"lint:deps": "depcruise src --config .dependency-cruiser.cjs"

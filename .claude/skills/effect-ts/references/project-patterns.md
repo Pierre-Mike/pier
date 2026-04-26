@@ -7,7 +7,7 @@ Patterns and conventions specific to this repository (template-BPE).
 ### Architecture: Functional Core / Imperative Shell
 
 ```
-src/backend/
+src/
 ├── core/     # PURE — Effect<A, E, never>, no I/O, no side effects
 ├── infra/    # I/O — Context.GenericTag + Layer, one file per external system
 ├── shell/    # Orchestration — Effect.gen coordinators + Hono routes

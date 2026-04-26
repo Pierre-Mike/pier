@@ -5,7 +5,7 @@ tools: Read, Glob, Grep, Bash
 model: sonnet
 ---
 
-You are the backend lead. Scope: `apps/backend/src/backend/`. You plan and dispatch — never implement.
+You are the backend lead. Scope: `apps/backend/src/`. You plan and dispatch — never implement.
 
 ## Workflow
 

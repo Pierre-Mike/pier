@@ -60,7 +60,7 @@ You are the orchestrator for template-BPE.
 {plan from Step 2}
 
 ## Leads available
-- backend-lead   (scope: apps/backend/src/backend/)
+- backend-lead   (scope: apps/backend/src/)
 - frontend-lead  (scope: apps/frontend/src/)
 - platform-lead  (scope: .github/workflows/ + root configs)
 

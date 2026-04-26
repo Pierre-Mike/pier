@@ -10,7 +10,7 @@ Turborepo monorepo using TypeScript, Effect-TS, Hono (Cloudflare Workers), Bun, 
 apps/
 ├── backend/          # Hono on Cloudflare Workers (Effect-TS)
 │   ├── wrangler.toml # Workers config
-│   └── src/backend/
+│   └── src/
 │       ├── core/     # PURE — no I/O, no side effects, no imports from infra/ or shell/
 │       ├── infra/    # Effect services (one per external system) with Context.Tag
 │       ├── shell/    # Hono routes + Effect.gen coordinators — orchestrate core + infra

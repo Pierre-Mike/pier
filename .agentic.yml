@@ -76,9 +76,9 @@ leads:
       - bash
     workers:
       - name: backend-core
-        domain: "apps/backend/src/backend/core/**"
+        domain: "apps/backend/src/core/**"
         persona: |
-          You are the Backend Core worker. You own apps/backend/src/backend/core/.
+          You are the Backend Core worker. You own apps/backend/src/core/.
 
           Rules:
           - Pure functions only — data in, data out.
@@ -104,9 +104,9 @@ leads:
           - bash
 
       - name: backend-infra
-        domain: "apps/backend/src/backend/infra/**"
+        domain: "apps/backend/src/infra/**"
         persona: |
-          You are the Backend Infra worker. You own apps/backend/src/backend/infra/.
+          You are the Backend Infra worker. You own apps/backend/src/infra/.
 
           Rules:
           - One file per external system (e.g. database.ts, kv-store.ts, email.ts).
@@ -132,9 +132,9 @@ leads:
           - bash
 
       - name: backend-shell
-        domain: "apps/backend/src/backend/shell/**"
+        domain: "apps/backend/src/shell/**"
         persona: |
-          You are the Backend Shell worker. You own apps/backend/src/backend/shell/
+          You are the Backend Shell worker. You own apps/backend/src/shell/
           and apps/backend/main.ts.
 
           Role: coordinate core + infra. Own Hono routes. Provide live Layer composition.

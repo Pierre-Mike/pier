@@ -8,8 +8,8 @@ module.exports = {
 				"It must not import business logic from core/ or I/O adapters from infra/. " +
 				"Violation: a PR adding `import ... from '../core/...'` inside effect-handler.ts fails CI.",
 			severity: "error",
-			from: { path: "src/backend/shell/effect-handler\\.ts$" },
-			to: { path: "src/backend/(core|infra)/" },
+			from: { path: "src/shell/effect-handler\\.ts$" },
+			to: { path: "src/(core|infra)/" },
 		},
 		{
 			name: "no-core-to-shell-or-infra",
@@ -18,8 +18,8 @@ module.exports = {
 				"It must not depend on shell/ orchestrators or infra/ I/O adapters. " +
 				"Violation: a PR adding `import ... from '../infra/...'` inside core/ fails CI.",
 			severity: "error",
-			from: { path: "src/backend/core/" },
-			to: { path: "src/backend/(shell|infra)/" },
+			from: { path: "src/core/" },
+			to: { path: "src/(shell|infra)/" },
 		},
 	],
 	options: {

@@ -14,6 +14,7 @@ import { streamArtifactsRoute } from "./routes/stream-artifacts.ts";
 import { streamEventsRoute } from "./routes/stream-events.ts";
 import { streamReloadRoute } from "./routes/stream-reload.ts";
 import { versionRoute } from "./routes/version.ts";
+import { zellijProxyRoute } from "./routes/zellij-proxy.ts";
 import { localhostGuard, setSecurityHeaders } from "./security.ts";
 
 const app = new Hono<{ Bindings: AppBindings }>();
@@ -33,7 +34,13 @@ app.use(
 app.use("*", localhostGuard);
 app.use("*", async (c, next) => {
 	await next();
-	setSecurityHeaders(c);
+	// /zellij/* is a reverse proxy to the local zellij web server. Its responses
+	// are designed to be embedded in pier's iframe, so they must not carry our
+	// default `X-Frame-Options: SAMEORIGIN` (frontend and backend are on
+	// different ports, which counts as cross-origin for XFO).
+	if (!c.req.path.startsWith("/zellij/")) {
+		setSecurityHeaders(c);
+	}
 });
 
 app
@@ -44,6 +51,7 @@ app
 	.route("/", projectsDropRoute.app)
 	.route("/", projectsBlobRoute.app)
 	.route("/", sessionsRoute.app)
+	.route("/", zellijProxyRoute.app)
 	.route("/", artifactsRoute.app)
 	.route("/", artifactsBlobRoute.app)
 	.route("/", eventsHistoryRoute.app)

@@ -25,7 +25,7 @@ Monorepo with BPE-style core/infra/shell layout:
 ```
 apps/
 ├── backend/              # Bun + Hono + Effect-TS
-│   └── src/backend/
+│   └── src/
 │       ├── core/         # Pure business logic
 │       ├── infra/        # External services (fs, zellij, pi)
 │       └── shell/        # Hono routes + SSE

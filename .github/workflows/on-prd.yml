@@ -271,19 +271,19 @@ jobs:
 
             ### Layer routing rules
 
-            **backend-core** (`apps/backend/src/backend/core/`)
+            **backend-core** (`apps/backend/src/core/`)
             - Pure functions, data transforms, validation, @effect/schema definitions
             - NO I/O, NO side effects, NO imports from infra/ or shell/
             - Every file gets a co-located .test.ts
             - Use Effect-TS for errors (not try/catch), @effect/schema (not Zod)
 
-            **backend-infra** (`apps/backend/src/backend/infra/`)
+            **backend-infra** (`apps/backend/src/infra/`)
             - Effect services with Context.Tag + Layer. One file per external system.
             - Provide both Live and Test layers
             - NO business logic — only I/O adapters
             - Every file gets a co-located .test.ts using the Test layer
 
-            **backend-shell** (`apps/backend/src/backend/shell/`)
+            **backend-shell** (`apps/backend/src/shell/`)
             - Effect.gen coordinators using impure→pure→impure sandwich pattern
             - Hono routes with Effect.runPromise at the edge
             - Orchestrates core + infra. NO business logic here.

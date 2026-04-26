@@ -28,7 +28,7 @@ leads:
 
       core-coder:
         type: coder
-        scope: apps/backend/src/backend/core/
+        scope: apps/backend/src/core/
         description: "Pure functions, data transforms, validation, @effect/schema. No I/O."
         tools: Read,Glob,Grep,Write,Edit
         skills: effect-ts,expertise,concise
@@ -40,7 +40,7 @@ leads:
 
       infra-coder:
         type: coder
-        scope: apps/backend/src/backend/infra/
+        scope: apps/backend/src/infra/
         description: "Effect services — one file per external system, Context.Tag + Layer."
         tools: Read,Glob,Grep,Write,Edit
         skills: effect-ts,expertise,concise
@@ -54,7 +54,7 @@ leads:
 
       shell-coder:
         type: coder
-        scope: apps/backend/src/backend/shell/
+        scope: apps/backend/src/shell/
         description: "Effect.gen coordinators, Hono routes, composition root."
         tools: Read,Glob,Grep,Write,Edit
         skills: effect-ts,expertise,concise
@@ -66,7 +66,7 @@ leads:
 
       reviewer:
         type: reviewer
-        scope: apps/backend/src/backend/
+        scope: apps/backend/src/
         description: "Read-only review of backend code."
         tools: Read,Glob,Grep
         skills: expertise,concise

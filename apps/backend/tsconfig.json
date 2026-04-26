@@ -5,9 +5,9 @@
 		"rootDir": "src",
 		"baseUrl": ".",
 		"paths": {
-			"@core/*": ["src/backend/core/*"],
-			"@infra/*": ["src/backend/infra/*"],
-			"@shell/*": ["src/backend/shell/*"]
+			"@core/*": ["src/core/*"],
+			"@infra/*": ["src/infra/*"],
+			"@shell/*": ["src/shell/*"]
 		}
 	},
 	"include": ["src"],

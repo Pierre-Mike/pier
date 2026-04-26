@@ -33,13 +33,19 @@ export const makeTerminalSessionsLive = (): Layer.Layer<TerminalSessions, never,
 			const cfg = yield* ConfigService;
 			const config = yield* cfg.get();
 			const registryPath = join(config.piRoot, "sessions.jsonl");
-			const zellijWebUrl = config.zellijWebUrl;
+			// URLs point at pier's own /zellij/* reverse proxy, not directly at
+			// the zellij web server — the proxy strips X-Frame-Options and
+			// handles auth so the iframe loads transparently.
+			const proxyBase = `http://127.0.0.1:${config.appPort}/zellij`;
 			const registry = new Map<SessionId, Session>();
 
 			yield* Effect.tryPromise(async () => {
 				const data = await readFile(registryPath, "utf8");
 				for (const line of data.trim().split("\n").filter(Boolean)) {
 					const sess = JSON.parse(line) as Session;
+					// Recompute URL on load — older entries may point at the now-bypassed
+					// zellij web URL, but the URL is derived from id and the proxy base.
+					sess.url = `${proxyBase}/${encodeURIComponent(sess.id)}`;
 					registry.set(sess.id, sess);
 				}
 			}).pipe(Effect.orElseSucceed(() => undefined));
@@ -56,7 +62,7 @@ export const makeTerminalSessionsLive = (): Layer.Layer<TerminalSessions, never,
 						const id = projectId.replace(/[^a-zA-Z0-9_-]/g, "_");
 						const existing = registry.get(id);
 						if (existing?.status === "live") return existing;
-						const url = `${zellijWebUrl}/${encodeURIComponent(id)}`;
+						const url = `${proxyBase}/${encodeURIComponent(id)}`;
 						const sess: Session = {
 							id,
 							projectId,

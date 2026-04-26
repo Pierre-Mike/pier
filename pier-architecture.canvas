@@ -1,0 +1,152 @@
+{
+  "nodes": [
+    {
+      "id": "runtime",
+      "type": "group",
+      "x": -515,
+      "y": -60,
+      "width": 1030,
+      "height": 590,
+      "label": "Local runtime (bun + zellij)",
+      "color": "4"
+    },
+    {
+      "id": "ci",
+      "type": "group",
+      "x": -202,
+      "y": 510,
+      "width": 404,
+      "height": 210,
+      "label": "GitHub CI",
+      "color": "1"
+    },
+    {
+      "id": "browser",
+      "type": "text",
+      "x": -200,
+      "y": 0,
+      "width": 400,
+      "height": 110,
+      "text": "Browser\\nAstro frontend :5274\\n(projects \u00b7 files \u00b7 logs \u00b7 terminal)",
+      "color": "5"
+    },
+    {
+      "id": "bun-server",
+      "type": "text",
+      "x": -475,
+      "y": 190,
+      "width": 250,
+      "height": 110,
+      "text": "Bun server :5273\\nHono + Effect-TS\\nRPC + SSE + blob :5275",
+      "color": "4"
+    },
+    {
+      "id": "zellij-web",
+      "type": "text",
+      "x": -125,
+      "y": 190,
+      "width": 250,
+      "height": 110,
+      "text": "zellij web :3000\\nterminal HTTP server\\n(iframe-embedded)",
+      "color": "6"
+    },
+    {
+      "id": "claude-events",
+      "type": "text",
+      "x": -475,
+      "y": 380,
+      "width": 250,
+      "height": 110,
+      "text": "Claude Code (pi)\\n~/.claude/projects/*\\nJSONL session events",
+      "color": "2"
+    },
+    {
+      "id": "drops-fs",
+      "type": "text",
+      "x": -125,
+      "y": 380,
+      "width": 250,
+      "height": 110,
+      "text": ".drops/ + repo files\\nartifact watcher\\nblob server",
+      "color": "3"
+    },
+    {
+      "id": "zellij-sessions",
+      "type": "text",
+      "x": 225,
+      "y": 380,
+      "width": 250,
+      "height": 85,
+      "text": "zellij CLI\\nlist sessions / attach",
+      "color": "6"
+    },
+    {
+      "id": "gh-actions",
+      "type": "text",
+      "x": -162,
+      "y": 570,
+      "width": 324,
+      "height": 110,
+      "text": "GitHub + gh CLI\\nbranch protection \u00b7 RFC\u2192PRD\\n(.github/workflows)",
+      "color": "1"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-1",
+      "fromNode": "browser",
+      "toNode": "bun-server",
+      "fromSide": "left",
+      "toSide": "right",
+      "label": "RPC + SSE"
+    },
+    {
+      "id": "edge-2",
+      "fromNode": "browser",
+      "toNode": "zellij-web",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "label": "iframe terminal"
+    },
+    {
+      "id": "edge-3",
+      "fromNode": "bun-server",
+      "toNode": "claude-events",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "label": "tail JSONL"
+    },
+    {
+      "id": "edge-4",
+      "fromNode": "bun-server",
+      "toNode": "drops-fs",
+      "fromSide": "right",
+      "toSide": "left",
+      "label": "watch + serve"
+    },
+    {
+      "id": "edge-5",
+      "fromNode": "bun-server",
+      "toNode": "zellij-sessions",
+      "fromSide": "right",
+      "toSide": "left",
+      "label": "spawn"
+    },
+    {
+      "id": "edge-6",
+      "fromNode": "zellij-web",
+      "toNode": "zellij-sessions",
+      "fromSide": "right",
+      "toSide": "left",
+      "label": "attach"
+    },
+    {
+      "id": "edge-7",
+      "fromNode": "gh-actions",
+      "toNode": "drops-fs",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "label": "CI on repo"
+    }
+  ]
+}
