@@ -36,14 +36,14 @@ export function createStore<T extends Record<string, unknown>>(
 	function wrapCollection<C extends Map<unknown, unknown> | Set<unknown>>(coll: C, key: string): C {
 		const mutators = coll instanceof Map ? ["set", "delete", "clear"] : ["add", "delete", "clear"];
 		for (const m of mutators) {
-			const orig = (coll as unknown as Record<string, (...args: unknown[]) => unknown>)[m];
+			const orig = Reflect.get(coll, m) as (...args: unknown[]) => unknown;
 			const bound = orig.bind(coll);
-			(coll as unknown as Record<string, unknown>)[m] = (...args: unknown[]) => {
+			Reflect.set(coll, m, (...args: unknown[]) => {
 				const result = bound(...args);
 				dirty.add(key);
 				scheduleBatch();
 				return result;
-			};
+			});
 		}
 		return coll;
 	}
