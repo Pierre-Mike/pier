@@ -93,13 +93,27 @@ export const makeRepoServiceLive = (): Layer.Layer<RepoService, never, ConfigSer
 				listFiles: (projectId) =>
 					Effect.tryPromise({
 						try: async () => {
-							const { stdout } = await exec("git", ["-C", root(projectId), "ls-files", "-z"], {
-								maxBuffer: 64 * 1024 * 1024,
-							});
-							return stdout
-								.split("\0")
-								.filter(Boolean)
-								.map((p) => ({ path: p, size: 0 }));
+							const { stdout } = await exec(
+								"git",
+								[
+									"-C",
+									root(projectId),
+									"ls-files",
+									"-z",
+									"--cached",
+									"--others",
+									"--exclude-standard",
+								],
+								{ maxBuffer: 64 * 1024 * 1024 },
+							);
+							const seen = new Set<string>();
+							const out: RepoFile[] = [];
+							for (const p of stdout.split("\0")) {
+								if (!p || seen.has(p)) continue;
+								seen.add(p);
+								out.push({ path: p, size: 0 });
+							}
+							return out;
 						},
 						catch: () => new RepoError({ message: "git ls-files failed" }),
 					}).pipe(Effect.orElseSucceed(() => [] as RepoFile[])),

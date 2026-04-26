@@ -43,7 +43,11 @@ app.use("*", async (c, next) => {
 	}
 });
 
-app
+// Capture the chained type so AppType reflects every mounted route — Hono RPC
+// inference depends on the return value of `.route()`. Discarding the chain
+// (a previous bug) made AppType the empty Hono and `client.health` etc. unknown
+// at the api-contract boundary.
+const routedApp = app
 	.route("/", healthRoute.app)
 	.route("/", versionRoute.app)
 	.route("/", configRoute.app)
@@ -59,5 +63,5 @@ app
 	.route("/", streamArtifactsRoute.app)
 	.route("/", streamReloadRoute.app);
 
-export type AppType = typeof app;
-export default app;
+export type AppType = typeof routedApp;
+export default routedApp;

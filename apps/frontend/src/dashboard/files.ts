@@ -148,4 +148,9 @@ export function wireFileTreeUI(): void {
 		const target = e.target as HTMLInputElement;
 		store.fileFilter = target.value.toLowerCase();
 	});
+	$("#files-refresh").addEventListener("click", () => {
+		const id = store.activeProject;
+		if (!id) return;
+		void refreshFiles(id);
+	});
 }
