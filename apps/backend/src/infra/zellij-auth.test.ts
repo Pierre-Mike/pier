@@ -20,7 +20,7 @@
 
 import { beforeEach, describe, expect, it } from "bun:test";
 import type { ServerWebSocket } from "bun";
-import { ensureZellijWeb } from "./zellij-auth.ts";
+import { __resetZellijAuthForTests, ensureZellijWeb } from "./zellij-auth.ts";
 import {
 	activeBridges,
 	bridgeLog,
@@ -38,7 +38,7 @@ const makeFakeUpstream = (): WebSocket & { closeSpy: { callCount: number } } => 
 	const closeSpy = { callCount: 0 };
 	const ws = {
 		readyState: WebSocket.OPEN,
-		binaryType: "arraybuffer" as BinaryType,
+		binaryType: "arraybuffer",
 		send: noop,
 		close() {
 			closeSpy.callCount++;
@@ -92,6 +92,13 @@ const makeFakeWs = (overrides: Partial<ZellijWsBridge> = {}): ServerWebSocket<Ze
  */
 
 describe("ensureZellijWeb — injectable deps guard", () => {
+	beforeEach(() => {
+		// Clear the inflightSpawn map so a leaked entry from another test
+		// (e.g. ws-proxy tests that exercise the real defaultSpawn path)
+		// doesn't shadow the injected spawn fn here.
+		__resetZellijAuthForTests();
+	});
+
 	it("(i) does NOT spawn when probe returns true", async () => {
 		let spawnCount = 0;
 
