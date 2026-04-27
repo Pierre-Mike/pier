@@ -100,7 +100,7 @@ describe("TerminalSessionsTest (slice-1 shape preserved)", () => {
 			}).pipe(Effect.provide(TerminalSessionsTest)),
 		);
 		expect(result.projectId).toBe("test-project");
-		expect(result.id).toMatch(/^p[0-9a-f]{12}$/);
+		expect(result.id).toMatch(/^test-project_[0-9a-f]{3}$/);
 		expect(result.status).toBe("live");
 		expect(result.url).toContain("mem://");
 	});
@@ -112,7 +112,7 @@ describe("TerminalSessionsTest (slice-1 shape preserved)", () => {
 				return yield* sessions.open("test project/with spaces");
 			}).pipe(Effect.provide(TerminalSessionsTest)),
 		);
-		expect(result.id).toMatch(/^p[0-9a-f]{12}$/);
+		expect(result.id).toBe("test_project_wit_c57");
 	});
 
 	it("close is a no-op in test adapter", async () => {
@@ -215,7 +215,7 @@ describe("TerminalSessions.open — AC2: spawn args and cwd for new session", ()
 		// Pin --session flag and its value in the args array.
 		const sessionFlagIdx = call.args.indexOf("--session");
 		expect(sessionFlagIdx).toBeGreaterThanOrEqual(0);
-		expect(call.args[sessionFlagIdx + 1]).toMatch(/^p[0-9a-f]{12}$/);
+		expect(call.args[sessionFlagIdx + 1]).toMatch(/^my-app_[0-9a-f]{3}$/);
 	});
 
 	it("passes cwd equal to project.path — not the daemon's own cwd", async () => {
@@ -252,8 +252,8 @@ describe("TerminalSessions.open — AC2: spawn args and cwd for new session", ()
 		if (!call) throw new Error("Expected at least one spawn call");
 		const sessionFlagIdx = call.args.indexOf("--session");
 		expect(sessionFlagIdx).toBeGreaterThanOrEqual(0);
-		// Pure hash — projectId shape doesn't matter for the session name.
-		expect(call.args[sessionFlagIdx + 1]).toMatch(/^p[0-9a-f]{12}$/);
+		// "my project!" → "my_project__<hash>" per sanitizeSessionId.
+		expect(call.args[sessionFlagIdx + 1]).toMatch(/^my_project__[0-9a-f]{3}$/);
 		// cwd must be the real project.path, not the sanitized session name.
 		expect(call.cwd).toBe(PROJECT_SPECIAL.path);
 	});
