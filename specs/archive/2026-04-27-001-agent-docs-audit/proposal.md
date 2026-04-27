@@ -1,13 +1,14 @@
 ---
 id: 001-agent-docs-audit
 title: Audit agent docs for completeness
-status: active
+status: archived
 kind: writeup
 gate: specs/active/001-agent-docs-audit/docs-audit.md
-created: 2026-04-27
+created: 2026-04-27T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-04-27'
 ---
 
 ## Intent
