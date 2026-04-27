@@ -42,7 +42,7 @@ const program = Effect.gen(function* () {
 		Layer.provide(makeClaudeEventStreamLive(), Layer.merge(makeEventBusLive(), configLayer)),
 	);
 
-	yield* Effect.tryPromise(() => ensureZellijWeb(cfg.zellijWebUrl)).pipe(
+	yield* Effect.tryPromise(() => ensureZellijWeb(cfg.zellijWebUrl, { cwd: cfg.projectsRoot })).pipe(
 		Effect.tapError((err) =>
 			Effect.sync(() => {
 				// biome-ignore lint/suspicious/noConsole: startup warning is diagnostic
