@@ -2,9 +2,7 @@
  * Default session management
  */
 import { api } from "../api";
-import { renderSessions } from "./projects";
 import { store } from "./state";
-import { renderTerminal } from "./ui";
 import { $ } from "./utils";
 
 export async function selectDefaultSession(): Promise<void> {
@@ -14,8 +12,6 @@ export async function selectDefaultSession(): Promise<void> {
 			if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 			const session = await resp.json();
 			store.sessions.set("__default__", session);
-			renderSessions();
-			renderTerminal();
 		} catch (e) {
 			// biome-ignore lint/suspicious/noConsole: Error logging
 			console.error("Failed to open default session:", e);
@@ -32,22 +28,11 @@ export function wireDefaultSession(): void {
 		void selectDefaultSession();
 	});
 
-	// Restore active state from localStorage on boot
-	const stored = localStorage.getItem("pier:active-project");
-	if (stored === "__default__") {
-		store.activeProject = "__default__";
-		// Note: We do NOT call selectDefaultSession() here. The iframe is lazy-spawned
-		// only when the user explicitly clicks the button after reload.
-	}
-
-	// Update active class when store changes
-	const updateActiveClass = () => {
+	store.observe(() => {
 		if (store.activeProject === "__default__") {
 			btn.classList.add("active");
 		} else {
 			btn.classList.remove("active");
 		}
-	};
-	store.subscribe("activeProject", updateActiveClass);
-	updateActiveClass();
+	});
 }
