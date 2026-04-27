@@ -33,6 +33,7 @@ Users must be able to open an artifact's whole project folder in VS Code Insider
 - [ ] Trailing-slash-tolerant on `projectsRoot`
 - [ ] Returns `"vscode-insiders://file/<projectId>"` when `projectsRoot` is undefined
 - [ ] Viewer header bar in `viewer.ts` renders an anchor with text `Folder ↗`, `title="Open project folder in VSCode Insiders"`, `href` from `vscodeFolderUrl`, placed between the existing `VSCode ↗` and `open ↗` anchors
+- [ ] `viewer.ts` exports a pure `renderViewerHead(projectId: string, path: string, name: string): string` helper that returns the `viewer-head` HTML string (same string embedded into `viewer.innerHTML`), callable without DOM or network I/O — enabling the e2e smoke gate to assert rendered output
 - [ ] `bun test apps/frontend/src/dashboard/viewer.test.ts` passes
 
 ## Context

@@ -20,9 +20,14 @@ and `boundary`.
   - depends: [1]
   - file_targets: [apps/frontend/src/dashboard/viewer.ts]
   - boundary: [apps/frontend/src/dashboard/viewer.ts]
-- [ ] 3. Wire `Folder ↗` anchor into viewer-head bar
+- [ ] 3. Extract and export `renderViewerHead` pure helper from viewer.ts
   - agent: main
   - depends: [2]
+  - file_targets: [apps/frontend/src/dashboard/viewer.ts]
+  - boundary: [apps/frontend/src/dashboard/viewer.ts]
+- [ ] 4. Wire `Folder ↗` anchor into viewer-head bar
+  - agent: main
+  - depends: [3]
   - file_targets: [apps/frontend/src/dashboard/viewer.ts]
   - boundary: [apps/frontend/src/dashboard/viewer.ts]
 
