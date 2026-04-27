@@ -6,6 +6,13 @@ import { ProjectsService } from "./projects.ts";
 
 export type SessionId = string;
 
+// macOS $TMPDIR (~78 bytes) + zellij IPC suffix already consume most of the
+// 103-byte UNIX socket path budget, so session ids longer than ~24 chars cause
+// `zellij attach` to fail with EINVAL. Cap conservatively.
+const SESSION_ID_MAX = 20;
+const toSessionId = (projectId: string): SessionId =>
+	projectId.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, SESSION_ID_MAX);
+
 export type Session = {
 	id: SessionId;
 	projectId: string;
@@ -31,12 +38,13 @@ export interface ZellijSpawnService {
 	readonly spawn: (args: string[], opts: { cwd: string }) => Effect.Effect<void, never, never>;
 }
 
-export const ZellijSpawn = Context.GenericTag<ZellijSpawnService>("ZellijSpawn");
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
+export class ZellijSpawn extends Context.Tag("ZellijSpawn")<ZellijSpawn, ZellijSpawnService>() {}
 
 export const makeTerminalSessionsLive = (): Layer.Layer<
 	TerminalSessions,
 	never,
-	ProjectsService | ZellijSpawnService
+	ProjectsService | ZellijSpawn
 > =>
 	Layer.effect(
 		TerminalSessions,
@@ -83,7 +91,7 @@ export const makeTerminalSessionsLive = (): Layer.Layer<
 			return {
 				open: (projectId) =>
 					Effect.gen(function* () {
-						const id = projectId.replace(/[^a-zA-Z0-9_-]/g, "_");
+						const id = toSessionId(projectId);
 						const existing = registry.get(id);
 						if (existing?.status === "live") return existing;
 
@@ -130,7 +138,7 @@ export const makeTerminalSessionsLive = (): Layer.Layer<
 export const TerminalSessionsTest: Layer.Layer<TerminalSessions> = Layer.succeed(TerminalSessions, {
 	open: (projectId) =>
 		Effect.succeed({
-			id: projectId.replace(/[^a-zA-Z0-9_-]/g, "_"),
+			id: toSessionId(projectId),
 			projectId,
 			url: `mem://${projectId}`,
 			createdAt: Date.now(),
@@ -141,3 +149,20 @@ export const TerminalSessionsTest: Layer.Layer<TerminalSessions> = Layer.succeed
 	get: () => Effect.succeed(null),
 	health: () => Effect.succeed(false),
 });
+
+/**
+ * Live ZellijSpawn layer — spawns a real zellij process.
+ * Used by the production DI graph in the sessions route.
+ */
+export const makeZellijSpawnLive = (): Layer.Layer<ZellijSpawn> =>
+	Layer.succeed(ZellijSpawn, {
+		spawn: (args, opts) =>
+			Effect.promise(async () => {
+				const proc = Bun.spawn(args, {
+					cwd: opts.cwd,
+					stdout: "pipe",
+					stderr: "pipe",
+				});
+				await proc.exited;
+			}),
+	});

@@ -107,8 +107,11 @@ export interface EnsureZellijWebDeps {
 	spawn: (url: string) => Promise<void>;
 }
 
-/** In-flight spawn promises keyed by zellijUrl — prevents double-spawn races. */
+/** In-flight spawn promises keyed by zellijUrl — production path only. */
 const inflightSpawn = new Map<string, Promise<void>>();
+
+/** In-flight spawn promises for the injectable deps path (test seam). */
+const inflightSpawnDeps = new Map<string, Promise<void>>();
 
 const defaultSpawn = async (zellijUrl: string): Promise<void> => {
 	const proc = Bun.spawn(["zellij", "web", "-d"], { stdout: "pipe", stderr: "pipe" });
@@ -137,17 +140,20 @@ export const ensureZellijWeb = async (
 
 	if (await probeFn(zellijUrl)) return;
 
-	// Coalesce concurrent callers onto a single in-flight spawn promise.
-	const existing = inflightSpawn.get(zellijUrl);
+	// Choose the correct in-flight map: injected-deps path uses a separate map
+	// so that stale entries from production-path calls don't bleed into tests.
+	const map = deps !== undefined ? inflightSpawnDeps : inflightSpawn;
+
+	const existing = map.get(zellijUrl);
 	if (existing !== undefined) {
 		await existing;
 		return;
 	}
 
 	const p = spawnFn(zellijUrl).finally(() => {
-		inflightSpawn.delete(zellijUrl);
+		map.delete(zellijUrl);
 	});
-	inflightSpawn.set(zellijUrl, p);
+	map.set(zellijUrl, p);
 	await p;
 };
 
@@ -156,4 +162,6 @@ export const __resetZellijAuthForTests = (): void => {
 	cachedToken = null;
 	cachedCookie = null;
 	inflightLogin = null;
+	inflightSpawn.clear();
+	inflightSpawnDeps.clear();
 };

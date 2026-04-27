@@ -185,7 +185,13 @@ const toClientFrame = (data: unknown): string | ArrayBuffer => {
 // WS handlers
 // ---------------------------------------------------------------------------
 
-export const zellijWsHandlers: WebSocketHandler<ZellijWsBridge> = {
+type ZellijWsHandlers = Omit<WebSocketHandler<ZellijWsBridge>, "open" | "close"> & {
+	open: (ws: ServerWebSocket<ZellijWsBridge>) => void;
+	close: (ws: ServerWebSocket<ZellijWsBridge>) => void;
+	error: (ws: ServerWebSocket<ZellijWsBridge>, error: Error) => void;
+};
+
+export const zellijWsHandlers: ZellijWsHandlers = {
 	open(ws: ServerWebSocket<ZellijWsBridge>) {
 		// Close stale upstream for duplicate sessionId before installing new one.
 		const stale = activeBridges.get(ws.data.sessionId);
