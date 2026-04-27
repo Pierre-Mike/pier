@@ -31,16 +31,24 @@ The `/do` skill currently authors all failing tests in a single batch before any
 
 ## Acceptance criteria
 
-- [ ] `findSliceForPath({ filePath, repoRoot })` exported from `.claude/hooks/enforce.ts` returns `null` when no active spec exists or the path matches no task gate.
-- [ ] `findSliceForPath` returns `{ taskIndex: N, frozen: false }` when path matches task N's gate and `.gate-frozen-N` does not exist.
-- [ ] `findSliceForPath` returns `{ taskIndex: N, frozen: true }` when path matches task N's gate and `.gate-frozen-N` exists.
-- [ ] `enforce.ts` pre-tool-use guard uses `findSliceForPath` and blocks writes to a task's gate path only when `frozen: true`; the old single `.gate-frozen` lookup is removed.
-- [ ] `spec:lint` validates per-task `gate:` field: every task has a `gate:` referencing a unique path; slice indices contiguous from 1.
-- [ ] `tasks:verify` skips gate enforcement for slices whose `.gate-frozen-<N>` does not exist; runs the gate for slices whose sentinel exists.
-- [ ] `spec:complete` fails if any task is missing its `.gate-frozen-<N>` sentinel or any gate is not green.
-- [ ] `.claude/skills/do/SKILL.md` step 5 is scaffold-only (no gate files); step 6 is the per-slice loop (tester→judge→implementer per slice).
-- [ ] All agent docs updated for per-slice scope (`tester-review-<N>.md`, `.gate-frozen-<N>`).
-- [ ] Templates and constitution updated to reflect per-task gate field shape.
+- [ ] AC 1: `findSliceForPath({ filePath, repoRoot })` exported from `.claude/hooks/enforce.ts` returns `null` when no active spec exists or the path matches no task gate.
+- [ ] AC 2: `findSliceForPath` returns `{ taskIndex: N, frozen: false }` when path matches task N's gate and `.gate-frozen-N` does not exist.
+- [ ] AC 3: `findSliceForPath` returns `{ taskIndex: N, frozen: true }` when path matches task N's gate and `.gate-frozen-N` exists.
+- [ ] AC 4: `enforce.ts` pre-tool-use guard uses `findSliceForPath` and blocks Write/Edit to a task's gate path only when `frozen: true`; the old single `.gate-frozen` lookup is removed (bare `.gate-frozen` without `-N` suffix is inert).
+- [ ] AC 5: `spec:lint` validates per-task `gate:` field: every task has a `gate:` referencing a unique path; slice indices contiguous from 1.
+- [ ] AC 6: `tasks:verify` skips gate enforcement for slices whose `.gate-frozen-<N>` does not exist; runs the gate for slices whose sentinel exists.
+- [ ] AC 7: `spec:complete` fails if any task is missing its `.gate-frozen-<N>` sentinel or any gate is not green.
+
+## Implementation surface
+
+The following files must be updated as part of implementing this spec. They are not gated assertions but required implementation targets (enforced via `tasks.md` `file_targets` and boundary checks):
+
+- `.claude/skills/do/SKILL.md` — step 5 becomes scaffold-only (no gate files); step 6 becomes the per-slice loop (tester→judge→implementer per slice).
+- `.claude/agents/spec-tester.md` — updated for per-slice scope (`tester-review-<N>.md`, `.gate-frozen-<N>`).
+- `.claude/agents/spec-judge.md` — updated for per-slice review using `tester-review-<N>.md` and `.gate-frozen-<N>`.
+- `.claude/agents/spec-implementer.md` — updated for per-slice implementation loop.
+- `specs/_template/proposal.md` and `specs/_template/tasks.md` — updated to reflect per-task gate field shape.
+- `specs/constitution.md` §4 — updated to reflect per-task gate field.
 
 ## Context
 

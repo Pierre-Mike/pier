@@ -4,6 +4,10 @@
  *
  * Each test builds isolated fixture directories in os.tmpdir() so there is no
  * shared mutable state between cases.
+ *
+ * Also includes PreToolUse hook subprocess tests that drive the hook entry
+ * point (`bun .claude/hooks.ts`) as a CLI binary and assert allow/block
+ * decisions at the process-exit-code boundary.
  */
 
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
@@ -29,9 +33,11 @@ interface MakeSpecOpts {
 	readonly slug: string;
 	readonly tasks: ReadonlyArray<{ readonly gate: string }>;
 	readonly frozenSlices?: ReadonlyArray<number>;
+	/** If true, also write a bare .gate-frozen (old-style sentinel) */
+	readonly legacyFrozen?: boolean;
 }
 
-function makeSpec({ repoRoot, slug, tasks, frozenSlices = [] }: MakeSpecOpts): void {
+function makeSpec({ repoRoot, slug, tasks, frozenSlices = [], legacyFrozen = false }: MakeSpecOpts): void {
 	const specDir = join(repoRoot, "specs", "active", slug);
 	mkdirSync(specDir, { recursive: true });
 
@@ -55,14 +61,65 @@ function makeSpec({ repoRoot, slug, tasks, frozenSlices = [] }: MakeSpecOpts): v
 	}
 	writeFileSync(join(specDir, "tasks.md"), lines.join("\n"));
 
-	// Create sentinel files for frozen slices
+	// Create per-slice sentinel files for frozen slices
 	for (const n of frozenSlices) {
 		writeFileSync(join(specDir, `.gate-frozen-${n}`), "");
+	}
+
+	// Create the old-style bare .gate-frozen if requested
+	if (legacyFrozen) {
+		writeFileSync(join(specDir, `.gate-frozen`), "");
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// Hook subprocess helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Invokes the hook entry point (`bun .claude/hooks.ts`) with a synthetic
+ * PreToolUse event on stdin and returns the exit code.
+ *
+ * `cwd` is the directory the hook should believe it's running from — this
+ * is also where the hook resolves the repo root and the spec sentinels.
+ */
+interface HookCallOpts {
+	/** Working directory for the hook process (and the cwd field in the event) */
+	readonly cwd: string;
+	/** tool_name field in the ToolEvent */
+	readonly toolName: string;
+	/** file_path in tool_input */
+	readonly filePath: string;
+}
+
+interface HookCallResult {
+	readonly code: number;
+	readonly stderr: string;
+}
+
+async function callHook({ cwd, toolName, filePath }: HookCallOpts): Promise<HookCallResult> {
+	// The hook binary is always at the repo root (the actual pier worktree).
+	const hooksTs = join(import.meta.dir, "..", "hooks.ts");
+	const event = {
+		hook_event_name: "PreToolUse",
+		session_id: "smoke-session",
+		transcript_path: "/dev/null",
+		cwd,
+		tool_name: toolName,
+		tool_input: { file_path: filePath },
+	};
+	const proc = Bun.spawn(["bun", hooksTs], {
+		cwd,
+		stdin: new TextEncoder().encode(JSON.stringify(event)),
+		stdout: "ignore",
+		stderr: "pipe",
+	});
+	const [code, stderr] = await Promise.all([proc.exited, new Response(proc.stderr).text()]);
+	return { code, stderr };
+}
+
+// ---------------------------------------------------------------------------
+// Tests — findSliceForPath pure function
 // ---------------------------------------------------------------------------
 
 describe("findSliceForPath", () => {
@@ -278,5 +335,130 @@ describe("findSliceForPath", () => {
 		});
 
 		expect(thirdResult).toEqual({ taskIndex: 3, frozen: false });
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Tests — Hook PreToolUse allow/block decisions (subprocess)
+// ---------------------------------------------------------------------------
+
+describe("hook PreToolUse — allow/block decisions", () => {
+	test("BLOCKS Write to a frozen slice's gate path (.gate-frozen-N present)", async () => {
+		const repoRoot = makeRepo();
+		const gatePath = "scripts/my-gate.test.ts";
+		makeSpec({
+			repoRoot,
+			slug: "001-frozen",
+			tasks: [{ gate: gatePath }],
+			frozenSlices: [1],
+		});
+
+		const result = await callHook({
+			cwd: repoRoot,
+			toolName: "Write",
+			filePath: join(repoRoot, gatePath),
+		});
+
+		expect(result.code).toBe(2);
+		expect(result.stderr.length).toBeGreaterThan(0);
+	});
+
+	test("ALLOWS Write to an unfrozen slice's gate path (no .gate-frozen-N)", async () => {
+		const repoRoot = makeRepo();
+		const gatePath = "scripts/my-gate.test.ts";
+		makeSpec({
+			repoRoot,
+			slug: "001-unfrozen",
+			tasks: [{ gate: gatePath }],
+			frozenSlices: [], // no sentinels
+		});
+
+		const result = await callHook({
+			cwd: repoRoot,
+			toolName: "Write",
+			filePath: join(repoRoot, gatePath),
+		});
+
+		expect(result.code).toBe(0);
+	});
+
+	test("ALLOWS Write to a non-gate path regardless of sentinel state", async () => {
+		const repoRoot = makeRepo();
+		makeSpec({
+			repoRoot,
+			slug: "001-test",
+			tasks: [{ gate: "scripts/the-gate.test.ts" }],
+			frozenSlices: [1],
+		});
+
+		// Writing to a completely unrelated file — must be allowed
+		const result = await callHook({
+			cwd: repoRoot,
+			toolName: "Write",
+			filePath: join(repoRoot, "src/some-impl.ts"),
+		});
+
+		expect(result.code).toBe(0);
+	});
+
+	test("old bare .gate-frozen (no -N suffix) is INERT — Write to gate path is ALLOWED", async () => {
+		const repoRoot = makeRepo();
+		const gatePath = "scripts/legacy-gate.test.ts";
+		makeSpec({
+			repoRoot,
+			slug: "001-legacy",
+			tasks: [{ gate: gatePath }],
+			frozenSlices: [], // no per-slice sentinels
+			legacyFrozen: true, // only old-style .gate-frozen present
+		});
+
+		// With the new scheme, bare .gate-frozen must have no effect.
+		// The Write must be ALLOWED (exit 0).
+		const result = await callHook({
+			cwd: repoRoot,
+			toolName: "Write",
+			filePath: join(repoRoot, gatePath),
+		});
+
+		expect(result.code).toBe(0);
+	});
+
+	test("ALLOWS Edit (not just Write) to an unfrozen slice's gate path", async () => {
+		const repoRoot = makeRepo();
+		const gatePath = "scripts/my-gate.test.ts";
+		makeSpec({
+			repoRoot,
+			slug: "001-edit-unfrozen",
+			tasks: [{ gate: gatePath }],
+			frozenSlices: [],
+		});
+
+		const result = await callHook({
+			cwd: repoRoot,
+			toolName: "Edit",
+			filePath: join(repoRoot, gatePath),
+		});
+
+		expect(result.code).toBe(0);
+	});
+
+	test("BLOCKS Edit to a frozen slice's gate path (.gate-frozen-N present)", async () => {
+		const repoRoot = makeRepo();
+		const gatePath = "scripts/my-gate.test.ts";
+		makeSpec({
+			repoRoot,
+			slug: "001-edit-frozen",
+			tasks: [{ gate: gatePath }],
+			frozenSlices: [1],
+		});
+
+		const result = await callHook({
+			cwd: repoRoot,
+			toolName: "Edit",
+			filePath: join(repoRoot, gatePath),
+		});
+
+		expect(result.code).toBe(2);
+		expect(result.stderr.length).toBeGreaterThan(0);
 	});
 });

@@ -4,11 +4,14 @@
  *
  * Drives a fake 2-slice spec through the full per-slice loop and asserts:
  *   1. `spec:lint` accepts the new per-task gate: shape
- *   2. `tasks:verify` passes when no slices are frozen (scaffold state)
- *   3. `tasks:verify` fails when slice 1 is frozen but its gate is RED
- *   4. `tasks:verify` passes when slice 1 gate turns GREEN and slice 2 not yet frozen
- *   5. Same cycle for slice 2
- *   6. `spec:complete` passes only when all sentinels exist and all gates are green
+ *   2. `spec:lint` rejects malformed tasks.md (missing gate, duplicate gate, non-contiguous indices)
+ *   3. `tasks:verify` passes when no slices are frozen (scaffold state)
+ *   4. `tasks:verify` fails when slice 1 is frozen but its gate is RED
+ *   5. `tasks:verify` passes when slice 1 gate turns GREEN and slice 2 not yet frozen
+ *   6. Same cycle for slice 2
+ *   7. `spec:complete` passes only when all sentinels exist and all gates are green
+ *   8. `spec:complete` fails when a sentinel is missing
+ *   9. `spec:complete` fails when all sentinels exist but a gate is RED
  *
  * RED state: none of this infrastructure exists yet. The script will fail as
  * soon as it exercises `spec:lint` or `tasks:verify` since they don't
@@ -56,6 +59,11 @@ interface AssertOpts {
 	readonly label: string;
 }
 
+interface AssertFailsOpts extends AssertOpts {
+	/** Optional substring that must appear in stderr when the command fails */
+	readonly stderrContains?: string;
+}
+
 async function assertPasses({ cmd, cwd, label }: AssertOpts): Promise<void> {
 	const result = await run({ cmd, cwd });
 	if (result.code !== 0) {
@@ -67,12 +75,21 @@ async function assertPasses({ cmd, cwd, label }: AssertOpts): Promise<void> {
 	console.log(`PASS [${label}]`);
 }
 
-async function assertFails({ cmd, cwd, label }: AssertOpts): Promise<void> {
+async function assertFails({ cmd, cwd, label, stderrContains }: AssertFailsOpts): Promise<void> {
 	const result = await run({ cmd, cwd });
 	if (result.code === 0) {
 		console.error(`FAIL [${label}]: expected non-zero exit, got 0`);
 		console.error(`stdout:\n${result.stdout}`);
 		process.exit(1);
+	}
+	if (stderrContains !== undefined) {
+		const combined = result.stdout + result.stderr;
+		if (!combined.includes(stderrContains)) {
+			console.error(`FAIL [${label}]: expected output to contain "${stderrContains}"`);
+			console.error(`stdout:\n${result.stdout}`);
+			console.error(`stderr:\n${result.stderr}`);
+			process.exit(1);
+		}
 	}
 	console.log(`PASS [${label}]`);
 }
@@ -147,9 +164,11 @@ Smoke test spec for slice-RED TDD infrastructure.
 	writeFileSync(join(specDir, "design.md"), `# Design\n\nSmoke test.\n`);
 
 	// tasks.md with two tasks, each declaring its own gate: field (new shape)
-	writeFileSync(
-		join(specDir, "tasks.md"),
-		`# Tasks
+	writeFileSync(join(specDir, "tasks.md"), buildWellFormedTasksMd(slug));
+}
+
+function buildWellFormedTasksMd(slug: string): string {
+	return `# Tasks
 
 - [ ] 1. Slice 1 task
   - agent: main
@@ -163,8 +182,7 @@ Smoke test spec for slice-RED TDD infrastructure.
   - file_targets: [src/slice2.ts]
   - boundary: [src/slice2.ts]
   - gate: specs/active/${slug}/gate-slice-2.test.ts
-`,
-	);
+`;
 }
 
 interface SliceOpts {
@@ -234,6 +252,66 @@ async function gitCommit(root: string, message: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Negative spec:lint helpers — build malformed tasks.md variants
+// ---------------------------------------------------------------------------
+
+/** tasks.md with the gate: field removed from task 1 */
+function tasksMdMissingGate(slug: string): string {
+	return `# Tasks
+
+- [ ] 1. Slice 1 task
+  - agent: main
+  - depends: []
+  - file_targets: [src/slice1.ts]
+  - boundary: [src/slice1.ts]
+- [ ] 2. Slice 2 task
+  - agent: main
+  - depends: [1]
+  - file_targets: [src/slice2.ts]
+  - boundary: [src/slice2.ts]
+  - gate: specs/active/${slug}/gate-slice-2.test.ts
+`;
+}
+
+/** tasks.md where both tasks share the same gate: path */
+function tasksMdDuplicateGate(slug: string): string {
+	return `# Tasks
+
+- [ ] 1. Slice 1 task
+  - agent: main
+  - depends: []
+  - file_targets: [src/slice1.ts]
+  - boundary: [src/slice1.ts]
+  - gate: specs/active/${slug}/gate-slice-1.test.ts
+- [ ] 2. Slice 2 task
+  - agent: main
+  - depends: [1]
+  - file_targets: [src/slice2.ts]
+  - boundary: [src/slice2.ts]
+  - gate: specs/active/${slug}/gate-slice-1.test.ts
+`;
+}
+
+/** tasks.md where task indices skip from 1 to 3 (no task 2) */
+function tasksMdNonContiguous(slug: string): string {
+	return `# Tasks
+
+- [ ] 1. Slice 1 task
+  - agent: main
+  - depends: []
+  - file_targets: [src/slice1.ts]
+  - boundary: [src/slice1.ts]
+  - gate: specs/active/${slug}/gate-slice-1.test.ts
+- [ ] 3. Slice 3 task
+  - agent: main
+  - depends: [1]
+  - file_targets: [src/slice3.ts]
+  - boundary: [src/slice3.ts]
+  - gate: specs/active/${slug}/gate-slice-3.test.ts
+`;
+}
+
+// ---------------------------------------------------------------------------
 // Main smoke sequence
 // ---------------------------------------------------------------------------
 
@@ -251,13 +329,57 @@ async function main(): Promise<void> {
 	writeSpecScaffold(root, slug);
 	await gitCommit(root, `spec(099): scaffold — Smoke test spec`);
 
-	// Step 3: spec:lint must pass on the scaffold
+	// Step 3: spec:lint must pass on the well-formed scaffold
 	// (new lint must accept per-task gate: shape)
 	await assertPasses({
 		cmd: ["bun", "run", "spec:lint"],
 		cwd: root,
 		label: "spec:lint passes on scaffold with per-task gate: shape",
 	});
+
+	// -------------------------------------------------------------------------
+	// Negative spec:lint cases — each mutates tasks.md, asserts failure, then
+	// restores the well-formed scaffold before continuing.
+	// -------------------------------------------------------------------------
+
+	const specDir = join(root, "specs", "active", slug);
+	const tasksMdPath = join(specDir, "tasks.md");
+
+	// Negative case A: task missing gate: field
+	writeFileSync(tasksMdPath, tasksMdMissingGate(slug));
+	await assertFails({
+		cmd: ["bun", "run", "spec:lint"],
+		cwd: root,
+		label: "spec:lint fails when a task is missing its gate: field",
+		// The error output must name the offending task (task 1)
+		stderrContains: "1",
+	});
+	writeFileSync(tasksMdPath, buildWellFormedTasksMd(slug));
+
+	// Negative case B: duplicate gate paths across tasks
+	writeFileSync(tasksMdPath, tasksMdDuplicateGate(slug));
+	await assertFails({
+		cmd: ["bun", "run", "spec:lint"],
+		cwd: root,
+		label: "spec:lint fails when two tasks share the same gate: path",
+		stderrContains: "gate-slice-1",
+	});
+	writeFileSync(tasksMdPath, buildWellFormedTasksMd(slug));
+
+	// Negative case C: non-contiguous task indices (1 then 3, no 2)
+	writeFileSync(tasksMdPath, tasksMdNonContiguous(slug));
+	await assertFails({
+		cmd: ["bun", "run", "spec:lint"],
+		cwd: root,
+		label: "spec:lint fails when task indices are non-contiguous",
+		// Must name the gap somehow — index 2 or 3 should appear
+		stderrContains: "contiguous",
+	});
+	writeFileSync(tasksMdPath, buildWellFormedTasksMd(slug));
+
+	// -------------------------------------------------------------------------
+	// Positive slice loop
+	// -------------------------------------------------------------------------
 
 	// Step 4: tasks:verify must pass on scaffold
 	// (no slices frozen → no gates enforced → zero gates running → green)
@@ -313,8 +435,46 @@ async function main(): Promise<void> {
 		label: "tasks:verify passes after both slices are green",
 	});
 
-	// Step 13: assert spec:complete PASSES (all sentinels exist + all gates green).
-	// The "fails without sentinels" case is covered implicitly by the RED gate assertions above.
+	// -------------------------------------------------------------------------
+	// Negative spec:complete cases
+	// -------------------------------------------------------------------------
+
+	// Negative case D: spec:complete fails when slice 2 sentinel is missing
+	// (remove the slice 2 sentinel, keep slice 1 green)
+	{
+		const sentinel2 = join(specDir, ".gate-frozen-2");
+		// Temporarily rename the sentinel to simulate missing
+		const tmp2 = `${sentinel2}.bak`;
+		await run({ cmd: ["mv", sentinel2, tmp2], cwd: root });
+		await assertFails({
+			cmd: ["bun", "run", "spec:complete", slug],
+			cwd: root,
+			label: "spec:complete fails when a slice sentinel is missing",
+			// Must name the missing sentinel or missing task
+			stderrContains: "2",
+		});
+		// Restore
+		await run({ cmd: ["mv", tmp2, sentinel2], cwd: root });
+	}
+
+	// Negative case E: spec:complete fails when all sentinels exist but a gate is RED
+	// (mutate slice 1 gate back to RED, keep all sentinels in place)
+	writeGateRed({ root, slug, slice: 1 });
+	await gitCommit(root, `spec(099): mutate slice 1 back to RED for spec:complete test`);
+	await assertFails({
+		cmd: ["bun", "run", "spec:complete", slug],
+		cwd: root,
+		label: "spec:complete fails when all sentinels exist but a gate is RED",
+	});
+	// Restore slice 1 to GREEN for the final passing assertion
+	implementSlice({ root, slug, slice: 1 });
+	await gitCommit(root, `spec(099): restore slice 1 to GREEN`);
+
+	// -------------------------------------------------------------------------
+	// Positive spec:complete
+	// -------------------------------------------------------------------------
+
+	// Step 13: assert spec:complete PASSES (all sentinels exist + all gates green)
 	await assertPasses({
 		cmd: ["bun", "run", "spec:complete", slug],
 		cwd: root,
