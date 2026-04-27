@@ -149,3 +149,48 @@ export function unresolvedDeps(spec: Spec, archivedIds: Set<string>): string[] {
 }
 
 export const VALID_KINDS: SpecKind[] = ["code", "rule", "workflow", "writeup"];
+
+// ---------------------------------------------------------------------------
+// Per-task gate helpers (slice-RED model)
+// ---------------------------------------------------------------------------
+
+export interface TaskGateEntry {
+	/** 1-based task index (ordinal position of the task in tasks.md) */
+	readonly taskIndex: number;
+	/** Repo-relative gate path declared in the task's `gate:` field */
+	readonly gatePath: string;
+	/** Whether `.gate-frozen-<taskIndex>` sentinel exists in the spec dir */
+	readonly frozen: boolean;
+}
+
+/**
+ * Parse `tasks.md` and yield one entry per task that declares a `gate:` field.
+ * Checks the spec directory for `.gate-frozen-<N>` sentinel presence.
+ *
+ * Pure over filesystem — callers pass the specDir path; no process.cwd().
+ */
+export function taskGates(specDir: string): readonly TaskGateEntry[] {
+	const tasksPath = join(specDir, "tasks.md");
+	if (!existsSync(tasksPath)) return [];
+
+	const lines = readFileSync(tasksPath, "utf-8").split("\n");
+	const entries: TaskGateEntry[] = [];
+	let taskIndex = 0;
+
+	for (const line of lines) {
+		const taskMatch = line.match(/^- \[[ x]\]\s+\d+\./);
+		if (taskMatch) {
+			taskIndex += 1;
+			continue;
+		}
+		const gateMatch = line.match(/^\s+-\s+gate:\s*(.+)$/);
+		if (gateMatch && taskIndex > 0) {
+			const gatePath = gateMatch[1].trim();
+			if (gatePath.length > 0) {
+				const sentinel = join(specDir, `.gate-frozen-${taskIndex}`);
+				entries.push({ taskIndex, gatePath, frozen: existsSync(sentinel) });
+			}
+		}
+	}
+	return entries;
+}
