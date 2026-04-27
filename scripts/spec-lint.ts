@@ -21,6 +21,10 @@ export interface ParsedTask {
 	readonly title: string;
 	readonly file_targets: readonly string[];
 	readonly boundary?: readonly string[] | undefined;
+	/** Per-task gate path (slice-RED model). Undefined for old-style tasks without gate: */
+	readonly gate?: string | undefined;
+	/** Ordinal task number extracted from the task heading (e.g. "3." → 3). */
+	readonly ordinal?: number | undefined;
 }
 
 export interface SchemaReport {
@@ -172,6 +176,8 @@ export function parseTasksFile(path: string): readonly ParsedTask[] {
 		title: string;
 		file_targets: string[];
 		boundary: string[] | undefined;
+		gate: string | undefined;
+		ordinal: number | undefined;
 	} | null = null;
 
 	const parseBracketList = (raw: string): string[] =>
@@ -190,12 +196,19 @@ export function parseTasksFile(path: string): readonly ParsedTask[] {
 					title: current.title,
 					file_targets: current.file_targets,
 					boundary: current.boundary,
+					gate: current.gate,
+					ordinal: current.ordinal,
 				});
+			const titleFull = taskMatch[2] ?? "";
+			// Extract ordinal number from title like "3. Task name" or "2a. ..."
+			const ordinalMatch = titleFull.match(/^(\d+)[a-z]*\./);
 			current = {
 				index: i,
-				title: taskMatch[2] ?? "",
+				title: titleFull,
 				file_targets: [],
 				boundary: undefined,
+				gate: undefined,
+				ordinal: ordinalMatch ? parseInt(ordinalMatch[1] ?? "0", 10) : undefined,
 			};
 			continue;
 		}
@@ -208,6 +221,11 @@ export function parseTasksFile(path: string): readonly ParsedTask[] {
 		const bd = line.match(/^\s+-\s+boundary:\s*\[(.*)\]$/);
 		if (bd) {
 			current.boundary = parseBracketList(bd[1] ?? "");
+			continue;
+		}
+		const gm = line.match(/^\s+-\s+gate:\s*(.+)$/);
+		if (gm) {
+			current.gate = gm[1].trim();
 		}
 	}
 	if (current) {
@@ -216,6 +234,8 @@ export function parseTasksFile(path: string): readonly ParsedTask[] {
 			title: current.title,
 			file_targets: current.file_targets,
 			boundary: current.boundary,
+			gate: current.gate,
+			ordinal: current.ordinal,
 		});
 	}
 	return tasks;
@@ -274,12 +294,58 @@ function main(): void {
 			}
 		}
 
-		// Tasks schema
+		// Tasks schema + per-task gate: validation
 		const tasksPath = join(spec.dir, "tasks.md");
-		for (const task of parseTasksFile(tasksPath)) {
+		const parsedTasks = parseTasksFile(tasksPath);
+		for (const task of parsedTasks) {
 			const report = validateTaskSchema(task);
 			for (const e of report.errors) errors.push(`${spec.slug}: ${e}`);
 			for (const w of report.warnings) warnings.push(`${spec.slug}: ${w}`);
+		}
+
+		// Per-task gate: field validation (slice-RED model)
+		// Only enforce when at least one task has a gate: field (opt-in for
+		// specs that pre-date the slice-RED model).
+		const tasksWithGate = parsedTasks.filter((t) => t.gate !== undefined);
+		if (tasksWithGate.length > 0) {
+			// 1. Every task must have a gate: field
+			for (const task of parsedTasks) {
+				if (task.gate === undefined) {
+					errors.push(
+						`${spec.slug}: task ${task.ordinal ?? task.index + 1} "${task.title.slice(0, 60)}" is missing a \`gate:\` field`,
+					);
+				}
+			}
+
+			// 2. Gate paths must be unique across tasks
+			const gatePathSeen = new Map<string, number>();
+			for (const task of tasksWithGate) {
+				const gatePath = task.gate ?? "";
+				const prevOrdinal = gatePathSeen.get(gatePath);
+				if (prevOrdinal !== undefined) {
+					errors.push(
+						`${spec.slug}: duplicate gate path '${gatePath}' on tasks ${prevOrdinal} and ${task.ordinal ?? task.index + 1}`,
+					);
+				} else {
+					gatePathSeen.set(gatePath, task.ordinal ?? task.index + 1);
+				}
+			}
+
+			// 3. Task ordinal indices must be contiguous from 1
+			// Collect the numeric ordinals of all tasks that have ordinals
+			const ordinals = parsedTasks
+				.map((t) => t.ordinal)
+				.filter((o): o is number => o !== undefined);
+			for (let i = 0; i < ordinals.length; i++) {
+				const expected = i + 1;
+				const actual = ordinals[i] ?? 0;
+				if (actual !== expected) {
+					errors.push(
+						`${spec.slug}: task indices must be contiguous from 1; expected ${expected}, found ${actual}`,
+					);
+					break; // report first gap only
+				}
+			}
 		}
 	}
 
