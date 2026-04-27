@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Context, Data, Effect, Layer } from "effect";
 import { ConfigService } from "./config.ts";
+import { ProjectsService } from "./projects.ts";
 
 export type SessionId = string;
 
@@ -26,35 +27,58 @@ export interface TerminalSessions {
 
 export const TerminalSessions = Context.GenericTag<TerminalSessions>("TerminalSessions");
 
-export const makeTerminalSessionsLive = (): Layer.Layer<TerminalSessions, never, ConfigService> =>
+export interface ZellijSpawnService {
+	readonly spawn: (args: string[], opts: { cwd: string }) => Effect.Effect<void, never, never>;
+}
+
+export const ZellijSpawn = Context.GenericTag<ZellijSpawnService>("ZellijSpawn");
+
+export const makeTerminalSessionsLive = (): Layer.Layer<
+	TerminalSessions,
+	never,
+	ProjectsService | ZellijSpawnService
+> =>
 	Layer.effect(
 		TerminalSessions,
 		Effect.gen(function* () {
-			const cfg = yield* ConfigService;
-			const config = yield* cfg.get();
-			const registryPath = join(config.piRoot, "sessions.jsonl");
-			// URLs point at pier's own /zellij/* reverse proxy, not directly at
-			// the zellij web server — the proxy strips X-Frame-Options and
-			// handles auth so the iframe loads transparently.
-			const proxyBase = `http://127.0.0.1:${config.appPort}/zellij`;
+			const maybeCfg = yield* Effect.serviceOption(ConfigService);
 			const registry = new Map<SessionId, Session>();
+			const projects = yield* ProjectsService;
+			const zellijSpawn = yield* ZellijSpawn;
 
-			yield* Effect.tryPromise(async () => {
-				const data = await readFile(registryPath, "utf8");
-				for (const line of data.trim().split("\n").filter(Boolean)) {
-					const sess = JSON.parse(line) as Session;
-					// Recompute URL on load — older entries may point at the now-bypassed
-					// zellij web URL, but the URL is derived from id and the proxy base.
-					sess.url = `${proxyBase}/${encodeURIComponent(sess.id)}`;
-					registry.set(sess.id, sess);
-				}
-			}).pipe(Effect.orElseSucceed(() => undefined));
+			// Config is only needed for registry persistence and proxy URL.
+			// When absent (e.g. in tests), skip persistence and use a placeholder URL.
+			let registryPath: string | null = null;
+			let proxyBase: string = "http://127.0.0.1:8081/zellij";
 
-			const persist = (sess: Session): Effect.Effect<void, never, never> =>
-				Effect.tryPromise(async () => {
-					await mkdir(join(registryPath, ".."), { recursive: true });
-					await writeFile(registryPath, `${JSON.stringify(sess)}\n`, { flag: "a" });
+			if (maybeCfg._tag === "Some") {
+				const config = yield* maybeCfg.value.get();
+				registryPath = join(config.piRoot, "sessions.jsonl");
+				proxyBase = `http://127.0.0.1:${config.appPort}/zellij`;
+			}
+
+			if (registryPath !== null) {
+				const rp = registryPath;
+				yield* Effect.tryPromise(async () => {
+					const data = await readFile(rp, "utf8");
+					for (const line of data.trim().split("\n").filter(Boolean)) {
+						const sess = JSON.parse(line) as Session;
+						// Recompute URL on load — older entries may point at the now-bypassed
+						// zellij web URL, but the URL is derived from id and the proxy base.
+						sess.url = `${proxyBase}/${encodeURIComponent(sess.id)}`;
+						registry.set(sess.id, sess);
+					}
 				}).pipe(Effect.orElseSucceed(() => undefined));
+			}
+
+			const persist = (sess: Session): Effect.Effect<void, never, never> => {
+				if (registryPath === null) return Effect.void;
+				const rp = registryPath;
+				return Effect.tryPromise(async () => {
+					await mkdir(join(rp, ".."), { recursive: true });
+					await writeFile(rp, `${JSON.stringify(sess)}\n`, { flag: "a" });
+				}).pipe(Effect.orElseSucceed(() => undefined));
+			};
 
 			return {
 				open: (projectId) =>
@@ -62,6 +86,19 @@ export const makeTerminalSessionsLive = (): Layer.Layer<TerminalSessions, never,
 						const id = projectId.replace(/[^a-zA-Z0-9_-]/g, "_");
 						const existing = registry.get(id);
 						if (existing?.status === "live") return existing;
+
+						// Resolve project path from ProjectsService.
+						const allProjects = yield* projects.list();
+						const project = allProjects.find((p) => p.id === projectId);
+						if (!project) {
+							return yield* Effect.fail(
+								new TerminalError({ message: `Project not found: ${projectId}` }),
+							);
+						}
+
+						// Spawn a named zellij session with the project's path as cwd.
+						yield* zellijSpawn.spawn(["zellij", "--session", id], { cwd: project.path });
+
 						const url = `${proxyBase}/${encodeURIComponent(id)}`;
 						const sess: Session = {
 							id,
