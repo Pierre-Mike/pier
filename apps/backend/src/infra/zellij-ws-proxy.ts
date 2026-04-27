@@ -187,6 +187,21 @@ const toClientFrame = (data: unknown): string | ArrayBuffer => {
 
 export const zellijWsHandlers: WebSocketHandler<ZellijWsBridge> = {
 	open(ws: ServerWebSocket<ZellijWsBridge>) {
+		// Close stale upstream for duplicate sessionId before installing new one.
+		const stale = activeBridges.get(ws.data.sessionId);
+		if (stale !== undefined) {
+			try {
+				stale.data.upstream?.close();
+			} catch {
+				// stale upstream already closed — ignore
+			}
+			bridgeLog.emit({
+				kind: "bridge:close",
+				sessionId: ws.data.sessionId,
+				reason: "stale-replaced",
+			});
+		}
+
 		// globalThis.WebSocket must be read at call time (not import time) so
 		// tests can patch it via globalThis.
 		const WS = globalThis.WebSocket;
