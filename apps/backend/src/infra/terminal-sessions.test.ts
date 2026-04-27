@@ -112,7 +112,7 @@ describe("TerminalSessionsTest (slice-1 shape preserved)", () => {
 				return yield* sessions.open("test project/with spaces");
 			}).pipe(Effect.provide(TerminalSessionsTest)),
 		);
-		expect(result.id).toBe("test_project_with_spaces");
+		expect(result.id).toBe("test_project_with_sp");
 	});
 
 	it("close is a no-op in test adapter", async () => {

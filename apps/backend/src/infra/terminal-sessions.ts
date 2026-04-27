@@ -83,7 +83,9 @@ export const makeTerminalSessionsLive = (): Layer.Layer<
 			return {
 				open: (projectId) =>
 					Effect.gen(function* () {
-						const id = projectId.replace(/[^a-zA-Z0-9_-]/g, "_");
+						// Sanitize for zellij (alnum/underscore/dash) and clamp to 20
+						// chars: zellij rejects session names beyond ~22 chars.
+						const id = projectId.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 20);
 						const existing = registry.get(id);
 						if (existing?.status === "live") return existing;
 
@@ -130,7 +132,7 @@ export const makeTerminalSessionsLive = (): Layer.Layer<
 export const TerminalSessionsTest: Layer.Layer<TerminalSessions> = Layer.succeed(TerminalSessions, {
 	open: (projectId) =>
 		Effect.succeed({
-			id: projectId.replace(/[^a-zA-Z0-9_-]/g, "_"),
+			id: projectId.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 20),
 			projectId,
 			url: `mem://${projectId}`,
 			createdAt: Date.now(),
@@ -146,11 +148,26 @@ export const makeZellijSpawnLive = (): Layer.Layer<ZellijSpawnService> =>
 	Layer.succeed(ZellijSpawn, {
 		spawn: (args, opts) =>
 			Effect.promise(async () => {
+				// zellij is a TUI and panics without a real PTY. Use Bun's terminal
+				// option to give it one, wait for the session to register, then
+				// send the default detach hotkey (Ctrl+O d) so the named session
+				// persists in the zellij server after our PTY closes.
 				const proc = Bun.spawn(args, {
 					cwd: opts.cwd,
-					stdout: "pipe",
-					stderr: "pipe",
+					terminal: {
+						cols: 80,
+						rows: 24,
+						data: () => {
+							// Discard zellij's PTY output — we only spawn to register the session.
+						},
+					},
 				});
+				await new Promise((r) => setTimeout(r, 1500));
+				proc.terminal?.write("\x0f");
+				await new Promise((r) => setTimeout(r, 100));
+				proc.terminal?.write("d");
+				await new Promise((r) => setTimeout(r, 300));
+				proc.terminal?.close();
 				await proc.exited;
 			}),
 	});
