@@ -12,7 +12,7 @@
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
-import { loadSpec } from "./_lib";
+import { loadSpec, taskGates } from "./_lib";
 
 interface TaskLine {
 	index: number;
@@ -141,6 +141,31 @@ async function main(): Promise<void> {
 	}
 
 	console.log(`→ closing spec ${spec.frontmatter.id}`);
+
+	// 0. Precondition: all per-task sentinels must exist (slice-RED model).
+	// For backward compatibility, a bare .gate-frozen (old model) satisfies
+	// this check — treat it as "all slices frozen."
+	const slices = taskGates(specDir);
+	const legacySentinel = join(specDir, ".gate-frozen");
+	if (slices.length > 0) {
+		const missingSentinels: number[] = [];
+		for (const slice of slices) {
+			if (!slice.frozen) {
+				missingSentinels.push(slice.taskIndex);
+			}
+		}
+		if (missingSentinels.length > 0) {
+			console.error(
+				`✖ missing .gate-frozen-<N> sentinel(s) for task(s): ${missingSentinels.join(", ")}`,
+			);
+			console.error("  All slices must be judged and frozen before spec:complete can run.");
+			process.exit(1);
+		}
+	} else if (!existsSync(legacySentinel)) {
+		// No per-task gates and no legacy sentinel — spec was never judged
+		console.error("✖ spec has no frozen gate sentinels. Refusing to close.");
+		process.exit(1);
+	}
 
 	// 1. Gate must be green
 	console.log("\n[1/4] verifying gate…");
