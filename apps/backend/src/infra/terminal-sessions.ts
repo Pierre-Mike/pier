@@ -3,15 +3,10 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Context, Data, Effect, Layer } from "effect";
 
-// Zellij session names must be ≤ ~20 chars. Sanitize the projectId, take the
-// first 16 chars, and append a 3-char hex digest of the full projectId so two
-// projects whose names share a 16-char prefix don't alias to the same session.
-const sanitizeSessionId = (projectId: string): string => {
-	const cleaned = projectId.replace(/[^a-zA-Z0-9_-]/g, "_");
-	const prefix = cleaned.slice(0, 16);
-	const suffix = createHash("sha1").update(projectId).digest("hex").slice(0, 3);
-	return `${prefix}_${suffix}`;
-};
+// Zellij session names must be ≤ ~20 chars and alnum-ish. Hash the projectId
+// to a 12-char hex digest — short, unique, and can't collide.
+const sanitizeSessionId = (projectId: string): string =>
+	`p${createHash("sha1").update(projectId).digest("hex").slice(0, 12)}`;
 
 import { ConfigService } from "./config.ts";
 import { ProjectsService } from "./projects.ts";
