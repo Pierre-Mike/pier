@@ -2,27 +2,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { store } from "./state.ts";
 
 describe("default session integration", () => {
-	let originalFetch: typeof globalThis.fetch;
-
 	beforeEach(() => {
-		originalFetch = globalThis.fetch;
-		globalThis.fetch = mock(async (input: string | URL | Request) => {
-			const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-			if (url.includes("/api/sessions/default")) {
-				return new Response(
-					JSON.stringify({
-						id: "default",
-						projectId: "",
-						url: "http://127.0.0.1:3000/zellij/default",
-						status: "live",
-						createdAt: Date.now(),
-					}),
-					{ status: 200, headers: { "Content-Type": "application/json" } },
-				);
-			}
-			return new Response("Not Found", { status: 404 });
-		}) as unknown as typeof globalThis.fetch;
-
 		store.sessions.clear();
 		store.activeProject = null;
 
@@ -43,12 +23,12 @@ describe("default session integration", () => {
 	});
 
 	afterEach(() => {
-		globalThis.fetch = originalFetch;
+		store.sessions.clear();
+		store.activeProject = null;
 	});
 
-	test("selectDefaultSession sets activeProject to __default__ and stores session", async () => {
-		const res = await fetch("/api/sessions/default", { method: "POST" });
-		const info = (await res.json()) as { url: string; id: string };
+	test("selectDefaultSession sets activeProject to __default__ and stores session", () => {
+		const info = { url: "http://127.0.0.1:3000/zellij/default", id: "default" };
 
 		store.sessions.set("__default__", { url: info.url, sessionId: info.id });
 		store.activeProject = "__default__";
@@ -114,9 +94,8 @@ describe("default session integration", () => {
 		expect(storedActiveProject).toBe("__default__");
 	});
 
-	test("default button click flow: fetch -> store -> setActive -> persist", async () => {
-		const res = await fetch("/api/sessions/default", { method: "POST" });
-		const info = (await res.json()) as { url: string; id: string };
+	test("default button click flow: store -> setActive -> persist", () => {
+		const info = { url: "http://127.0.0.1:3000/zellij/default", id: "default" };
 
 		store.sessions.set("__default__", { url: info.url, sessionId: info.id });
 		store.activeProject = "__default__";
