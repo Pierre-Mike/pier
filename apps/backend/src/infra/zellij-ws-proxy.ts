@@ -7,7 +7,7 @@
  * Lives in infra/ because Hono cannot mount Bun WebSocket handlers — the
  * upgrade has to happen at the Bun.serve layer (see main.ts).
  */
-import type { Server, ServerWebSocket } from "bun";
+import type { Server, ServerWebSocket, WebSocketHandler } from "bun";
 import { clearZellijCookie, ensureZellijWeb, getZellijCookie } from "./zellij-auth.ts";
 
 // ---------------------------------------------------------------------------
@@ -55,18 +55,6 @@ export interface ZellijWsBridge {
 	upBuffer: Array<string | ArrayBuffer | Uint8Array>;
 	sessionId: string;
 }
-
-// Narrowed handler shape — Bun's WebSocketHandler types `close` as
-// `(ws, code, reason) => void` and has no `error` slot. We expose a concrete
-// single-arg shape so tests can invoke handlers directly, and we include
-// `error` because the upstream-error path is unit-tested even though Bun
-// itself never calls a handler named `.error`.
-export type ZellijWsHandlers = {
-	open: (ws: ServerWebSocket<ZellijWsBridge>) => void;
-	message: (ws: ServerWebSocket<ZellijWsBridge>, msg: string | Buffer) => void;
-	close: (ws: ServerWebSocket<ZellijWsBridge>) => void;
-	error: (ws: ServerWebSocket<ZellijWsBridge>, err: Error) => void;
-};
 
 // ---------------------------------------------------------------------------
 // Auth dependencies (injectable for testing)
@@ -197,7 +185,7 @@ const toClientFrame = (data: unknown): string | ArrayBuffer => {
 // WS handlers
 // ---------------------------------------------------------------------------
 
-export const zellijWsHandlers: ZellijWsHandlers = {
+export const zellijWsHandlers: WebSocketHandler<ZellijWsBridge> = {
 	open(ws: ServerWebSocket<ZellijWsBridge>) {
 		// Close stale upstream for duplicate sessionId before installing new one.
 		const stale = activeBridges.get(ws.data.sessionId);
@@ -215,11 +203,9 @@ export const zellijWsHandlers: ZellijWsHandlers = {
 		}
 
 		// globalThis.WebSocket must be read at call time (not import time) so
-		// tests can patch it via globalThis. tls.rejectUnauthorized=false is
-		// required because zellij web serves wss with a self-signed cert.
+		// tests can patch it via globalThis.
 		const WS = globalThis.WebSocket;
 		const upstream = new WS(ws.data.targetUrl, {
-			tls: { rejectUnauthorized: false },
 			headers: { Cookie: ws.data.cookie },
 		} as unknown as string[]) as WebSocket;
 		upstream.binaryType = "arraybuffer";

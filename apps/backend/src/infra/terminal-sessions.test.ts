@@ -26,7 +26,6 @@ import {
 	TerminalSessions,
 	TerminalSessionsTest,
 	ZellijSpawn,
-	type ZellijSpawnService,
 } from "./terminal-sessions.ts";
 
 // ---------------------------------------------------------------------------
@@ -59,7 +58,7 @@ type SpawnCall = { args: string[]; cwd: string };
 
 function makeSpawnRecorder(): {
 	calls: SpawnCall[];
-	layer: Layer.Layer<ZellijSpawnService>;
+	layer: Layer.Layer<ZellijSpawn>;
 } {
 	const calls: SpawnCall[] = [];
 	const layer = Layer.succeed(ZellijSpawn, {
@@ -78,7 +77,7 @@ function makeSpawnRecorder(): {
 
 function makeTestStack(
 	fixtures: readonly Project[],
-	spawnLayer: Layer.Layer<ZellijSpawnService>,
+	spawnLayer: Layer.Layer<ZellijSpawn>,
 ): Layer.Layer<TerminalSessions> {
 	const projectsLayer = makeProjectsServiceTest(fixtures);
 	return Layer.provide(

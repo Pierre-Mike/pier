@@ -141,16 +141,3 @@ export const TerminalSessionsTest: Layer.Layer<TerminalSessions> = Layer.succeed
 	get: () => Effect.succeed(null),
 	health: () => Effect.succeed(false),
 });
-
-export const makeZellijSpawnLive = (): Layer.Layer<ZellijSpawnService> =>
-	Layer.succeed(ZellijSpawn, {
-		spawn: (args, opts) =>
-			Effect.promise(async () => {
-				const proc = Bun.spawn(args, {
-					cwd: opts.cwd,
-					stdout: "pipe",
-					stderr: "pipe",
-				});
-				await proc.exited;
-			}),
-	});

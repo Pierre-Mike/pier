@@ -156,5 +156,4 @@ export const __resetZellijAuthForTests = (): void => {
 	cachedToken = null;
 	cachedCookie = null;
 	inflightLogin = null;
-	inflightSpawn.clear();
 };
