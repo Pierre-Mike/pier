@@ -1,17 +1,18 @@
 ---
-id: "002"
+id: '002'
 title: Open project folder in VS Code Insiders from artifact viewer
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/frontend/src/dashboard/viewer.test.ts
     level: unit
   - path: scripts/smoke-002-viewer-folder-url.ts
     level: e2e
-created: 2026-04-27
+created: 2026-04-27T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-04-27'
 ---
 
 ## Intent

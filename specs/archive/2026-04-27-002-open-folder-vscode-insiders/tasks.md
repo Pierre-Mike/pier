@@ -10,22 +10,22 @@ and `boundary`.
   `tasks-verify.ts` will fail the spec. Globs are evaluated by `Bun.Glob`
   against repo-relative POSIX paths.
 
-- [ ] 1. Author the gate test file
+- [x] 1. Author the gate test file
   - agent: main
   - depends: []
   - file_targets: [apps/frontend/src/dashboard/viewer.test.ts]
   - boundary: [apps/frontend/src/dashboard/viewer.test.ts]
-- [ ] 2. Export `vscodeFolderUrl` helper from viewer.ts
+- [x] 2. Export `vscodeFolderUrl` helper from viewer.ts
   - agent: main
   - depends: [1]
   - file_targets: [apps/frontend/src/dashboard/viewer.ts]
   - boundary: [apps/frontend/src/dashboard/viewer.ts]
-- [ ] 3. Extract and export `renderViewerHead` pure helper from viewer.ts
+- [x] 3. Extract and export `renderViewerHead` pure helper from viewer.ts
   - agent: main
   - depends: [2]
   - file_targets: [apps/frontend/src/dashboard/viewer.ts]
   - boundary: [apps/frontend/src/dashboard/viewer.ts]
-- [ ] 4. Wire `Folder ↗` anchor into viewer-head bar
+- [x] 4. Wire `Folder ↗` anchor into viewer-head bar
   - agent: main
   - depends: [3]
   - file_targets: [apps/frontend/src/dashboard/viewer.ts]
