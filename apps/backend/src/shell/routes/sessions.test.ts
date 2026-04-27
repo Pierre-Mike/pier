@@ -8,7 +8,7 @@ describe("POST /api/projects/:id/terminal", () => {
 		const res = await testApp.request("/api/projects/foo/terminal", { method: "POST" });
 		expect(res.status).toBe(200);
 		const json = (await res.json()) as { id: string };
-		expect(json.id).toBe("foo");
+		expect(json.id).toMatch(/^p[0-9a-f]{12}$/);
 	});
 });
 

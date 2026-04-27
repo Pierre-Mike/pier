@@ -102,13 +102,15 @@ const probeZellijWeb = async (zellijUrl: string): Promise<boolean> => {
 	}
 };
 
-/**
- * Ensure the local zellij web server is listening. Spawns `zellij web -d` if
- * not, then polls until reachable. Idempotent: returns immediately if already
- * up. Throws if the daemon fails to come online within ~6 seconds.
- */
-export const ensureZellijWeb = async (zellijUrl: string): Promise<void> => {
-	if (await probeZellijWeb(zellijUrl)) return;
+export interface EnsureZellijWebDeps {
+	probe: (url: string) => Promise<boolean>;
+	spawn: (url: string) => Promise<void>;
+}
+
+/** In-flight spawn promises keyed by zellijUrl — prevents double-spawn races. */
+const inflightSpawn = new Map<string, Promise<void>>();
+
+const defaultSpawn = async (zellijUrl: string): Promise<void> => {
 	const proc = Bun.spawn(["zellij", "web", "-d"], { stdout: "pipe", stderr: "pipe" });
 	await proc.exited;
 	for (let i = 0; i < 12; i++) {
@@ -118,9 +120,41 @@ export const ensureZellijWeb = async (zellijUrl: string): Promise<void> => {
 	throw new Error(`zellij web did not become reachable at ${zellijUrl}`);
 };
 
+/**
+ * Ensure the local zellij web server is listening. Spawns `zellij web -d` if
+ * not, then polls until reachable. Idempotent: returns immediately if already
+ * up. Throws if the daemon fails to come online within ~6 seconds.
+ *
+ * Accepts optional `deps` for testing: `{ probe, spawn }` replaces the real
+ * network probe and process spawn respectively.
+ */
+export const ensureZellijWeb = async (
+	zellijUrl: string,
+	deps?: EnsureZellijWebDeps,
+): Promise<void> => {
+	const probeFn = deps?.probe ?? probeZellijWeb;
+	const spawnFn = deps?.spawn ?? defaultSpawn;
+
+	if (await probeFn(zellijUrl)) return;
+
+	// Coalesce concurrent callers onto a single in-flight spawn promise.
+	const existing = inflightSpawn.get(zellijUrl);
+	if (existing !== undefined) {
+		await existing;
+		return;
+	}
+
+	const p = spawnFn(zellijUrl).finally(() => {
+		inflightSpawn.delete(zellijUrl);
+	});
+	inflightSpawn.set(zellijUrl, p);
+	await p;
+};
+
 /** Test-only: reset module state between tests. */
 export const __resetZellijAuthForTests = (): void => {
 	cachedToken = null;
 	cachedCookie = null;
 	inflightLogin = null;
+	inflightSpawn.clear();
 };
