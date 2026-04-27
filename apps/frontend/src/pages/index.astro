@@ -42,6 +42,7 @@ import Base from "../layouts/Base.astro";
 	import { wireLogsModal, renderLogs, renderLogsCards, pushLog } from "../dashboard/logs";
 	import { subscribeEvents } from "../dashboard/sse";
 	import type { ClaudeEvent } from "../dashboard/types";
+	import { wireDefaultSession } from "../dashboard/default-session";
 
 	async function init() {
 		await loadConfig();
@@ -77,6 +78,7 @@ import Base from "../layouts/Base.astro";
 
 	function wireUI() {
 		wireProjectsUI();
+		wireDefaultSession();
 		wireFileTreeUI();
 		wireTerminalRefit();
 		wireTerminalDrop();

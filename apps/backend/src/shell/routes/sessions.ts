@@ -52,10 +52,25 @@ const deleteSessionHandler = (c: Context<{ Bindings: AppBindings }>) =>
 		return new Response(null, { status: 204 });
 	}).pipe(Effect.catchAll(() => Effect.succeed(new Response(null, { status: 204 }))));
 
+const openDefaultSessionHandler = (c: Context<{ Bindings: AppBindings }>) =>
+	Effect.gen(function* () {
+		const svc = yield* TerminalSessions;
+		const session = yield* svc.openDefault();
+		return c.json(session, 200);
+	}).pipe(
+		Effect.catchAll((err) =>
+			Effect.succeed(c.json({ error: err instanceof Error ? err.message : "open failed" }, 500)),
+		),
+	);
+
 const makeDeps = () => Layer.provide(makeTerminalSessionsLive(), defaultConfigLayer);
 
 const app = new Hono<{ Bindings: AppBindings }>()
 	.post("/api/projects/:id/terminal", defineRoute({ deps: makeDeps, handler: openSessionHandler }))
+	.post(
+		"/api/sessions/default",
+		defineRoute({ deps: makeDeps, handler: openDefaultSessionHandler }),
+	)
 	.get("/api/sessions", defineRoute({ deps: makeDeps, handler: listSessionsHandler }))
 	.get("/api/sessions/:id", defineRoute({ deps: makeDeps, handler: getSessionHandler }))
 	.delete("/api/sessions/:id", defineRoute({ deps: makeDeps, handler: deleteSessionHandler }));
@@ -64,6 +79,10 @@ const testDeps = Layer.provide(TerminalSessionsTest, ConfigTest);
 
 const testApp = new Hono<{ Bindings: AppBindings }>()
 	.post("/api/projects/:id/terminal", defineRoute({ deps: testDeps, handler: openSessionHandler }))
+	.post(
+		"/api/sessions/default",
+		defineRoute({ deps: testDeps, handler: openDefaultSessionHandler }),
+	)
 	.get("/api/sessions", defineRoute({ deps: testDeps, handler: listSessionsHandler }))
 	.get("/api/sessions/:id", defineRoute({ deps: testDeps, handler: getSessionHandler }))
 	.delete("/api/sessions/:id", defineRoute({ deps: testDeps, handler: deleteSessionHandler }));

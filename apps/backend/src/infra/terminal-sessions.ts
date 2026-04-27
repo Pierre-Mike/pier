@@ -29,6 +29,7 @@ export class TerminalNotFound extends Data.TaggedError("TerminalNotFound")<{ id:
 
 export interface TerminalSessions {
 	readonly open: (projectId: string) => Effect.Effect<Session, TerminalError, never>;
+	readonly openDefault: () => Effect.Effect<Session, TerminalError, never>;
 	readonly close: (id: SessionId) => Effect.Effect<void, TerminalNotFound, never>;
 	readonly list: () => Effect.Effect<Session[], never, never>;
 	readonly get: (id: SessionId) => Effect.Effect<Session | null, never, never>;
@@ -155,6 +156,36 @@ export const makeTerminalSessionsLive = (): Layer.Layer<TerminalSessions, never,
 						yield* persist(sess);
 						return sess;
 					}),
+				openDefault: () =>
+					Effect.gen(function* () {
+						const id = "default";
+						const existing = registry.get(id);
+						if (existing?.status === "live") return existing;
+
+						const cwd = config.projectsRoot;
+
+						yield* Effect.tryPromise(() => spawnNamedSession(id, cwd)).pipe(
+							Effect.tapError((err) =>
+								Effect.sync(() => {
+									// biome-ignore lint/suspicious/noConsole: diagnostic for cwd-spawn failure
+									console.warn(`[pier] zellij session spawn failed: ${String(err)}`);
+								}),
+							),
+							Effect.orElseSucceed(() => undefined),
+						);
+
+						const url = `${proxyBase}/${encodeURIComponent(id)}`;
+						const sess: Session = {
+							id,
+							projectId: "",
+							url,
+							createdAt: Date.now(),
+							status: "live",
+						};
+						registry.set(id, sess);
+						yield* persist(sess);
+						return sess;
+					}),
 				close: (id) =>
 					Effect.gen(function* () {
 						const sess = registry.get(id);
@@ -177,6 +208,14 @@ export const TerminalSessionsTest: Layer.Layer<TerminalSessions> = Layer.succeed
 			id: sessionIdFromProjectId(projectId),
 			projectId,
 			url: `mem://${projectId}`,
+			createdAt: Date.now(),
+			status: "live",
+		}),
+	openDefault: () =>
+		Effect.succeed({
+			id: "default",
+			projectId: "",
+			url: "mem://default",
 			createdAt: Date.now(),
 			status: "live",
 		}),

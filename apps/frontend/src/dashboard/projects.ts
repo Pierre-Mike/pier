@@ -69,7 +69,7 @@ export function renderSessions(): void {
 		return;
 	}
 	section.classList.remove("hidden");
-	for (const [pid] of store.sessions) {
+	for (const [pid] of Array.from(store.sessions.entries()).filter(([id]) => id !== "__default__")) {
 		const proj = store.projects.find((p) => p.id === pid);
 		const name = proj?.name ?? pid;
 		const li = document.createElement("li");
@@ -131,7 +131,7 @@ export async function setActiveProject(id: string | null): Promise<void> {
 		await loadLogsHistory();
 	}
 
-	if (id) await refreshFiles(id);
+	if (id && id !== "__default__") await refreshFiles(id);
 }
 
 export async function closeSession(id: string): Promise<void> {
