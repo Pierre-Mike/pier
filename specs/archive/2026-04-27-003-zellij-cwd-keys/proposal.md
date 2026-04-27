@@ -1,7 +1,7 @@
 ---
 id: 003-zellij-cwd-keys
 title: Fix per-project zellij session cwd and key duplication
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/backend/src/infra/zellij-ws-proxy.test.ts
@@ -10,10 +10,11 @@ gate:
     level: unit
   - path: apps/backend/src/infra/zellij-auth.test.ts
     level: unit
-created: 2026-04-27
+created: 2026-04-27T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-04-27'
 ---
 
 ## Intent
