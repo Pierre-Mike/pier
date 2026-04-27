@@ -1,17 +1,18 @@
 ---
 id: 002-settings-popup-zellij-share
 title: Add settings popup with zellij read-only share tab
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/backend/src/infra/zellij-auth.test.ts
     level: unit
   - path: apps/backend/src/shell/routes/settings.test.ts
     level: integration
-created: 2026-04-27
+created: 2026-04-27T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-04-27'
 ---
 
 ## Intent

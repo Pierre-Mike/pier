@@ -24,13 +24,13 @@ Ordered checklist. Each task declares its `agent`, `depends`, `file_targets`,
 
 Parallel-safe siblings are marked `[P]`.
 
-- [ ] 1. Add `getZellijReadOnlyToken()` to zellij-auth infra
+- [x] 1. Add `getZellijReadOnlyToken()` to zellij-auth infra
   - agent: main
   - depends: []
   - file_targets: [apps/backend/src/infra/zellij-auth.ts, apps/backend/src/infra/zellij-auth.test.ts]
   - boundary: [apps/backend/src/infra/zellij-auth.ts, apps/backend/src/infra/zellij-auth.test.ts]
   - gate: apps/backend/src/infra/zellij-auth.test.ts
-- [ ] 2. Add settings route, wire AppType, add frontend FAB + modal
+- [x] 2. Add settings route, wire AppType, add frontend FAB + modal
   - agent: main
   - depends: [1]
   - file_targets: [apps/backend/src/shell/routes/settings.ts, apps/backend/src/shell/routes/settings.test.ts, apps/backend/src/shell/api.ts, apps/frontend/src/dashboard/settings.ts, apps/frontend/src/dashboard/SettingsModal.astro]
