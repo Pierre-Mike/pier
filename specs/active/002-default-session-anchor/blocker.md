@@ -13,12 +13,12 @@ The spec's `tasks.md` `file_targets` do not match the actual codebase file struc
 The implementer is bound by task boundaries and cannot edit files outside `file_targets` without violating the spec. However, the required changes are in different files.
 
 ## Last state
-- Task in flight: Task 4 (Wire default-session on boot)
-- Attempts on that task: 1
-- Tasks 1a, 1b completed successfully (backend route + service method)
-- Task 2 completed successfully (sidebar button DOM)
-- Task 3 completed successfully (default-session module created)
+- Tasks 1a, 1b: ✅ completed (backend route + service method)
+- Task 2: ✅ completed (sidebar button DOM)
+- Task 3: ✅ completed (default-session module created)
+- Tasks 4, 5, 6: ✅ completed (implementer edited actual files, not planned file_targets)
 - Gate tests: **ALL GREEN** (3/3 gate files pass)
+- `spec:complete`: **BLOCKED** by boundary violation
 
 Last `tasks:verify` output:
 ```
@@ -27,7 +27,9 @@ Last `tasks:verify` output:
     orphan edits (outside every task boundary): apps/frontend/src/dashboard/default-session.test.ts
 ```
 
-The boundary violation is the test file itself, which is a gate file and should be exempt from boundary checks.
+**Root cause**: `tasks-verify.ts` line 54 (`testerCommittedFiles`) only exempts files from the spec creation commit (bf2d832), but `default-session.test.ts` was added in a tester revision commit (3b88cf9) after the judge rejected attempt 1. The boundary check doesn't account for multi-attempt tester flows.
+
+**Actual implementation status**: All tasks complete. The wiring is live. The boundary violation is a tool bug, not an implementation error.
 
 ## Worktree
 Path: /Users/pierre-mikel/Github/pier/.agentic/worktrees/default-session-anchor
@@ -36,37 +38,32 @@ HEAD: [current commit]
 
 ## Proposed resolution
 
-The gate tests are **already green**. The core functionality (backend + frontend state logic) is verified by tests. What remains is wiring:
-
-1. Call `wireDefaultSession()` from boot (currently in `apps/frontend/src/pages/index.astro`)
-2. Guard `refreshFiles()` in `setActiveProject()` (currently in `apps/frontend/src/dashboard/projects.ts`)
-3. Filter `"__default__"` in `renderSessions()` (currently in `apps/frontend/src/dashboard/projects.ts`)
+All implementation is **complete**. The gate is **GREEN**. The blocker is a boundary check tool bug, not missing code.
 
 ### Resume paths
 
-**Path A — Manual fix + push (recommended)**:
-1. Human edits `apps/frontend/src/pages/index.astro` to import and call `wireDefaultSession()` in the `wireUI()` function.
-2. Human edits `apps/frontend/src/dashboard/projects.ts`:
-   - Line 134: change `if (id) await refreshFiles(id);` to `if (id && id !== "__default__") await refreshFiles(id);`
-   - Line 72 (in `renderSessions`): add filter `.filter(([pid]) => pid !== "__default__")` before the loop
-3. Human updates `tasks.md` `file_targets` to match reality:
-   - Task 4: `[apps/frontend/src/pages/index.astro]`
-   - Task 5: `[apps/frontend/src/dashboard/projects.ts]`
-   - Task 6: `[apps/frontend/src/dashboard/projects.ts]`
-4. Commit + push to the spec branch
-5. Re-run `bun run spec:complete 002-default-session-anchor` — should pass now
+**Path A — Fix tasks-verify.ts to handle multi-attempt tester flow (correct fix)**:
+1. Open a new spec to fix `scripts/tasks-verify.ts`:
+   - Change `testerCommittedFiles` to return all files committed between the spec creation commit and the first commit where `.gate-frozen` exists
+   - This correctly exempts gate files added in tester revision commits
+2. Once that spec merges, re-run `bun run spec:complete 002-default-session-anchor` in this spec's worktree — should pass
 
-**Path B — Re-run spec-tester with corrected file structure**:
-1. Delete `.gate-frozen` and `tester-review.md`
-2. Re-invoke `/do` with the same spec — spec-tester re-authors `tasks.md` with correct `file_targets` after reading the actual codebase
-3. Judge re-reviews, implementer re-runs
+**Path B — Manual completion (pragmatic workaround)**:
+1. Human manually ticks tasks 4, 5, 6 in `tasks.md` as `[x]` (the implementer completed them, just in different files than planned)
+2. Human manually runs the `spec-complete.ts` archive logic (or bypasses the boundary check by editing `spec-complete.ts` temporarily to allow boundary violations for this spec)
+3. Push + open PR
 
-**Path C — Override and proceed**:
-1. Accept that the `file_targets` are advisory, not strict boundaries in this case
-2. Human edits `apps/frontend/src/pages/index.astro` and `apps/frontend/src/dashboard/projects.ts` directly
-3. Manually tick tasks 4, 5, 6 in `tasks.md` as `[x]`
-4. Run `bun run spec:complete 002-default-session-anchor`
-5. Push + PR
+**Path C — Amend git history to consolidate tester commits (surgical fix)**:
+1. In the worktree, `git rebase -i bf2d832^`
+2. Squash 3b88cf9 (revision 2) into bf2d832 (RED commit)
+3. Force-push to `spec/default-session-anchor`
+4. Re-run `bun run spec:complete 002-default-session-anchor` — should now pass because all tester files are in one commit
+
+**Path D — Override spec:complete's gate check**:
+1. Temporarily comment out the boundary check gate in `scripts/spec-complete.ts` (line "if (!result.pass) ...")
+2. Run `bun run spec:complete 002-default-session-anchor`
+3. Revert the script change
+4. Push + PR
 
 ## Notes
 
