@@ -7,6 +7,64 @@ import { appConfig } from "./files";
 import { store } from "./state";
 import { $, escapeAttr, escapeHTML } from "./utils";
 
+/**
+ * Build the vscode-insiders://file/<abs-folder-path> URL for opening the
+ * project root folder in VS Code Insiders. Uses the bare file scheme —
+ * VS Code interprets a directory path as "open folder."
+ *
+ * Trailing slashes on projectsRoot are stripped so the resulting URL never
+ * contains a double slash. When projectsRoot is undefined the URL degrades
+ * to vscode-insiders://file/<projectId>.
+ */
+export function vscodeFolderUrl(projectsRoot: string | undefined, projectId: string): string {
+	if (!projectsRoot) return `vscode-insiders://file/${projectId}`;
+	const root = projectsRoot.replace(/\/+$/, "");
+	return `vscode-insiders://file${root}/${projectId}`;
+}
+
+/**
+ * Return the viewer-head HTML string for the given artifact. Pure: no DOM
+ * access, no network I/O, no store reads. Callable in any JS environment
+ * (e.g. smoke tests) without JSDOM or mocks.
+ *
+ * When openUrl is omitted it defaults to blobUrl (suitable for most kinds).
+ * openRepoFile passes the sandbox URL explicitly for html-kind artifacts.
+ *
+ * projectsRoot for the Folder ↗ link is resolved from appConfig (populated
+ * at runtime by loadConfig) with a fallback to PIGUY_PROJECTS_ROOT env var
+ * so the smoke gate can supply a known root without a running server.
+ */
+// biome-ignore lint/complexity/useMaxParams: viewer head requires projectId, path, name as positional args (gate-frozen smoke calls with 3 positional); openUrl and blobUrl are optional overrides
+export function renderViewerHead(
+	projectId: string,
+	path: string,
+	name: string,
+	openUrl?: string,
+	blobUrlOverride?: string,
+): string {
+	const derivedBlobUrl =
+		blobUrlOverride ??
+		`${apiBase}/api/projects/${encodeURIComponent(projectId)}/blob?path=${encodeURIComponent(path)}`;
+	const effectiveOpenUrl = openUrl ?? derivedBlobUrl;
+
+	const absPath = absoluteRepoPath(projectId, path);
+	const vscodeUrl = `vscode-insiders://file${absPath.startsWith("/") ? "" : "/"}${absPath}`;
+
+	const projectsRoot = appConfig?.projectsRoot ?? process.env["PIGUY_PROJECTS_ROOT"];
+	const folderUrl = vscodeFolderUrl(projectsRoot, projectId);
+
+	return `
+    <div class="viewer-head">
+      <strong>${escapeHTML(name)}</strong>
+      <span>· ${escapeHTML(path)}</span>
+      <span style="flex:1"></span>
+      <a href="${escapeAttr(vscodeUrl)}" title="Open in VSCode Insiders">VSCode ↗</a>
+      <a href="${escapeAttr(folderUrl)}" title="Open project folder in VSCode Insiders">Folder ↗</a>
+      <a href="${effectiveOpenUrl}" target="_blank" rel="noopener">open ↗</a>
+      <a href="${derivedBlobUrl}" download>download</a>
+    </div>`;
+}
+
 type ArtifactKind =
 	| "markdown"
 	| "mermaid"
@@ -87,17 +145,7 @@ export async function openRepoFile(path: string, name: string): Promise<void> {
 		kind === "html"
 			? `http://127.0.0.1:${appConfig?.sandboxPort ?? 5174}/repo?project=${encodeURIComponent(projectId)}&path=${encodeURIComponent(path)}`
 			: blobUrl;
-	const absPath = absoluteRepoPath(projectId, path);
-	const vscodeUrl = `vscode-insiders://file${absPath.startsWith("/") ? "" : "/"}${absPath}`;
-	const head = `
-    <div class="viewer-head">
-      <strong>${escapeHTML(name)}</strong>
-      <span>· ${escapeHTML(path)}</span>
-      <span style="flex:1"></span>
-      <a href="${escapeAttr(vscodeUrl)}" title="Open in VSCode Insiders">VSCode ↗</a>
-      <a href="${openUrl}" target="_blank" rel="noopener">open ↗</a>
-      <a href="${blobUrl}" download>download</a>
-    </div>`;
+	const head = renderViewerHead(projectId, path, name, openUrl, blobUrl);
 	viewer.className = "";
 	switch (kind) {
 		case "markdown":
