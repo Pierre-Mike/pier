@@ -14,7 +14,7 @@
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { gateEntries, listActiveSpecs, listArchivedIds, VALID_KINDS } from "./_lib";
+import { gateEntries, listActiveSpecs, listArchivedIds, taskGates, VALID_KINDS } from "./_lib";
 
 export interface ParsedTask {
 	readonly index: number;
@@ -268,6 +268,12 @@ function main(): void {
 			);
 		}
 
+		// Determine if this spec uses per-task gates (slice-RED model).
+		// When per-task gates are present, proposal-level artifact-existence and
+		// level-coverage checks are skipped — gate files are created incrementally
+		// during the slice loop and may not exist at scaffold time.
+		const hasPerTaskGates = taskGates(spec.dir).length > 0;
+
 		// gateEntries validation: invalid levels, duplicate paths, level coverage
 		let entries: { path: string; level: string }[] = [];
 		try {
@@ -276,16 +282,18 @@ function main(): void {
 			errors.push(`${spec.slug}: ${err instanceof Error ? err.message : String(err)}`);
 		}
 
-		for (const entry of entries) {
-			if (!existsSync(join(process.cwd(), entry.path))) {
-				errors.push(`${spec.slug}: gate artifact missing at ${entry.path}`);
+		if (!hasPerTaskGates) {
+			for (const entry of entries) {
+				if (!existsSync(join(process.cwd(), entry.path))) {
+					errors.push(`${spec.slug}: gate artifact missing at ${entry.path}`);
+				}
 			}
-		}
 
-		// Level coverage check for kind:code
-		const levelReport = validateGateLevels({ kind: fm.kind, entries });
-		for (const e of levelReport.errors) {
-			errors.push(`${spec.slug}: ${e}`);
+			// Level coverage check for kind:code (only when using proposal-level gates)
+			const levelReport = validateGateLevels({ kind: fm.kind, entries });
+			for (const e of levelReport.errors) {
+				errors.push(`${spec.slug}: ${e}`);
+			}
 		}
 
 		for (const dep of fm.depends_on) {
