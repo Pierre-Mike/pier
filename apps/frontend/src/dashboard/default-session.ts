@@ -10,8 +10,8 @@ export async function selectDefaultSession(): Promise<void> {
 		try {
 			const resp = await api.api.sessions.default.$post();
 			if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-			const session = await resp.json();
-			store.sessions.set("__default__", session);
+			const info = (await resp.json()) as { url: string; id: string };
+			store.sessions.set("__default__", { url: info.url, sessionId: info.id });
 		} catch (e) {
 			// biome-ignore lint/suspicious/noConsole: Error logging
 			console.error("Failed to open default session:", e);
