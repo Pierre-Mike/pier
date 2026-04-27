@@ -182,3 +182,10 @@ HEAD: <rev>
 ## Exit
 
 After Step 10 report, exit. Do not `git pull`. Do not clean the worktree (the post-merge hook does that on the user's next `git pull`).
+
+## References
+
+- `specs/constitution.md` — invariants your implementation must respect (no `any`, no `as` outside tests, colocated tests, protected paths, architecture layers).
+- `specs/_template/proposal.md`, `specs/_template/design.md`, `specs/_template/tasks.md` — canonical shapes for the spec files you read; use them to interpret intent when the tester's files are ambiguous.
+- `.claude/agents/spec-tester.md` — the role that authored the gate file; understanding its constraints clarifies what the tests intend.
+- `.claude/agents/spec-judge.md` — the role that froze the gate; `tester-review.md` contains its rubric reasoning which you should read for implementation guidance.
