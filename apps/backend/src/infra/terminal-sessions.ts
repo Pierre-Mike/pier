@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Context, Data, Effect, Layer } from "effect";
 import { ConfigService } from "./config.ts";
@@ -25,6 +25,48 @@ export interface TerminalSessions {
 }
 
 export const TerminalSessions = Context.GenericTag<TerminalSessions>("TerminalSessions");
+
+const listZellijSessions = async (): Promise<string[]> => {
+	const proc = Bun.spawn(["zellij", "list-sessions", "-s"], {
+		stdout: "pipe",
+		stderr: "pipe",
+	});
+	const out = await new Response(proc.stdout).text();
+	await proc.exited;
+	return out
+		.split("\n")
+		.map((l) => l.trim())
+		.filter(Boolean);
+};
+
+// Spawn `zellij --session <id>` in a real PTY at `cwd`, wait for the server to
+// register the session, then kill the client. The server keeps the session
+// alive across client disconnects, so the iframe can attach to it later with
+// the right working directory.
+const spawnNamedSession = async (id: string, cwd: string): Promise<void> => {
+	const existing = await listZellijSessions().catch(() => [] as string[]);
+	if (existing.some((line) => line === id || line.startsWith(`${id} `))) return;
+
+	const proc = Bun.spawn(["zellij", "--session", id], {
+		cwd,
+		terminal: {
+			cols: 80,
+			rows: 24,
+			data: () => {
+				/* discard zellij's TUI output */
+			},
+		},
+	});
+
+	for (let i = 0; i < 30; i++) {
+		await new Promise((r) => setTimeout(r, 100));
+		const lines = await listZellijSessions().catch(() => [] as string[]);
+		if (lines.some((line) => line === id || line.startsWith(`${id} `))) break;
+	}
+
+	proc.kill();
+	await proc.exited.catch(() => undefined);
+};
 
 export const makeTerminalSessionsLive = (): Layer.Layer<TerminalSessions, never, ConfigService> =>
 	Layer.effect(
@@ -56,12 +98,38 @@ export const makeTerminalSessionsLive = (): Layer.Layer<TerminalSessions, never,
 					await writeFile(registryPath, `${JSON.stringify(sess)}\n`, { flag: "a" });
 				}).pipe(Effect.orElseSucceed(() => undefined));
 
+			const resolveProjectCwd = async (projectId: string): Promise<string> => {
+				const path = join(config.projectsRoot, projectId);
+				try {
+					const s = await stat(path);
+					if (s.isDirectory()) return path;
+				} catch {
+					// fall through
+				}
+				return config.projectsRoot;
+			};
+
 			return {
 				open: (projectId) =>
 					Effect.gen(function* () {
 						const id = projectId.replace(/[^a-zA-Z0-9_-]/g, "_");
 						const existing = registry.get(id);
 						if (existing?.status === "live") return existing;
+
+						const cwd = yield* Effect.tryPromise(() => resolveProjectCwd(projectId)).pipe(
+							Effect.orElseSucceed(() => config.projectsRoot),
+						);
+
+						yield* Effect.tryPromise(() => spawnNamedSession(id, cwd)).pipe(
+							Effect.tapError((err) =>
+								Effect.sync(() => {
+									// biome-ignore lint/suspicious/noConsole: diagnostic for cwd-spawn failure
+									console.warn(`[pier] zellij session spawn failed: ${String(err)}`);
+								}),
+							),
+							Effect.orElseSucceed(() => undefined),
+						);
+
 						const url = `${proxyBase}/${encodeURIComponent(id)}`;
 						const sess: Session = {
 							id,

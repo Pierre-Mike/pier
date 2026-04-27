@@ -106,10 +106,21 @@ const probeZellijWeb = async (zellijUrl: string): Promise<boolean> => {
  * Ensure the local zellij web server is listening. Spawns `zellij web -d` if
  * not, then polls until reachable. Idempotent: returns immediately if already
  * up. Throws if the daemon fails to come online within ~6 seconds.
+ *
+ * `cwd` defaults to the user's home so lazily-created zellij sessions don't
+ * inherit pier's backend cwd. Callers (e.g. main.ts) can pass projectsRoot.
  */
-export const ensureZellijWeb = async (zellijUrl: string): Promise<void> => {
+export const ensureZellijWeb = async (
+	zellijUrl: string,
+	opts: { cwd?: string } = {},
+): Promise<void> => {
 	if (await probeZellijWeb(zellijUrl)) return;
-	const proc = Bun.spawn(["zellij", "web", "-d"], { stdout: "pipe", stderr: "pipe" });
+	const cwd = opts.cwd ?? homedir();
+	const proc = Bun.spawn(["zellij", "web", "-d"], {
+		stdout: "pipe",
+		stderr: "pipe",
+		cwd,
+	});
 	await proc.exited;
 	for (let i = 0; i < 12; i++) {
 		if (await probeZellijWeb(zellijUrl)) return;

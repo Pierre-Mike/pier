@@ -48,8 +48,8 @@ export async function verifyPostToolUse(event: ToolEvent): Promise<void> {
 	}
 
 	if (filePath.includes("/apps/backend/")) {
-		await run(["turbo", "typecheck", "--filter=backend"]);
+		await run(["bunx", "turbo", "typecheck", "--filter=backend"]);
 	} else if (filePath.includes("/apps/frontend/")) {
-		await run(["turbo", "typecheck", "--filter=frontend"]);
+		await run(["bunx", "turbo", "typecheck", "--filter=frontend"]);
 	}
 }
