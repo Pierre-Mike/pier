@@ -12,6 +12,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { ZELLIJ_SOCKET_DIR } from "./terminal-sessions.ts";
 
 const TOKEN_PATH = join(homedir(), ".config", "pier", "zellij-token");
 
@@ -33,6 +34,7 @@ const createTokenViaCli = async (): Promise<string> => {
 	const proc = Bun.spawn(["zellij", "web", "--create-token"], {
 		stdout: "pipe",
 		stderr: "pipe",
+		env: { ...process.env, ZELLIJ_SOCKET_DIR },
 	});
 	const out = await new Response(proc.stdout).text();
 	const code = await proc.exited;
@@ -120,6 +122,7 @@ export const ensureZellijWeb = async (
 		stdout: "pipe",
 		stderr: "pipe",
 		cwd,
+		env: { ...process.env, ZELLIJ_SOCKET_DIR },
 	});
 	await proc.exited;
 	for (let i = 0; i < 12; i++) {

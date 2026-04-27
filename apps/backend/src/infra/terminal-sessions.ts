@@ -4,8 +4,11 @@ import { Context, Data, Effect, Layer } from "effect";
 import { ConfigService } from "./config.ts";
 
 // Zellij names a unix socket `<socket_dir>/<version>/<name>`. macOS sun_path is
-// 104 bytes; default socket_dir (`/tmp/zellij-<uid>`) + version eats ~25, so a
-// 60-char name leaves headroom for longer uids/versions/socket dirs.
+// 104 bytes; default `$TMPDIR/zellij-<uid>` on macOS is ~62 chars, leaving too
+// little for the name. Pin to a short, stable dir so the budget is predictable.
+// Users who want their interactive `zellij` to share these sessions should
+// `export ZELLIJ_SOCKET_DIR=/tmp/z` in their shell rc.
+export const ZELLIJ_SOCKET_DIR = "/tmp/z";
 const MAX_ZELLIJ_NAME = 60;
 
 const sessionIdFromProjectId = (projectId: string): string =>
@@ -38,6 +41,7 @@ const listZellijSessions = async (): Promise<string[]> => {
 	const proc = Bun.spawn(["zellij", "list-sessions", "-s"], {
 		stdout: "pipe",
 		stderr: "pipe",
+		env: { ...process.env, ZELLIJ_SOCKET_DIR },
 	});
 	const out = await new Response(proc.stdout).text();
 	await proc.exited;
@@ -57,6 +61,7 @@ const spawnNamedSession = async (id: string, cwd: string): Promise<void> => {
 
 	const proc = Bun.spawn(["zellij", "--session", id], {
 		cwd,
+		env: { ...process.env, ZELLIJ_SOCKET_DIR },
 		terminal: {
 			cols: 80,
 			rows: 24,
