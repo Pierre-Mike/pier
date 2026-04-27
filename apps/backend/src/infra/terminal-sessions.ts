@@ -1,6 +1,18 @@
+import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Context, Data, Effect, Layer } from "effect";
+
+// Zellij session names must be ≤ ~20 chars. Sanitize the projectId, take the
+// first 16 chars, and append a 3-char hex digest of the full projectId so two
+// projects whose names share a 16-char prefix don't alias to the same session.
+const sanitizeSessionId = (projectId: string): string => {
+	const cleaned = projectId.replace(/[^a-zA-Z0-9_-]/g, "_");
+	const prefix = cleaned.slice(0, 16);
+	const suffix = createHash("sha1").update(projectId).digest("hex").slice(0, 3);
+	return `${prefix}_${suffix}`;
+};
+
 import { ConfigService } from "./config.ts";
 import { ProjectsService } from "./projects.ts";
 
@@ -83,9 +95,7 @@ export const makeTerminalSessionsLive = (): Layer.Layer<
 			return {
 				open: (projectId) =>
 					Effect.gen(function* () {
-						// Sanitize for zellij (alnum/underscore/dash) and clamp to 20
-						// chars: zellij rejects session names beyond ~22 chars.
-						const id = projectId.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 20);
+						const id = sanitizeSessionId(projectId);
 						const existing = registry.get(id);
 						if (existing?.status === "live") return existing;
 
@@ -132,7 +142,7 @@ export const makeTerminalSessionsLive = (): Layer.Layer<
 export const TerminalSessionsTest: Layer.Layer<TerminalSessions> = Layer.succeed(TerminalSessions, {
 	open: (projectId) =>
 		Effect.succeed({
-			id: projectId.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 20),
+			id: sanitizeSessionId(projectId),
 			projectId,
 			url: `mem://${projectId}`,
 			createdAt: Date.now(),
