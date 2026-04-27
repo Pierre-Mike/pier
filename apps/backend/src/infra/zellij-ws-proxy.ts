@@ -15,7 +15,20 @@ export interface ZellijWsBridge {
 	targetUrl: string;
 	upstream: WebSocket | null;
 	upBuffer: Array<string | ArrayBuffer | Uint8Array>;
+	sessionId: string;
 }
+
+// One iframe (re)connect per session. A second upgrade for the same sessionId
+// — HMR, double-mount, fast re-open — leaves the prior upstream WS attached to
+// zellij's server, so every keystroke reaches the session twice and resize
+// storms garble the prompt. Close the stale bridge before installing the new.
+const activeBridges = new Map<string, ServerWebSocket<ZellijWsBridge>>();
+
+const sessionIdFromUrl = (url: URL): string => {
+	const fromQuery = url.searchParams.get("session");
+	if (fromQuery) return fromQuery;
+	return url.pathname.split("/").filter(Boolean).at(-1) ?? "";
+};
 
 const buildTargetWsUrl = (incoming: URL, zellijUrl: string): string => {
 	const target = new URL(zellijUrl);
@@ -35,7 +48,9 @@ export const handleZellijWsUpgrade = async ({
 	server: Server<ZellijWsBridge>;
 	zellijUrl: string;
 }): Promise<Response | undefined> => {
-	const targetUrl = buildTargetWsUrl(new URL(req.url), zellijUrl);
+	const incomingUrl = new URL(req.url);
+	const sessionId = sessionIdFromUrl(incomingUrl);
+	const targetUrl = buildTargetWsUrl(incomingUrl, zellijUrl);
 	let cookie: string;
 	try {
 		cookie = await getZellijCookie(zellijUrl);
@@ -59,6 +74,7 @@ export const handleZellijWsUpgrade = async ({
 		targetUrl,
 		upstream: null,
 		upBuffer: [],
+		sessionId,
 	};
 
 	const ok = server.upgrade(req, { data });
@@ -79,6 +95,27 @@ const toClientFrame = (data: unknown): string | ArrayBuffer => {
 
 export const zellijWsHandlers: WebSocketHandler<ZellijWsBridge> = {
 	open(ws: ServerWebSocket<ZellijWsBridge>) {
+		const stale = activeBridges.get(ws.data.sessionId);
+		if (stale && stale !== ws) {
+			const oldUpstream = stale.data.upstream;
+			if (oldUpstream) {
+				// Detach handlers BEFORE close so the cascade
+				// (upstream.onclose → ws.close → iframe reconnect → loop) doesn't fire.
+				// Leave the stale downstream alone; the iframe owns it.
+				oldUpstream.onclose = null;
+				oldUpstream.onerror = null;
+				oldUpstream.onmessage = null;
+				oldUpstream.onopen = null;
+				try {
+					oldUpstream.close();
+				} catch {
+					// already closed — ignore
+				}
+				stale.data.upstream = null;
+			}
+		}
+		activeBridges.set(ws.data.sessionId, ws);
+
 		const upstream = new WebSocket(ws.data.targetUrl, {
 			tls: { rejectUnauthorized: false },
 			headers: { Cookie: ws.data.cookie },
@@ -111,6 +148,9 @@ export const zellijWsHandlers: WebSocketHandler<ZellijWsBridge> = {
 		}
 	},
 	close(ws: ServerWebSocket<ZellijWsBridge>) {
+		if (activeBridges.get(ws.data.sessionId) === ws) {
+			activeBridges.delete(ws.data.sessionId);
+		}
 		try {
 			ws.data.upstream?.close();
 		} catch {

@@ -3,6 +3,14 @@ import { join } from "node:path";
 import { Context, Data, Effect, Layer } from "effect";
 import { ConfigService } from "./config.ts";
 
+// Zellij names a unix socket `<socket_dir>/<version>/<name>`. macOS sun_path is
+// 104 bytes; default socket_dir (`/tmp/zellij-<uid>`) + version eats ~25, so a
+// 60-char name leaves headroom for longer uids/versions/socket dirs.
+const MAX_ZELLIJ_NAME = 60;
+
+const sessionIdFromProjectId = (projectId: string): string =>
+	projectId.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, MAX_ZELLIJ_NAME);
+
 export type SessionId = string;
 
 export type Session = {
@@ -112,7 +120,7 @@ export const makeTerminalSessionsLive = (): Layer.Layer<TerminalSessions, never,
 			return {
 				open: (projectId) =>
 					Effect.gen(function* () {
-						const id = projectId.replace(/[^a-zA-Z0-9_-]/g, "_");
+						const id = sessionIdFromProjectId(projectId);
 						const existing = registry.get(id);
 						if (existing?.status === "live") return existing;
 
@@ -161,7 +169,7 @@ export const makeTerminalSessionsLive = (): Layer.Layer<TerminalSessions, never,
 export const TerminalSessionsTest: Layer.Layer<TerminalSessions> = Layer.succeed(TerminalSessions, {
 	open: (projectId) =>
 		Effect.succeed({
-			id: projectId.replace(/[^a-zA-Z0-9_-]/g, "_"),
+			id: sessionIdFromProjectId(projectId),
 			projectId,
 			url: `mem://${projectId}`,
 			createdAt: Date.now(),

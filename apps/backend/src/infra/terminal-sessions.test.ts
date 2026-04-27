@@ -26,6 +26,18 @@ describe("TerminalSessionsTest", () => {
 		expect(result.id).toBe("test_project_with_spaces");
 	});
 
+	it("open truncates very long project IDs to a zellij-safe length", async () => {
+		const long = "a".repeat(120);
+		const result = await Effect.runPromise(
+			Effect.gen(function* () {
+				const sessions = yield* TerminalSessions;
+				return yield* sessions.open(long);
+			}).pipe(Effect.provide(TerminalSessionsTest)),
+		);
+		expect(result.id).toBe("a".repeat(60));
+		expect(result.projectId).toBe(long);
+	});
+
 	it("close is a no-op in test adapter", async () => {
 		await Effect.runPromise(
 			Effect.gen(function* () {
