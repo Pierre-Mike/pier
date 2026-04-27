@@ -5,9 +5,9 @@
  *   - apps/backend/wrangler.toml requires an active spec targeting it
  *   - packages/api-contract/** is auto-derived — never edit directly
  *   - specs/archive/** is immutable
- *   - A spec's per-task `gate:` path is frozen once `.gate-frozen-<N>` sentinel
- *     exists (prevents the spec-implementer from editing tests the spec-judge
- *     has already approved — closes the self-collusion loop per slice)
+ *   - A spec's `gate:` path is frozen once `.gate-frozen` sentinel exists
+ *     (prevents the spec-implementer from editing tests the spec-judge has
+ *     already approved — closes the self-collusion loop)
  *
  * Fail-closed discipline:
  *   Claude Code only treats exit code 2 as "block"; any other non-zero exit
@@ -32,78 +32,56 @@ function findRepoRoot(filePath: string, fallback: string): string {
 	}
 }
 
-/**
- * Parse the per-task gate: fields from a tasks.md body.
- * Returns an array of { taskIndex, gatePath } in task order (1-based).
- */
-function parseTaskGates(tasksMdBody: string): ReadonlyArray<{ taskIndex: number; gatePath: string }> {
-	const lines = tasksMdBody.split("\n");
-	const result: Array<{ taskIndex: number; gatePath: string }> = [];
-	let taskIndex = 0;
-	let inTask = false;
-
-	for (const line of lines) {
-		const taskMatch = line.match(/^- \[[ x]\]\s+\d+\./);
-		if (taskMatch) {
-			taskIndex += 1;
-			inTask = true;
-			continue;
-		}
-		if (inTask) {
-			const gateMatch = line.match(/^\s+-\s+gate:\s*(.+)$/);
-			if (gateMatch) {
-				const gatePath = gateMatch[1].trim();
-				if (gatePath.length > 0) {
-					result.push({ taskIndex, gatePath });
-				}
+function parseGatePaths(proposalBody: string): string[] {
+	const singleMatch = proposalBody.match(/^gate:\s*(.+)$/m);
+	if (singleMatch) {
+		const val = singleMatch[1].trim();
+		if (val.length > 0 && !val.startsWith("-")) return [val];
+	}
+	const multiMatch = proposalBody.match(/^gate:\s*\n((?:\s+-\s+.+\n?)+)/m);
+	if (multiMatch) {
+		// Support both legacy scalar list (`- path/to/foo.ts`) and typed entries
+		// (`- path: foo.ts\n    level: unit`). We only need the path values.
+		const lines = multiMatch[1].split("\n");
+		const paths: string[] = [];
+		for (const line of lines) {
+			const dashMatch = line.match(/^\s*-\s+(?:path:\s*)?(.+)$/);
+			if (dashMatch) {
+				const v = dashMatch[1].trim();
+				if (v.length > 0 && !v.startsWith("level:")) paths.push(v);
 			}
 		}
+		return paths;
 	}
-	return result;
+	return [];
 }
 
 /**
- * Pure function — no I/O beyond the filesystem path passed in.
- * Does NOT call process.cwd() internally.
- *
- * Searches all active specs under `repoRoot/specs/active/` for a task whose
- * `gate:` field matches `filePath`. If found, checks whether the per-slice
- * sentinel `.gate-frozen-<N>` exists in that spec's directory.
- *
- * Returns:
- *   null                         — no task gate matches filePath
- *   { taskIndex, frozen: false } — matched task N, sentinel absent
- *   { taskIndex, frozen: true }  — matched task N, sentinel present
+ * Returns the slug of the active spec whose gate is frozen AND matches
+ * `filePath`, or null if no such spec exists. The spec's `.gate-frozen`
+ * sentinel must exist in its folder for the freeze to be in effect.
  */
-export function findSliceForPath({
-	filePath,
-	repoRoot,
-}: {
-	readonly filePath: string;
-	readonly repoRoot: string;
-}): { readonly taskIndex: number; readonly frozen: boolean } | null {
+export function findFrozenGateForPath(
+	cwd: string,
+	filePath: string,
+): { slug: string; gatePath: string } | null {
+	const repoRoot = findRepoRoot(filePath, cwd);
 	const activeDir = join(repoRoot, "specs", "active");
 	if (!existsSync(activeDir)) return null;
-
 	const absTarget = isAbsolute(filePath) ? filePath : resolve(repoRoot, filePath);
 	const relTarget = absTarget.startsWith(`${repoRoot}/`)
 		? absTarget.slice(repoRoot.length + 1)
 		: absTarget;
-
 	for (const slug of readdirSync(activeDir)) {
 		if (slug.startsWith("_") || slug.startsWith(".")) continue;
 		const specDir = join(activeDir, slug);
-		const tasksPath = join(specDir, "tasks.md");
-		if (!existsSync(tasksPath)) continue;
-
-		const tasksMdBody = readFileSync(tasksPath, "utf-8");
-		const taskGates = parseTaskGates(tasksMdBody);
-
-		for (const { taskIndex, gatePath } of taskGates) {
+		const proposal = join(specDir, "proposal.md");
+		const frozen = join(specDir, ".gate-frozen");
+		if (!existsSync(proposal) || !existsSync(frozen)) continue;
+		const body = readFileSync(proposal, "utf-8");
+		for (const gatePath of parseGatePaths(body)) {
 			if (gatePath === relTarget || gatePath === absTarget) {
-				const sentinel = join(specDir, `.gate-frozen-${taskIndex}`);
-				const frozen = existsSync(sentinel);
-				return { taskIndex, frozen };
+				return { slug, gatePath };
 			}
 		}
 	}
@@ -114,12 +92,11 @@ function enforce(event: ToolEvent): void {
 	const filePath = event.tool_input.file_path as string | undefined;
 	if (!filePath) return;
 
-	const repoRoot = findRepoRoot(filePath, event.cwd);
-	const slice = findSliceForPath({ filePath, repoRoot });
-	if (slice?.frozen) {
+	const frozen = findFrozenGateForPath(event.cwd, filePath);
+	if (frozen) {
 		block(
 			event,
-			`spec gate for task ${slice.taskIndex} is frozen (.gate-frozen-${slice.taskIndex} exists); edits to this gate path are not allowed.`,
+			`spec ${frozen.slug} gate is frozen; edits to ${frozen.gatePath} are not allowed until the spec is archived or specs/active/${frozen.slug}/.gate-frozen is manually removed.`,
 			filePath,
 		);
 	}

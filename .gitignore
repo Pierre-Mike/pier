@@ -10,4 +10,3 @@ dist/
 .harness-loop/
 .agentic/
 .claude/traces/
-.claude/dashboard.html

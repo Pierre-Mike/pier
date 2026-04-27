@@ -11,8 +11,6 @@ gate:
     level: e2e
 # For non-code kinds, scalar (legacy) is accepted:
 #   gate: path/to/gate/artifact
-# Note: each task in tasks.md also declares a per-task gate: field (slice-RED model).
-# The proposal-level gate: summarises all slice gates. See specs/constitution.md §4.
 created: YYYY-MM-DD
 owner: main
 depends_on: []

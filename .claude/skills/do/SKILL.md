@@ -49,65 +49,52 @@ The rest of `/do` runs as three serial subagent roles, orchestrated by the main 
 
 | Role | Agent | Model | Reads | Writes | Exits on |
 |---|---|---|---|---|---|
-| spec-tester | `spec-tester` | sonnet | proposal/design/tasks + tester-review-N.md (retry) | spec folder + one gate file | RED commit for slice N |
-| spec-judge | `spec-judge` | opus | proposal.md + slice N gate file ONLY | tester-review-N.md, .gate-frozen-N (PASS) | verdict written |
-| spec-implementer | `spec-implementer` | sonnet | proposal + design + frozen gate + review | everything except frozen gate paths | Step 10 report |
+| spec-tester | `spec-tester` | sonnet | proposal/design/tasks + tester-review.md (retry) | spec folder + gate files | RED commit |
+| spec-judge | `spec-judge` | opus | proposal.md + gate files ONLY | tester-review.md, .gate-frozen (PASS) | verdict written |
+| spec-implementer | `spec-implementer` | sonnet | proposal + design + frozen gate + review | everything except gate paths | Step 10 report |
 
 **Dispatch chain** (by kind):
 
 ```
-code                              →  scaffold → per-slice: (tester → judge → implementer) × N
-rule | workflow | writeup         →  tester → implementer  (skip judge, skip .gate-frozen-N)
+code                              →  tester → judge (retry cap 3) → implementer
+rule | workflow | writeup         →  tester → implementer  (skip judge, skip .gate-frozen)
 ```
 
 The self-collusion gate matters only when a single agent writes BOTH the test and the production code that passes it — i.e. `kind: code`. For `rule` (lint rule + fixture), `workflow` (smoke script), and `writeup` (markdown sections), the gate is a fixture/script/section-shape check; test-implementation coupling is minimal, so the judge would add subagent token cost for near-zero safety gain.
 
-**Main-session pseudocode** (for `kind: code`):
+**Main-session pseudocode**:
 
 ```
 const spec_dir = `specs/active/${id}-${slug}`
 
-// Step 5: scaffold (no gate files yet)
-dispatch spec-tester with aligned-plan handoff, mode: "scaffold-only"
-await completion  // produces proposal.md, design.md, tasks.md — no gate files
-
 if kind !== "code":
-  dispatch spec-tester with aligned-plan handoff, mode: "full"
+  dispatch spec-tester with aligned-plan handoff
   await completion
   dispatch spec-implementer
   await completion
-  return  // no judge for rule/workflow/writeup
+  return  // no judge for rule/workflow/writeup; the fixture/script/prose IS the deliverable
 
-// Step 6: per-slice loop
-const tasks = parse_tasks(`${spec_dir}/tasks.md`)
+attempt = 1
+review_brief = null
+while attempt <= 3:
+  dispatch spec-tester (attempt, review_brief)
+  await completion
+  dispatch spec-judge (attempt)
+  await completion
+  if exists(`${spec_dir}/.gate-frozen`):
+    break  // judge passed
+  review_brief = read(`${spec_dir}/tester-review.md`)
+  attempt += 1
 
-for slice_index, task of tasks.entries():
-  N = slice_index + 1  // 1-based
-
-  // Tester phase: author gate file for slice N
-  attempt = 1
-  review_brief = null
-  while attempt <= 3:
-    dispatch spec-tester (slice: N, attempt, review_brief)
-    await completion
-    dispatch spec-judge (slice: N, attempt)
-    await completion
-    if exists(`${spec_dir}/.gate-frozen-${N}`):
-      break  // judge passed slice N
-    review_brief = read(`${spec_dir}/tester-review-${N}.md`)
-    attempt += 1
-
-  if not exists(`${spec_dir}/.gate-frozen-${N}`):
-    // judge rejected all 3 tester attempts for this slice
-    judge_rejected = true
-    // Fall through to Step 8 with --draft
-    break  // exit the slice loop
-
-  // Implementer phase: make slice N green
-  dispatch spec-implementer (slice: N)
-  await completion  // implementer makes slice N gate pass; exits when tasks:verify is green
-
-// After all slices: implementer handles Steps 7–10 in its final dispatch
+if not exists(`${spec_dir}/.gate-frozen`):
+  // judge rejected all 3 tester attempts. tester-review.md has the
+  // ESCALATION header prepended. Fall through to Step 8 with --draft
+  // so the human reviews tester-review.md inside a normal PR view.
+  judge_rejected = true
+else:
+  judge_rejected = false
+  dispatch spec-implementer
+  await completion  // implementer prints Step 10 report itself
 ```
 
 **Dispatch mechanics**: each role is a subagent defined in `.claude/agents/<name>.md`. Invoke via:
@@ -116,8 +103,8 @@ for slice_index, task of tasks.entries():
 Agent({
   subagent_type: "spec-tester" | "spec-judge" | "spec-implementer",
   run_in_background: true,
-  description: "do/<slug>: <role> slice <N>",
-  prompt: <self-contained handoff — aligned plan + worktree path + slice index + current attempt + review brief if any>,
+  description: "do/<slug>: <role>",
+  prompt: <self-contained handoff — aligned plan + worktree path + current attempt + review brief if any>,
 })
 ```
 
@@ -126,14 +113,13 @@ The handoff prompt for each dispatch must be fully self-contained — the subage
 - **Spec fields** — `title`, `kind`, `gate`, `depends_on` (from Step 2)
 - **Aligned plan** — copy-paste the confirmed Goal + Big Picture + Straightforward Details + Non-obvious Decisions text from the align interview, verbatim. Do not summarise.
 - **Worktree path** — absolute path to `.agentic/worktrees/<slug>`
-- **Slice context** — current slice index N, the task's `gate:` path, and the task title
-- **For spec-tester retries** — include the current `tester-review-<N>.md` as a revision brief
-- **For spec-implementer** — note which slices are frozen; the hook will enforce
+- **For spec-tester retries** — include the current `tester-review.md` as a revision brief
+- **For spec-implementer** — note that the gate is frozen; the hook will enforce
 - **Termination** — "exit after <role-specific exit condition>. Do not `git pull`. Do not touch `main`."
 
 After the main session's orchestration loop ends, the final subagent's exit notification lands in the transcript. The main session prints the Step 10 report based on the status observed (complete / paused). Relay the report to the user verbatim.
 
-The steps below are executed by the subagents. Step 5 lives in spec-tester (scaffold-only); Step 6 lives in spec-tester (per-slice gate) + spec-judge (per-slice verdict) + spec-implementer (per-slice implementation).
+The steps below are executed by the subagents. Step 5 lives in spec-tester; Step 6 lives in spec-implementer.
 
 ### Step 3 — Allocate ID and slug
 
@@ -149,43 +135,37 @@ bun scripts/worktree-open.ts <slug>
 
 Script creates `.agentic/worktrees/<slug>/` on branch `spec/<slug>` from `main`. All subsequent edits use absolute paths under that directory.
 
-### Step 5 — Author the spec scaffold (no gate files yet)
+### Step 5 — Author the spec (RED)
 
-Inside the worktree, write the scaffold in this order. `proposal.md` comes first because the pre-tool-use write guard only allows edits to protected paths (`apps/backend/wrangler.toml`, frozen gate paths) once an active spec targets them.
+Inside the worktree, write in this order. `proposal.md` comes first because the pre-tool-use write guard only allows edits to protected paths (`apps/backend/wrangler.toml`, gate paths once frozen) once an active spec targets them.
 
 **5a. `proposal.md`** — based on `specs/_template/proposal.md`. Fill frontmatter (id, title, status=active, kind, gate, created, owner=main, depends_on, supersedes=null). Body: Intent, Constraints, Acceptance criteria (as `- [ ]`), Context.
 
-**5b. `design.md`** — Approach, Files touched, Decisions, Out of scope. Skip empty sections.
+**5b. Gate artifact (RED)** — failing test file / empty writeup / not-yet-implemented rule / exit-1 smoke. See `specs/constitution.md` §4 for per-kind details.
 
-**5c. `tasks.md`** — ordered, typed. Each task declares `agent: main`, `depends: []`, `file_targets: [...]`, `boundary: [...]`, `gate: <path>`. The `gate:` field names the single gate file this task's slice will use. Mark `[P]` on parallel-safe siblings.
+**5c. `design.md`** — Approach, Files touched, Decisions, Out of scope. Skip empty sections.
 
-Do NOT write gate files at this step. Gate files are created per-slice in Step 6.
+**5d. `tasks.md`** — ordered, typed. Each task declares `agent: main`, `depends: []`, `file_targets: [...]`, `boundary: [...]`. Mark `[P]` on parallel-safe siblings.
 
 Validate inside the worktree:
 ```bash
 cd .agentic/worktrees/<slug>
-bun run spec:lint       # must pass (scaffold shape is valid)
-bun run tasks:verify   # must pass (no slices frozen → no gates enforced)
+bun run spec:lint
+bun run tasks:verify   # expected to fail — RED is correct
 ```
 
-Commit the scaffold on the spec branch:
+Commit the RED state on the spec branch:
 ```bash
 git add -A
-git commit -m "spec(<id>): scaffold — <title>"
+git commit -m "spec(<id>): RED — <title>"
 ```
 
-### Step 6 — Slice loop (tester → judge → implementer, per task)
+### Step 6 — Work the spec
 
-For each task slice N (1-based):
-
-**Tester phase** — spec-tester authors the gate file for slice N in RED form, commits `spec(<id>): RED — slice <N>`, exits.
-
-**Judge phase** — spec-judge reviews the gate file for slice N against proposal.md intent, writes `tester-review-<N>.md`, and on PASS touches `.gate-frozen-<N>`. On FAIL, spec-tester revises (retry cap 3 per slice). If all 3 attempts fail for a slice, the slice loop terminates with judge-rejected escalation.
-
-**Implementer phase** — spec-implementer makes the frozen gate for slice N pass. The implementer's loop:
+Loop, inside the worktree:
 
 ```
-while tasks remain in current slice (or next slices if their gates are now also frozen):
+while tasks remain unchecked:
   pick the next ready task (depends satisfied)
   edit each file in file_targets (non-deterministic step)
   run: bun run tasks:verify
@@ -197,8 +177,6 @@ while tasks remain in current slice (or next slices if their gates are now also 
 Edit only files listed in the current task's `file_targets`. Respect `specs/constitution.md` — no `any`, no `as` outside tests, colocated tests, FCIS layering, protected paths.
 
 Do not tick `- [x]` yourself. `spec-complete` does that from git truth.
-
-When all slices are green and all sentinels exist, the implementer calls `spec:complete` (Step 7).
 
 ### Step 7 — Close the spec
 
