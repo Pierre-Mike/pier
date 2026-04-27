@@ -118,9 +118,61 @@ export const ensureZellijWeb = async (zellijUrl: string): Promise<void> => {
 	throw new Error(`zellij web did not become reachable at ${zellijUrl}`);
 };
 
+const RO_TOKEN_PATH = join(homedir(), ".config", "pier", "zellij-readonly-token");
+
+let cachedReadOnlyToken: string | null = null;
+let inflightReadOnlyMint: Promise<string> | null = null;
+
+const readReadOnlyTokenFromDisk = async (): Promise<string | null> => {
+	try {
+		const raw = await readFile(RO_TOKEN_PATH, "utf8");
+		const trimmed = raw.trim();
+		return trimmed.length > 0 ? trimmed : null;
+	} catch {
+		return null;
+	}
+};
+
+const mintReadOnlyTokenViaCli = async (): Promise<string> => {
+	const proc = Bun.spawn(["zellij", "web", "--create-read-only-token"], {
+		stdout: "pipe",
+		stderr: "pipe",
+	});
+	const out = await new Response(proc.stdout).text();
+	const code = await proc.exited;
+	if (code !== 0) {
+		const err = await new Response(proc.stderr).text();
+		throw new Error(`zellij --create-read-only-token failed (${code}): ${err.trim()}`);
+	}
+	const match = out.match(/^token_\d+:\s*(\S+)/m);
+	if (!match) throw new Error(`unrecognized zellij token output: ${out.trim()}`);
+	const tokenValue = match[1];
+	if (!tokenValue) throw new Error(`empty token captured from: ${out.trim()}`);
+	const token = tokenValue.trim();
+	await mkdir(join(RO_TOKEN_PATH, ".."), { recursive: true });
+	await writeFile(RO_TOKEN_PATH, `${token}\n`, { mode: 0o600 });
+	return token;
+};
+
+export const getZellijReadOnlyToken = async (): Promise<string> => {
+	if (cachedReadOnlyToken) return cachedReadOnlyToken;
+	if (!inflightReadOnlyMint) {
+		inflightReadOnlyMint = (async () => {
+			const fromDisk = await readReadOnlyTokenFromDisk();
+			return fromDisk ?? (await mintReadOnlyTokenViaCli());
+		})().finally(() => {
+			inflightReadOnlyMint = null;
+		});
+	}
+	cachedReadOnlyToken = await inflightReadOnlyMint;
+	return cachedReadOnlyToken;
+};
+
 /** Test-only: reset module state between tests. */
 export const __resetZellijAuthForTests = (): void => {
 	cachedToken = null;
 	cachedCookie = null;
 	inflightLogin = null;
+	cachedReadOnlyToken = null;
+	inflightReadOnlyMint = null;
 };
