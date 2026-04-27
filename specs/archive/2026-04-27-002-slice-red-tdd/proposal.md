@@ -1,17 +1,18 @@
 ---
-id: "002"
+id: '002'
 title: Convert /do from batch-RED to slice-RED TDD
-status: active
+status: archived
 kind: code
 gate:
   - path: .claude/hooks/enforce.test.ts
     level: unit
   - path: scripts/smoke-slice-tdd.ts
     level: e2e
-created: 2026-04-27
+created: 2026-04-27T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-04-27'
 ---
 
 ## Intent
