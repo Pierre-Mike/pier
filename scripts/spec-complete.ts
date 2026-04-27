@@ -10,8 +10,9 @@
  * No LLM, no guessing. Refuses on any precondition failure and prints why.
  */
 
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
+import matter from "gray-matter";
 import { loadSpec, taskGates } from "./_lib";
 
 interface TaskLine {
@@ -20,6 +21,10 @@ interface TaskLine {
 	checked: boolean;
 	title: string;
 	file_targets: string[];
+	/** Ordinal task number (1-based), extracted from heading like "3." or "2a." */
+	ordinal: number | undefined;
+	/** Per-task gate path (slice-RED model) */
+	gate: string | undefined;
 }
 
 const REPO_ROOT = process.cwd();
@@ -72,12 +77,16 @@ function parseTasks(tasksMdPath: string): TaskLine[] {
 		const taskMatch = line.match(/^- \[( |x)\]\s+(.+)$/);
 		if (taskMatch) {
 			if (current) tasks.push(current);
+			const titleFull = taskMatch[2] ?? "";
+			const ordinalMatch = titleFull.match(/^(\d+)[a-z]*\./);
 			current = {
 				index: i,
 				raw: line,
 				checked: taskMatch[1] === "x",
-				title: taskMatch[2] ?? "",
+				title: titleFull,
 				file_targets: [],
+				ordinal: ordinalMatch ? parseInt(ordinalMatch[1] ?? "0", 10) : undefined,
+				gate: undefined,
 			};
 			continue;
 		}
@@ -88,6 +97,11 @@ function parseTasks(tasksMdPath: string): TaskLine[] {
 					.split(",")
 					.map((s) => s.trim().replace(/^["']|["']$/g, ""))
 					.filter(Boolean);
+				continue;
+			}
+			const gm = line.match(/^\s+-\s+gate:\s*(.+)$/);
+			if (gm) {
+				current.gate = gm[1].trim();
 			}
 		}
 	}
@@ -169,7 +183,8 @@ async function main(): Promise<void> {
 
 	// 1. Gate must be green
 	console.log("\n[1/4] verifying gate…");
-	const verify = await sh(["bun", "scripts/tasks-verify.ts"]);
+	const tasksVerifyScript = join(import.meta.dir, "tasks-verify.ts");
+	const verify = await sh(["bun", tasksVerifyScript]);
 	if (!verify.ok) {
 		console.error("✖ gate is not green. Refusing to close.");
 		process.exit(1);
@@ -185,6 +200,19 @@ async function main(): Promise<void> {
 
 	for (const task of tasks) {
 		if (task.checked) continue;
+
+		// Slice-RED: tick a task if its per-slice sentinel exists (gate was judged and is now green).
+		if (task.gate !== undefined && task.ordinal !== undefined) {
+			const sentinel = join(specDir, `.gate-frozen-${task.ordinal}`);
+			if (existsSync(sentinel)) {
+				lines[task.index] = rewriteTaskLine(task.raw);
+				anyTicked = true;
+				console.log(`  [tick] ${task.title.slice(0, 60)} (slice sentinel present)`);
+				continue;
+			}
+		}
+
+		// Legacy / file-targets path: tick when all file_targets exist and are modified since spec creation.
 		if (task.file_targets.length === 0) {
 			console.log(`  [skip] task "${task.title.slice(0, 60)}" — no file_targets declared`);
 			continue;
@@ -214,13 +242,27 @@ async function main(): Promise<void> {
 		process.exit(1);
 	}
 
-	// 3. Archive via the existing deterministic script
+	// 3. Archive the spec directory
 	console.log("\n[3/4] archiving…");
-	const archive = await sh(["bun", "scripts/spec-archive.ts", slug]);
-	if (!archive.ok) {
-		console.error("✖ archive step refused. See above.");
-		process.exit(1);
+	const today = new Date().toISOString().slice(0, 10);
+	const archiveParent = join(REPO_ROOT, "specs", "archive");
+	if (!existsSync(archiveParent)) {
+		// Ensure archive dir exists (may not in smoke repos)
+		const { mkdirSync } = await import("node:fs");
+		mkdirSync(archiveParent, { recursive: true });
 	}
+	const archiveDest = join(archiveParent, `${today}-${slug}`);
+	renameSync(specDir, archiveDest);
+
+	// Update proposal.md status to "archived"
+	const proposalInArchive = join(archiveDest, "proposal.md");
+	const rawProposal = readFileSync(proposalInArchive, "utf-8");
+	const parsed = matter(rawProposal);
+	parsed.data.status = "archived";
+	parsed.data.archived = today;
+	writeFileSync(proposalInArchive, matter.stringify(parsed.content, parsed.data));
+
+	console.log(`✓ archived ${slug} → specs/archive/${today}-${slug}`);
 
 	// 4. Commit the archive move
 	console.log("\n[4/4] committing…");
