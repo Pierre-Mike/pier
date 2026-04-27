@@ -1,7 +1,7 @@
 ---
 id: 002-default-session-anchor
 title: Add default-session anchor button to sidebar
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/backend/src/infra/terminal-sessions.default.test.ts
@@ -10,10 +10,11 @@ gate:
     level: integration
   - path: apps/frontend/src/dashboard/default-session.test.ts
     level: e2e
-created: 2026-04-27
+created: 2026-04-27T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-04-27'
 ---
 
 ## Intent
