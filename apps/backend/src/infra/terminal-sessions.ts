@@ -1,15 +1,7 @@
-import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Context, Data, Effect, Layer } from "effect";
-
-// Zellij session names must be ≤ ~20 chars and alnum-ish. Hash the projectId
-// to a 12-char hex digest — short, unique, and can't collide.
-const sanitizeSessionId = (projectId: string): string =>
-	`p${createHash("sha1").update(projectId).digest("hex").slice(0, 12)}`;
-
 import { ConfigService } from "./config.ts";
-import { ProjectsService } from "./projects.ts";
 
 export type SessionId = string;
 
@@ -34,78 +26,42 @@ export interface TerminalSessions {
 
 export const TerminalSessions = Context.GenericTag<TerminalSessions>("TerminalSessions");
 
-export interface ZellijSpawnService {
-	readonly spawn: (args: string[], opts: { cwd: string }) => Effect.Effect<void, never, never>;
-}
-
-export const ZellijSpawn = Context.GenericTag<ZellijSpawnService>("ZellijSpawn");
-
-export const makeTerminalSessionsLive = (): Layer.Layer<
-	TerminalSessions,
-	never,
-	ProjectsService | ZellijSpawnService
-> =>
+export const makeTerminalSessionsLive = (): Layer.Layer<TerminalSessions, never, ConfigService> =>
 	Layer.effect(
 		TerminalSessions,
 		Effect.gen(function* () {
-			const maybeCfg = yield* Effect.serviceOption(ConfigService);
+			const cfg = yield* ConfigService;
+			const config = yield* cfg.get();
+			const registryPath = join(config.piRoot, "sessions.jsonl");
+			// URLs point at pier's own /zellij/* reverse proxy, not directly at
+			// the zellij web server — the proxy strips X-Frame-Options and
+			// handles auth so the iframe loads transparently.
+			const proxyBase = `http://127.0.0.1:${config.appPort}/zellij`;
 			const registry = new Map<SessionId, Session>();
-			const projects = yield* ProjectsService;
-			const zellijSpawn = yield* ZellijSpawn;
 
-			// Config is only needed for registry persistence and proxy URL.
-			// When absent (e.g. in tests), skip persistence and use a placeholder URL.
-			let registryPath: string | null = null;
-			let proxyBase: string = "http://127.0.0.1:8081/zellij";
+			yield* Effect.tryPromise(async () => {
+				const data = await readFile(registryPath, "utf8");
+				for (const line of data.trim().split("\n").filter(Boolean)) {
+					const sess = JSON.parse(line) as Session;
+					// Recompute URL on load — older entries may point at the now-bypassed
+					// zellij web URL, but the URL is derived from id and the proxy base.
+					sess.url = `${proxyBase}/${encodeURIComponent(sess.id)}`;
+					registry.set(sess.id, sess);
+				}
+			}).pipe(Effect.orElseSucceed(() => undefined));
 
-			if (maybeCfg._tag === "Some") {
-				const config = yield* maybeCfg.value.get();
-				registryPath = join(config.piRoot, "sessions.jsonl");
-				proxyBase = `http://127.0.0.1:${config.appPort}/zellij`;
-			}
-
-			if (registryPath !== null) {
-				const rp = registryPath;
-				yield* Effect.tryPromise(async () => {
-					const data = await readFile(rp, "utf8");
-					for (const line of data.trim().split("\n").filter(Boolean)) {
-						const sess = JSON.parse(line) as Session;
-						// Recompute URL on load — older entries may point at the now-bypassed
-						// zellij web URL, but the URL is derived from id and the proxy base.
-						sess.url = `${proxyBase}/${encodeURIComponent(sess.id)}`;
-						registry.set(sess.id, sess);
-					}
+			const persist = (sess: Session): Effect.Effect<void, never, never> =>
+				Effect.tryPromise(async () => {
+					await mkdir(join(registryPath, ".."), { recursive: true });
+					await writeFile(registryPath, `${JSON.stringify(sess)}\n`, { flag: "a" });
 				}).pipe(Effect.orElseSucceed(() => undefined));
-			}
-
-			const persist = (sess: Session): Effect.Effect<void, never, never> => {
-				if (registryPath === null) return Effect.void;
-				const rp = registryPath;
-				return Effect.tryPromise(async () => {
-					await mkdir(join(rp, ".."), { recursive: true });
-					await writeFile(rp, `${JSON.stringify(sess)}\n`, { flag: "a" });
-				}).pipe(Effect.orElseSucceed(() => undefined));
-			};
 
 			return {
 				open: (projectId) =>
 					Effect.gen(function* () {
-						const id = sanitizeSessionId(projectId);
+						const id = projectId.replace(/[^a-zA-Z0-9_-]/g, "_");
 						const existing = registry.get(id);
 						if (existing?.status === "live") return existing;
-
-						// Resolve project path from ProjectsService.
-						const allProjects = yield* projects.list();
-						const project = allProjects.find((p) => p.id === projectId);
-						if (!project) {
-							return yield* Effect.fail(
-								new TerminalError({ message: `Project not found: ${projectId}` }),
-							);
-						}
-
-						// Spawn a named zellij session with the project's path as cwd.
-						yield* zellijSpawn.spawn(["zellij", "--session", id], { cwd: project.path });
-
 						const url = `${proxyBase}/${encodeURIComponent(id)}`;
 						const sess: Session = {
 							id,
@@ -137,7 +93,7 @@ export const makeTerminalSessionsLive = (): Layer.Layer<
 export const TerminalSessionsTest: Layer.Layer<TerminalSessions> = Layer.succeed(TerminalSessions, {
 	open: (projectId) =>
 		Effect.succeed({
-			id: sanitizeSessionId(projectId),
+			id: projectId.replace(/[^a-zA-Z0-9_-]/g, "_"),
 			projectId,
 			url: `mem://${projectId}`,
 			createdAt: Date.now(),
@@ -148,31 +104,3 @@ export const TerminalSessionsTest: Layer.Layer<TerminalSessions> = Layer.succeed
 	get: () => Effect.succeed(null),
 	health: () => Effect.succeed(false),
 });
-
-export const makeZellijSpawnLive = (): Layer.Layer<ZellijSpawnService> =>
-	Layer.succeed(ZellijSpawn, {
-		spawn: (args, opts) =>
-			Effect.promise(async () => {
-				// zellij is a TUI and panics without a real PTY. Use Bun's terminal
-				// option to give it one, wait for the session to register, then
-				// send the default detach hotkey (Ctrl+O d) so the named session
-				// persists in the zellij server after our PTY closes.
-				const proc = Bun.spawn(args, {
-					cwd: opts.cwd,
-					terminal: {
-						cols: 80,
-						rows: 24,
-						data: () => {
-							// Discard zellij's PTY output — we only spawn to register the session.
-						},
-					},
-				});
-				await new Promise((r) => setTimeout(r, 1500));
-				proc.terminal?.write("\x0f");
-				await new Promise((r) => setTimeout(r, 100));
-				proc.terminal?.write("d");
-				await new Promise((r) => setTimeout(r, 300));
-				proc.terminal?.close();
-				await proc.exited;
-			}),
-	});
