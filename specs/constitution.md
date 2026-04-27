@@ -37,7 +37,7 @@ If an axiom, rule, or transition can be checked deterministically, it MUST NOT b
 
 Every spec must declare one `kind` and at least one `gate:`. No exceptions.
 
-`kind: code` specs must use the typed list form:
+`kind: code` specs must use the typed list form in `proposal.md`:
 ```yaml
 gate:
   - path: apps/backend/src/core/foo.test.ts
@@ -47,6 +47,28 @@ gate:
 ```
 
 Other kinds accept a scalar path (legacy) or a single-entry list. The scalar form is lifted to `[{path, level: "unit"}]` internally.
+
+### Per-task gates (slice-RED model)
+
+Each task in `tasks.md` must also declare a `gate:` field naming the single gate file owned by that slice:
+
+```yaml
+- [ ] 1. First task
+  - agent: main
+  - depends: []
+  - file_targets: [src/foo.ts]
+  - boundary: [src/foo.ts]
+  - gate: src/foo.test.ts
+```
+
+Rules for per-task `gate:` fields:
+- Every task must declare exactly one `gate:` path.
+- Gate paths must be unique across all tasks in the same spec.
+- Task indices (the leading number in the task heading) must be contiguous from 1.
+
+`spec:lint` validates all three rules. `tasks:verify` enforces a task's gate only when its `.gate-frozen-<N>` sentinel exists in the spec directory (created by spec-judge on PASS). `spec:complete` requires all sentinels to exist before archiving.
+
+Bare `.gate-frozen` (no `-N` suffix) is the legacy sentinel from the batch-RED model. It is inert under the slice-RED model and will not trigger hook enforcement.
 
 ## 5. TypeScript axioms
 
