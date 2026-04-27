@@ -1,0 +1,32 @@
+# Tasks
+
+- [ ] 1a. [P] Add `openDefault()` method to TerminalSessions interface and implementations
+  - agent: main
+  - depends: []
+  - file_targets: [apps/backend/src/infra/terminal-sessions.ts]
+  - boundary: [apps/backend/src/infra/terminal-sessions.ts]
+- [ ] 1b. [P] Add POST /api/sessions/default route handler
+  - agent: main
+  - depends: []
+  - file_targets: [apps/backend/src/shell/routes/sessions.ts]
+  - boundary: [apps/backend/src/shell/routes/sessions.ts]
+- [ ] 2. Add default session button to sidebar
+  - agent: main
+  - depends: []
+  - file_targets: [apps/frontend/src/components/Sidebar.astro]
+  - boundary: [apps/frontend/src/components/Sidebar.astro]
+- [ ] 3. Create default-session module with wiring and select logic
+  - agent: main
+  - depends: []
+  - file_targets: [apps/frontend/src/dashboard/default-session.ts]
+  - boundary: [apps/frontend/src/dashboard/default-session.ts]
+- [ ] 4. Wire default-session on boot
+  - agent: main
+  - depends: [3]
+  - file_targets: [apps/frontend/src/pages/index.astro]
+  - boundary: [apps/frontend/src/pages/index.astro]
+- [ ] 5. Guard refreshFiles() for __default__ sentinel and filter __default__ from renderSessions
+  - agent: main
+  - depends: []
+  - file_targets: [apps/frontend/src/dashboard/projects.ts]
+  - boundary: [apps/frontend/src/dashboard/projects.ts]
