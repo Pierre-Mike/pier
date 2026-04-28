@@ -1,125 +1,144 @@
-# template-BPE — An Autonomous Delivery Pipeline for Solo Developers
+# pier — UI Harness for Local and Remote Agent Sessions
 
 ## What is this?
 
-A TypeScript monorepo template that turns GitHub issues into deployed features — with AI doing the implementation, review, and merge. You define the product. AI builds it.
+`pier` is an experimental web UI harness for agentic coding sessions. It takes inspiration from `pi`: the terminal remains the source of truth for agent work, but the surrounding harness can provide richer documentation, visibility, controls, and UI experiments.
 
-The template enforces strict engineering practices through tooling, not prompts. Every rule has a corresponding CI gate, linter rule, or architectural constraint. If a rule can't be enforced by a tool, it doesn't exist.
+The goal is not to replace the CLI. The goal is to make CLI-driven agents easier to observe, steer, and extend through a browser-based workspace that can sit beside the terminal locally or be accessed remotely.
 
-## Who is it for?
+## Problem Statement
 
-Solo developers who want a production-ready starting point they can use as-is. Clone it, define your domain, and let AI ship features to Cloudflare while you focus on what the product should do — not how to build it.
+Agentic coding tools are powerful, but their default interface is often too narrow:
+
+- Important session context is spread across terminals, JSONL logs, generated artifacts, git state, and editor windows.
+- Running multiple agents or sessions makes it hard to see what is active, what changed, and where attention is needed.
+- UI experimentation around agents is difficult because most harnesses are terminal-first and not designed to expose state to a richer interface.
+- Remote access is awkward: a session may be running on one machine, while the human wants to monitor or interact with it from another.
+- Generated artifacts, pop-ups, notifications, review surfaces, and session dashboards need a place to live outside the terminal.
+
+`pier` exists to turn the agent harness into an observable, extensible, UI-first control plane while preserving the CLI tools that make the workflow powerful.
+
+## Solution
+
+Build a local-first dashboard for `pi`, Claude Code, `zellij`, GitHub CLI, Bun tooling, and repository artifacts.
+
+The dashboard provides:
+
+- A project picker for zellij-managed repositories.
+- Embedded terminal sessions through zellij's web server and pier's proxy layer.
+- Live Claude/pi activity streams from session logs.
+- Artifact browsing for generated files, drops, reports, previews, and outputs.
+- A foundation for richer harness UI: modals, pop-ups, agent status cards, review panels, websocket-driven interactions, and remote session views.
+
+The product should make the harness feel programmable: agents can create useful state, the backend can stream it, and the frontend can present it in whatever UI pattern is most helpful.
+
+## Product Vision
+
+`pier` should become the browser surface for agentic development harnesses.
+
+A user should be able to start or attach to a coding session, watch what agents are doing, inspect their artifacts, interact with terminals, and eventually trigger actions from custom UI components. The UI should be flexible enough to support experiments: status overlays, notifications, diffs, preview panes, approval dialogs, agent timelines, GitHub issue/PR panels, and documentation-driven help surfaces.
+
+This repository is therefore both:
+
+1. A working dashboard for local agent sessions.
+2. A platform for experimenting with better human-agent interfaces.
+
+## Primary Users
+
+- Solo developers running agentic coding workflows.
+- Harness builders experimenting with new UX around CLI agents.
+- Developers who want to monitor local or remote sessions from a browser.
+- Users who prefer a visual control plane but still want the power of terminal tools.
 
 ## Core Principles
 
-### 1. One Way to Do Everything
+### 1. CLI first, UI enhanced
 
-Every architectural decision has exactly one enforced path. If there are two valid ways to do something, that's a bug in the template.
+`pier` does not hide or replace the CLI. It embeds and augments terminal workflows built on `zellij`, `pi`, Claude Code, GitHub CLI, and Bun.
 
-**Why:** AI agents make better decisions when there are no decisions to make. Ambiguity leads to drift. One canonical approach — even if it's harder to learn — is repeatable, testable, and safe at scale.
+### 2. Harness state should be visible
 
-### 2. Enforce, Don't Prompt
+Events, artifacts, projects, sessions, errors, and generated outputs should be exposed through typed APIs and streamed to the UI instead of staying buried in logs.
 
-Every rule is backed by a tool: Biome for style, dependency-cruiser for layer boundaries, Effect's type system for error handling, CI gates for test coverage, CODEOWNERS for protected files. Prompting AI to "please follow the rules" doesn't count. The template makes bad code fail to compile or fail CI.
+### 3. UI experimentation should be cheap
 
-**Why:** Prompts are suggestions. Tooling is law. AI agents will find every gap you leave open. If a constraint only lives in a prompt, it will eventually be violated.
+The architecture should make it easy to add new panels, modals, pop-ups, websocket features, preview surfaces, and agent interaction patterns without rewriting the core harness.
 
-### 3. TDD as the First Rule
+### 4. Local-first, remote-capable
 
-Tests come before implementation. Every source file has a co-located test (`foo.ts` + `foo.test.ts`). CI fails if a test file exists without a matching source file — and vice versa. Coverage gates block merges.
+The first target is a local dashboard. The long-term direction is remote session access: a user can run agents on one machine and observe or interact with them from another.
 
-**Why:** TDD is the only reliable way to verify that AI-generated code does what the issue asked for. Tests are the specification. If the tests pass, the feature works. If they don't exist, the feature is unverified.
+### 5. Strong boundaries, typed contracts
 
-### 4. No Mock Frameworks
+The backend keeps a functional core / imperative shell split, uses Effect services for external systems, and exports typed Hono contracts to the frontend. UI experiments should not require unsafe API drift.
 
-No Sinon, no Jest mocks, no `jest.fn()`. Pure business logic in `core/` needs zero test doubles — just data in, data out. For services with I/O dependencies, Effect `Layer.succeed(Tag, testImpl)` provides real implementations scoped to the test.
+## Current Capabilities
 
-**Why:** Mocks test that your code calls functions in the right order. Real implementations test that your code actually works. Effect Layers give you the isolation of mocks with the confidence of integration tests.
+- Local Astro dashboard.
+- Bun + Hono backend.
+- Typed frontend/backend API contract through Hono RPC.
+- Project discovery from a configured projects root.
+- Zellij session creation and iframe embedding.
+- Zellij reverse proxy and websocket bridge.
+- Session registry for opened terminals.
+- Live server-sent event streams for agent activity and artifacts.
+- Claude/pi JSONL event adaptation into UI-friendly events.
+- Artifact discovery and file viewing.
+- Logs modal with history, filtering, and live updates.
+- BPE-style spec workflow for changes to the repository itself.
 
-### 5. Functional Core / Imperative Shell
+## User Stories
 
-All business logic lives in pure functions (`core/`). All I/O lives in Effect services (`infra/`). Hono routes and Effect.gen coordinators (`shell/`) wire them together using the impure-pure-impure sandwich pattern. Dependency-cruiser enforces these boundaries in CI.
+1. As a developer, I want to open a browser dashboard for my agent sessions, so that I can see the whole harness at once.
+2. As a developer, I want to select a project, so that I can attach to the correct repository quickly.
+3. As a developer, I want a terminal embedded in the page, so that I can use the CLI without leaving the dashboard.
+4. As a developer, I want zellij sessions to survive browser reloads, so that I do not lose work.
+5. As a developer, I want to see live agent events, so that I know what the agent is doing.
+6. As a developer, I want to inspect generated artifacts, so that outputs are not hidden in the filesystem.
+7. As a developer, I want logs filtered by project and session, so that multi-agent work stays understandable.
+8. As a harness builder, I want typed APIs from backend to frontend, so that UI experiments remain safe.
+9. As a harness builder, I want websocket/SSE primitives, so that the UI can update live.
+10. As a remote user, I want to access an existing session from another machine, so that I can monitor long-running work away from the host.
+11. As a reviewer, I want future UI panels for diffs, tests, issues, and PRs, so that I can approve agent work faster.
+12. As an agent workflow designer, I want documentation and visible conventions inside the repo, so that agents can understand how to extend the harness correctly.
 
-**Why:** FCIS is mechanically enforceable — does this function do I/O? Yes, it goes in shell/infra. No, it goes in core. There's no room for interpretation. Hexagonal architecture is too abstract for AI agents; FCIS is binary.
+## Implementation Direction
 
-### 6. Cloudflare as First Citizen
+The repository should continue to evolve around these modules:
 
-Cloudflare Workers for the backend. Cloudflare Pages for the frontend. When you need a database, use D1. Key-value store: KV. Object storage: R2. Queues, Durable Objects — reach for Cloudflare primitives first, always.
+- Backend shell routes for projects, sessions, artifacts, event streams, config, and zellij proxying.
+- Effect-based infra services for filesystem access, zellij, event watching, artifact watching, and streaming buses.
+- Pure core modules for event adaptation, artifact classification, versioning, and boundary rules.
+- Astro frontend components for the dashboard shell.
+- Vanilla TypeScript dashboard modules for state, rendering, SSE subscriptions, logs, files, project selection, terminal behavior, and UI interactions.
+- Typed API contract package derived from the backend `AppType`.
+- Spec-driven repository workflow for safe, test-first changes.
 
-**Why:** One platform, one billing model, edge-first performance. No "bring your own Postgres" decisions. The template eliminates infrastructure choice paralysis by prescribing Cloudflare for everything.
+## Future Product Opportunities
 
-## The Autonomous Pipeline
+- Remote-safe authentication and authorization for shared sessions.
+- GitHub issue and PR panels powered by `gh`.
+- Test/build status surfaces powered by Bun and Turbo output.
+- Agent timeline views grouped by session, tool call, and artifact.
+- Approval dialogs for risky actions.
+- Notification pop-ups for errors, blocked tasks, completed runs, or requested human input.
+- Custom agent widgets that can be generated by the harness.
+- Live preview panes for web apps, markdown, diagrams, canvases, and reports.
+- Multi-agent orchestration views showing who is working on what.
+- Better documentation surfaces that explain current harness conventions to both humans and agents.
 
-The end goal is full autonomy for feature delivery. Humans are product owners, not developers.
+## Out of Scope for Now
 
-### The Flow
+- Replacing terminal workflows entirely.
+- Building a full IDE.
+- Supporting every terminal multiplexer.
+- Committing to a single final UI pattern before experimentation.
+- Making remote access public without a security model.
 
-1. **Human writes a GitHub issue** describing what they want
-2. **AI asks clarifying questions** until the requirement is unambiguous
-3. **AI breaks the issue into vertical slices** (tracer-bullet sub-issues)
-4. **AI implements each slice** following TDD (red-green-refactor)
-5. **AI reviews and merges each PR** automatically
-6. **Changes auto-deploy** to Cloudflare on merge to main
+## Success Criteria
 
-Human intervention happens only when something goes wrong. The review gate exists for safety, but the goal is that AI handles it. Every step that requires a human to unblock is a template bug to be fixed.
-
-### Guardrails for Autonomy
-
-AI agents cannot modify the template's own infrastructure:
-- CI/CD workflows, branch protection, CODEOWNERS
-- Biome, Lefthook, Turborepo configuration
-- TypeScript compiler settings, wrangler deployment configs
-- Agent definitions and skill prompts
-
-These files are CODEOWNERS-protected and require human approval. AI ships features, not framework changes.
-
-## Domain-First Development
-
-The template is domain-agnostic. It works for any product — you just need to define the domain.
-
-### How It Works
-
-1. **Run the domain definition skill** — AI interviews you about your business domain: entities, taxonomy, naming conventions, business rules, relationships
-2. **AI generates `DOMAIN.md`** at the project root — a structured document that serves as the ubiquitous language for both humans and AI agents
-3. **All agents reference `DOMAIN.md`** when implementing features — ensuring code uses the same names, relationships, and rules that the business uses
-
-The domain definition is the contract between you and AI. If something isn't in `DOMAIN.md`, AI will ask before assuming. If it is in `DOMAIN.md`, AI will follow it without asking.
-
-**Vision:** Today, `DOMAIN.md` is a markdown file that AI reads. Over time, the template will evolve toward machine-enforceable domain constraints — where CI can verify that types in `core/` match the names and rules defined in the domain file.
-
-## Tech Stack
-
-| Layer | Choice | Why |
-|-------|--------|-----|
-| Language | TypeScript (strict mode) | Type safety across the entire stack. Types are the first line of defense |
-| Monorepo | Turborepo + Bun workspaces | Fast, cached task orchestration with zero config |
-| Backend | Hono + Effect-TS | Type-safe routes with functional error handling and compile-time dependency checking |
-| Frontend | Astro (no JS framework) | Server-rendered pages, minimal client JS. Most apps don't need React |
-| Deployment | Cloudflare Workers + Pages | Edge-first, cheap, fast. One platform for everything |
-| Linting | Biome | Replaces ESLint + Prettier. One tool, zero plugins |
-| Git hooks | Lefthook | Replaces husky + lint-staged. Parallel hook execution |
-| Testing | Bun test runner | Co-located tests, built-in coverage, fast |
-| Error handling | Effect-TS | Typed errors, typed dependencies, no try/catch |
-| Secret scanning | Gitleaks | Prevents credential commits in pre-commit and CI |
-
-### Why These Choices Are Final
-
-Each tool was chosen because it's the best option for AI-driven autonomous development — not because it's the most popular. The template does not support alternatives. There is no ESLint config. There is no Jest setup. There is no Vercel deployment option. One way, enforced.
-
-## End-to-End Type Safety
-
-Types flow from backend to frontend with zero code generation:
-
-```
-backend/shell/api.ts  -->  exports AppType  -->  api-contract/  -->  frontend/src/api.ts
-```
-
-Change a route in the backend, and the frontend client breaks at compile time. No manual sync. No OpenAPI generation step. The types are the contract.
-
-## What Success Looks Like
-
-- A solo developer can go from idea to deployed product by writing GitHub issues
-- AI implements, tests, reviews, and ships every feature autonomously
-- The CI pipeline catches every class of bug before merge — type errors, style violations, missing tests, secret leaks, architectural boundary violations
-- The codebase stays clean over months of AI-driven development because every rule is enforced by tooling, not discipline
-- A new AI agent (or human) can join the project and understand the domain, architecture, and conventions by reading `DOMAIN.md` and the template's constraints
+- A user can choose a project, open a zellij-backed terminal, and observe agent activity in one browser page.
+- Agent-generated files and logs are easy to discover and inspect.
+- The UI can be extended with new panels or interactions without breaking backend contracts.
+- Remote-session support becomes possible without changing the core product model.
+- The repository documentation accurately explains that `pier` is a UI harness for agentic development, not a generic TypeScript template.
