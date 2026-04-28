@@ -9,7 +9,7 @@
  *   Regenerate button re-fetches the URL (token rotation is a non-goal; this just
  *   re-calls GET to refresh the in-memory value if the server restarted).
  *
- * About tab: pier version + active read-write zellij URL.
+ * About tab: pier version + local zellij backend URL (not shareable).
  */
 import { api, apiBase } from "../api";
 import { toast } from "./utils";
@@ -40,13 +40,13 @@ const MODAL_HTML = `
         <button id="settings-copy" class="settings-btn">Copy</button>
         <button id="settings-regen" class="settings-btn">Regenerate</button>
       </div>
-      <p class="settings-hint">Share this URL to give read-only access to your zellij session. The token is passed as a URL fragment and never logged by the server.</p>
+      <p class="settings-hint">Share this watch-only URL to give read-only zellij viewing. Viewers cannot type into or control your session. The token is passed as a URL fragment and never logged by the server.</p>
     </div>
 
     <div id="settings-panel-about" class="settings-panel hidden">
       <dl class="settings-about">
         <dt>pier version</dt><dd id="settings-version">—</dd>
-        <dt>zellij URL (read-write)</dt><dd id="settings-zellij-url">—</dd>
+        <dt>local zellij backend</dt><dd id="settings-zellij-url">—</dd>
       </dl>
     </div>
   </div>
@@ -192,7 +192,13 @@ async function fetchReadOnlyUrl(): Promise<string> {
 		// biome-ignore lint/suspicious/noExplicitAny: api typed as any at boundary — see api.ts
 		const res = await (api as any).settings["zellij-readonly"].$get();
 		if (!res.ok) throw new Error(`HTTP ${res.status}`);
-		const data = (await res.json()) as { url: string; tokenName: string };
+		const data = (await res.json()) as {
+			access?: string;
+			mode?: string;
+			url: string;
+			tokenName: string;
+		};
+		if (data.access !== "read-only" || data.mode !== "watch") return "";
 		return data.url;
 	} catch {
 		return "";

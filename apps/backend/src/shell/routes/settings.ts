@@ -22,7 +22,7 @@ const zellijReadonlyHandler = async (c: Context<{ Bindings: AppBindings }>): Pro
 	const token = await getZellijReadOnlyToken();
 	const base = process.env["PIGUY_ZELLIJ_URL"] ?? DEFAULT_ZELLIJ_ORIGIN;
 	const url = `${base}#token=${token}`;
-	return c.json({ url, tokenName: READONLY_TOKEN_NAME }, 200);
+	return c.json({ access: "read-only", mode: "watch", url, tokenName: READONLY_TOKEN_NAME }, 200);
 };
 
 const app = new Hono<{ Bindings: AppBindings }>()
