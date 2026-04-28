@@ -29,6 +29,7 @@ const MODAL_HTML = `
       <h2>Settings</h2>
       <div class="settings-tabs" role="tablist">
         <button class="settings-tab active" data-tab="share" role="tab">Share</button>
+        <button class="settings-tab" data-tab="tunnel" role="tab">Tunnel</button>
         <button class="settings-tab" data-tab="about" role="tab">About</button>
       </div>
     </header>
@@ -41,6 +42,22 @@ const MODAL_HTML = `
         <button id="settings-regen" class="settings-btn">Regenerate</button>
       </div>
       <p class="settings-hint">Share this watch-only URL to give read-only zellij viewing. Viewers cannot type into or control your session. The token is passed as a URL fragment and never logged by the server.</p>
+    </div>
+
+    <div id="settings-panel-tunnel" class="settings-panel hidden">
+      <p class="settings-label">
+        Public tunnel
+        <span id="tunnel-status" class="tunnel-badge tunnel-stopped">stopped</span>
+      </p>
+      <div class="settings-url-row">
+        <input id="tunnel-url" class="settings-url-input" type="text" readonly value="Tunnel inactive" />
+        <button id="tunnel-copy" class="settings-btn" disabled>Copy</button>
+        <button id="tunnel-toggle" class="settings-btn">Start</button>
+      </div>
+      <p class="settings-hint settings-warn">
+        ⚠ Anyone with this URL gets full pier control, including remote terminal access.
+        There is no authentication. Only share with trusted users, and stop the tunnel when done.
+      </p>
     </div>
 
     <div id="settings-panel-about" class="settings-panel hidden">
@@ -159,6 +176,27 @@ const MODAL_HTML = `
   font-size: 12px;
   line-height: 1.5;
 }
+.settings-warn {
+  color: #d4a045;
+}
+.tunnel-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid var(--border);
+}
+.tunnel-stopped { color: var(--fg-dim); }
+.tunnel-starting { color: #d4a045; border-color: #d4a045; }
+.tunnel-running { color: #4ec07a; border-color: #4ec07a; }
+.tunnel-error { color: #d96666; border-color: #d96666; }
+.settings-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 .settings-about {
   display: grid;
   grid-template-columns: max-content 1fr;
@@ -186,6 +224,62 @@ const MODAL_HTML = `
 // ---------------------------------------------------------------------------
 
 let roUrl = "";
+
+type TunnelStatus = "stopped" | "starting" | "running" | "error";
+interface TunnelState {
+	status: TunnelStatus;
+	url: string | null;
+	error?: string;
+}
+let tunnelState: TunnelState = { status: "stopped", url: null };
+
+async function callTunnel(path: string, method: "GET" | "POST"): Promise<TunnelState> {
+	const res = await fetch(`${apiBase}${path}`, { method, credentials: "include" });
+	if (!res.ok) throw new Error(`HTTP ${res.status}`);
+	return (await res.json()) as TunnelState;
+}
+
+function renderTunnel(): void {
+	const badge = document.getElementById("tunnel-status");
+	const urlInput = document.getElementById("tunnel-url") as HTMLInputElement | null;
+	const toggle = document.getElementById("tunnel-toggle") as HTMLButtonElement | null;
+	const copy = document.getElementById("tunnel-copy") as HTMLButtonElement | null;
+	if (!badge || !urlInput || !toggle || !copy) return;
+
+	badge.textContent = tunnelState.status;
+	badge.className = `tunnel-badge tunnel-${tunnelState.status}`;
+
+	if (tunnelState.status === "running" && tunnelState.url) {
+		urlInput.value = tunnelState.url;
+		toggle.textContent = "Stop";
+		toggle.disabled = false;
+		copy.disabled = false;
+	} else if (tunnelState.status === "starting") {
+		urlInput.value = "Starting…";
+		toggle.textContent = "Starting…";
+		toggle.disabled = true;
+		copy.disabled = true;
+	} else if (tunnelState.status === "error") {
+		urlInput.value = tunnelState.error ?? "Error";
+		toggle.textContent = "Retry";
+		toggle.disabled = false;
+		copy.disabled = true;
+	} else {
+		urlInput.value = "Tunnel inactive";
+		toggle.textContent = "Start";
+		toggle.disabled = false;
+		copy.disabled = true;
+	}
+}
+
+async function refreshTunnel(): Promise<void> {
+	try {
+		tunnelState = await callTunnel("/api/tunnel", "GET");
+	} catch {
+		tunnelState = { status: "error", url: null, error: "unreachable" };
+	}
+	renderTunnel();
+}
 
 async function fetchReadOnlyUrl(): Promise<string> {
 	try {
@@ -224,6 +318,8 @@ function openSettings(): void {
 	});
 	// Populate about tab
 	void populateAbout();
+	// Refresh tunnel state
+	void refreshTunnel();
 }
 
 function closeSettings(): void {
@@ -312,5 +408,39 @@ export function wireSettingsModal(): void {
 			setUrlInput(url);
 			toast("URL refreshed");
 		});
+	});
+
+	// Tunnel: toggle start/stop
+	document.getElementById("tunnel-toggle")?.addEventListener("click", () => {
+		const wasRunning = tunnelState.status === "running";
+		tunnelState = wasRunning ? { status: "stopped", url: null } : { status: "starting", url: null };
+		renderTunnel();
+		const path = wasRunning ? "/api/tunnel/stop" : "/api/tunnel/start";
+		void callTunnel(path, "POST")
+			.then((next) => {
+				tunnelState = next;
+				renderTunnel();
+				if (next.status === "running") toast("Tunnel started");
+				else if (next.status === "stopped" && wasRunning) toast("Tunnel stopped");
+				else if (next.status === "error") toast(`Tunnel error: ${next.error ?? ""}`);
+			})
+			.catch((err: unknown) => {
+				tunnelState = {
+					status: "error",
+					url: null,
+					error: err instanceof Error ? err.message : String(err),
+				};
+				renderTunnel();
+				toast("Tunnel request failed");
+			});
+	});
+
+	// Tunnel: copy URL
+	document.getElementById("tunnel-copy")?.addEventListener("click", () => {
+		if (!tunnelState.url) return;
+		navigator.clipboard.writeText(tunnelState.url).then(
+			() => toast("Copied to clipboard"),
+			() => toast("Copy failed"),
+		);
 	});
 }

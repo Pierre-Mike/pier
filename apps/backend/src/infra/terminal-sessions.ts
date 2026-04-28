@@ -91,8 +91,10 @@ export const makeTerminalSessionsLive = (): Layer.Layer<TerminalSessions, never,
 			const registryPath = join(config.piRoot, "sessions.jsonl");
 			// URLs point at pier's own /zellij/* reverse proxy, not directly at
 			// the zellij web server — the proxy strips X-Frame-Options and
-			// handles auth so the iframe loads transparently.
-			const proxyBase = `http://127.0.0.1:${config.appPort}/zellij`;
+			// handles auth so the iframe loads transparently. Path-only so it
+			// resolves against whichever origin served the dashboard (loopback
+			// in dev, tunnel host in remote-access setups).
+			const proxyBase = "/zellij";
 			const registry = new Map<SessionId, Session>();
 
 			yield* Effect.tryPromise(async () => {

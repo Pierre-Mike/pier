@@ -4,6 +4,7 @@
 import { Effect, Layer } from "effect";
 import { ArtifactWatcher, makeArtifactWatcherLive } from "./infra/artifact-watcher.ts";
 import { ClaudeEventStream, makeClaudeEventStreamLive } from "./infra/claude-events.ts";
+import { stopTunnel } from "./infra/cloudflared.ts";
 import { ConfigService, makeConfigLayer } from "./infra/config.ts";
 import { makeArtifactBusLive, makeEventBusLive } from "./infra/sse-bus.ts";
 import { ensureZellijWeb } from "./infra/zellij-auth.ts";
@@ -98,5 +99,14 @@ Effect.runPromise(program).catch((err) => {
 	console.error("[pier] boot failed:", err);
 	process.exit(1);
 });
+
+// Take any active cloudflared subprocess down with us.
+const shutdown = (signal: NodeJS.Signals): void => {
+	void stopTunnel().finally(() => {
+		process.kill(process.pid, signal);
+	});
+};
+process.once("SIGINT", () => shutdown("SIGINT"));
+process.once("SIGTERM", () => shutdown("SIGTERM"));
 
 export default app;

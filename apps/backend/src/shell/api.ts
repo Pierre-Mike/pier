@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { AppBindings } from "./bindings.ts";
@@ -14,6 +15,7 @@ import { settingsRoute } from "./routes/settings.ts";
 import { streamArtifactsRoute } from "./routes/stream-artifacts.ts";
 import { streamEventsRoute } from "./routes/stream-events.ts";
 import { streamReloadRoute } from "./routes/stream-reload.ts";
+import { tunnelRoute } from "./routes/tunnel.ts";
 import { versionRoute } from "./routes/version.ts";
 import { zellijProxyRoute } from "./routes/zellij-proxy.ts";
 import { localhostGuard, setSecurityHeaders } from "./security.ts";
@@ -63,7 +65,28 @@ const routedApp = app
 	.route("/", streamEventsRoute.app)
 	.route("/", streamArtifactsRoute.app)
 	.route("/", streamReloadRoute.app)
-	.route("/", settingsRoute.app);
+	.route("/", settingsRoute.app)
+	.route("/", tunnelRoute.app);
+
+// Serve the built frontend (apps/frontend/dist) as a fallback for any GET that
+// no API route handled. No-op when dist/ is missing (pure dev with Astro on
+// :5274), active when frontend has been built (single-origin / tunnel mode).
+const FRONTEND_DIST = join(import.meta.dir, "..", "..", "..", "frontend", "dist");
+if (await Bun.file(join(FRONTEND_DIST, "index.html")).exists()) {
+	routedApp.get("*", async (c) => {
+		const path = new URL(c.req.url).pathname;
+		const requested = path === "/" ? "/index.html" : path;
+		const filePath = join(FRONTEND_DIST, requested);
+		if (!filePath.startsWith(`${FRONTEND_DIST}/`) && filePath !== FRONTEND_DIST) {
+			return c.notFound();
+		}
+		const file = Bun.file(filePath);
+		if (await file.exists()) {
+			return new Response(file, { headers: { "Content-Type": file.type } });
+		}
+		return c.notFound();
+	});
+}
 
 export type AppType = typeof routedApp;
 export default routedApp;

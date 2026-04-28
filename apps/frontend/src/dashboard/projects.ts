@@ -1,7 +1,7 @@
 /**
  * Projects list rendering and management
  */
-import { api } from "../api";
+import { api, apiBase } from "../api";
 import { refreshFiles } from "./files";
 import { store } from "./state";
 import { focusTerminalIframe } from "./terminal-focus";
@@ -171,7 +171,10 @@ export function renderTerminal(): void {
 	for (const [pid, sess] of store.sessions) {
 		if (!sess.iframe) {
 			const iframe = document.createElement("iframe");
-			iframe.src = sess.url;
+			// Backend returns a path like "/zellij/<id>". Prepend apiBase so dev
+			// (Astro on :5274 → backend on :5273) resolves cross-port; in
+			// single-origin/tunnel mode apiBase is "" and the path stays relative.
+			iframe.src = sess.url.startsWith("/") ? `${apiBase}${sess.url}` : sess.url;
 			iframe.dataset.project = pid;
 			iframe.tabIndex = 0;
 			iframe.setAttribute("allow", "clipboard-read; clipboard-write");
