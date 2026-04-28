@@ -3,9 +3,9 @@
 - [ ] 1. Add terminal clipboard bridge tests and implementation
   - agent: main
   - depends: []
-  - file_targets: [apps/frontend/src/components/TerminalPane.test.ts, apps/frontend/src/dashboard/terminal-clipboard.ts]
-  - boundary: [apps/frontend/src/components/TerminalPane.test.ts, apps/frontend/src/dashboard/terminal-clipboard.ts]
-  - gate: apps/frontend/src/components/TerminalPane.test.ts
+  - file_targets: [apps/frontend/src/dashboard/terminal-clipboard.test.ts, apps/frontend/src/dashboard/terminal-clipboard.ts]
+  - boundary: [apps/frontend/src/dashboard/terminal-clipboard.test.ts, apps/frontend/src/dashboard/terminal-clipboard.ts]
+  - gate: apps/frontend/src/dashboard/terminal-clipboard.test.ts
 
 - [ ] 2. Wire terminal iframes to the clipboard bridge
   - agent: main

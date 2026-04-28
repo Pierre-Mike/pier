@@ -4,7 +4,7 @@ title: Enable clipboard copy from embedded terminal selections
 status: active
 kind: code
 gate:
-  - path: apps/frontend/src/components/TerminalPane.test.ts
+  - path: apps/frontend/src/dashboard/terminal-clipboard.test.ts
     level: unit
   - path: apps/frontend/src/dashboard/projects.test.ts
     level: integration

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { isTerminalCopyMessage } from "../dashboard/terminal-clipboard.ts";
+import { isTerminalCopyMessage } from "./terminal-clipboard.ts";
 
 describe("terminal clipboard copy messages", () => {
 	it("accepts valid terminal copy messages with selected text", () => {
