@@ -25,6 +25,6 @@ and `boundary`.
   - agent: main
   - depends: [3]
   - file_targets: [apps/frontend/src/dashboard/drop.ts]
-  - boundary: [apps/frontend/src/dashboard/drop.ts]
+  - boundary: [apps/frontend/src/dashboard/drop.ts, apps/frontend/src/dashboard/drop.test.ts]
 
 Task box ticking happens via `scripts/tasks-verify.ts`, not manually.

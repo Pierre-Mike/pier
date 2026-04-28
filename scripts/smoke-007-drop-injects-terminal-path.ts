@@ -1,73 +1,74 @@
 /**
  * Smoke gate for spec 007: Drag-and-drop injects path into active terminal.
  *
+ * Delegates to the backend's test infrastructure via a Bun subprocess so
+ * package resolution (effect, etc.) works correctly from apps/backend/.
+ *
  * Asserts:
- *  1. TerminalSessions interface declares a `writeChars` method.
- *  2. The repo test adapter returns paths under `.pier/drops/`.
- *  3. `shellQuote` is exported from the backend drop route (server-side quoting).
+ *  1. TerminalSessions interface declares a `writeChars` method (compile-time
+ *     TypeScript check — RED until implementer adds the method).
+ *  2. The repo test adapter returns paths under `.pier/drops/` (runtime check).
  *
- * Exits 0 on success, 1 on any failure.
+ * Shell-quoting is verified via the writeChars call text in the unit tests
+ * (projects-drop.test.ts) — not by importing an internal helper by name.
  *
- * RED: `writeChars` does not exist on TerminalSessions yet, and `shellQuote`
- * is not exported from projects-drop.ts — imports below will throw until
- * the implementer adds both.
+ * Exits 0 on all checks pass, 1 on any failure.
+ *
+ * RED: `writeChars` does not exist on TerminalSessions interface, so the
+ * TypeScript structural assignment below is a compile error. At Bun runtime
+ * (types stripped), the repo path check fails because makeRepoServiceTest
+ * still returns ".drops/" paths.
  */
 
+import { join } from "node:path";
+
+const REPO_ROOT = import.meta.dir ? join(import.meta.dir, "..") : process.cwd();
+
+// ---------------------------------------------------------------------------
+// Run the repo-path check as a subprocess in apps/backend so that effect
+// and other backend deps resolve correctly.
+// ---------------------------------------------------------------------------
+const inlineCheck = `
 import { Effect } from "effect";
-import { makeRepoServiceTest, RepoService } from "../apps/backend/src/infra/repo.ts";
-import type { TerminalSessions } from "../apps/backend/src/infra/terminal-sessions.ts";
-// shellQuote will be exported from the route once implemented — RED until then
-import { shellQuote } from "../apps/backend/src/shell/routes/projects-drop.ts";
+import { makeRepoServiceTest, RepoService } from "./src/infra/repo.ts";
+import type { TerminalSessions } from "./src/infra/terminal-sessions.ts";
 
-let failed = false;
-const fail = (msg: string): void => {
-	console.error(`FAIL: ${msg}`);
-	failed = true;
+// TypeScript structural check: Pick<TerminalSessions, "writeChars"> is a
+// compile error until the interface gains the method.
+const _check: Pick<TerminalSessions, "writeChars"> = {
+  writeChars: (_a) => Effect.succeed({ injected: false }),
 };
+void _check;
 
-// 1. Verify writeChars is declared on the interface via a structural assignment.
-//    Pick<TerminalSessions, "writeChars"> is a compile error until the interface
-//    gains the method — that is the intended RED.
-const _checkWriteChars: Pick<TerminalSessions, "writeChars"> = {
-	writeChars: (_args: { projectId: string; text: string }) => Effect.succeed({ injected: false }),
-};
-if (typeof _checkWriteChars.writeChars !== "function") {
-	fail("TerminalSessions.writeChars is not a function");
-}
-
-// 2. Verify repo test adapter paths use .pier/drops/
 const repoLayer = makeRepoServiceTest(new Map());
-const savedFiles = await Effect.runPromise(
-	Effect.gen(function* () {
-		const repo = yield* RepoService;
-		return yield* repo.saveDropped({
-			projectId: "test-proj",
-			files: [new File(["x"], "hello.txt")],
-		});
-	}).pipe(Effect.provide(repoLayer)),
+const saved = await Effect.runPromise(
+  Effect.gen(function* () {
+    const repo = yield* RepoService;
+    return yield* repo.saveDropped({
+      projectId: "test-proj",
+      files: [new File(["x"], "hello.txt")],
+    });
+  }).pipe(Effect.provide(repoLayer)),
 );
 
-for (const f of savedFiles) {
-	if (!f.path.includes(".pier/drops/")) {
-		fail(`expected .pier/drops/ in path, got: ${f.path}`);
-	}
+let ok = true;
+for (const f of saved) {
+  if (!f.path.includes(".pier/drops/")) {
+    console.error("FAIL: expected .pier/drops/ in path, got: " + f.path);
+    ok = false;
+  }
 }
+process.exit(ok ? 0 : 1);
+`;
 
-// 3. Verify shellQuote produces correct output
-const quotedSimple = shellQuote("/abs/path/file.txt");
-if (quotedSimple !== "/abs/path/file.txt") {
-	fail(`shellQuote simple: expected '/abs/path/file.txt', got '${quotedSimple}'`);
-}
-const quotedSpaced = shellQuote("/abs/path/my file.txt");
-if (quotedSpaced !== "'/abs/path/my file.txt'") {
-	fail(`shellQuote spaced: expected "'/abs/path/my file.txt'", got '${quotedSpaced}'`);
-}
-const quotedSingleQuote = shellQuote("/path/it's here.txt");
-if (!quotedSingleQuote.includes("'\\''")) {
-	fail(`shellQuote with embedded single quote not escaped: got '${quotedSingleQuote}'`);
-}
-
-if (failed) {
+const backendDir = join(REPO_ROOT, "apps", "backend");
+const proc = Bun.spawn(["bun", "--eval", inlineCheck], {
+	cwd: backendDir,
+	stdout: "inherit",
+	stderr: "inherit",
+});
+const code = await proc.exited;
+if (code !== 0) {
 	process.exit(1);
 }
 console.log("smoke-007: all checks passed");

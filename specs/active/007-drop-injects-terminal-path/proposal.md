@@ -6,6 +6,8 @@ kind: code
 gate:
   - path: apps/backend/src/shell/routes/projects-drop.test.ts
     level: unit
+  - path: apps/frontend/src/dashboard/drop.test.ts
+    level: unit
   - path: scripts/smoke-007-drop-injects-terminal-path.ts
     level: e2e
 created: 2026-04-28
