@@ -198,6 +198,7 @@ pier uses a **spec-first workflow**: every change to production code (`apps/**`,
 - **How the workflow works** — see [`AGENTS.md`](AGENTS.md): spec authoring, the `/do` dispatch chain (spec-tester → spec-judge → spec-implementer), worktree conventions, and route authoring rules.
 - **Repo invariants** — see [`specs/constitution.md`](specs/constitution.md): no `any`, no `as` casts outside tests, colocated tests, protected paths.
 - **To propose a change** — run `/do <intent>` in Claude Code. The pipeline authors a spec, writes RED tests, implements to GREEN, and opens a PR with auto-merge.
+- **CI, CODEOWNERS, branch rules** — see [`.github/INTERNAL.md`](.github/INTERNAL.md).
 
 ## License
 
