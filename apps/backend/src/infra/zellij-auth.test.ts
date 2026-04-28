@@ -55,11 +55,11 @@ type SpawnStub = {
 	exited: Promise<number>;
 };
 
-let _spawnStub: (() => SpawnStub) | null = null;
+type SpawnImpl = (cmd: string[], opts: unknown) => SpawnStub;
 
 const originalSpawn = Bun.spawn.bind(Bun);
 
-const patchSpawn = (impl: () => SpawnStub): void => {
+const patchSpawn = (impl: SpawnImpl): void => {
 	// biome-ignore lint/suspicious/noExplicitAny: test-only stub
 	(Bun as any).spawn = impl;
 };
@@ -90,7 +90,6 @@ beforeEach(() => {
 	// reset disk mock — no file present by default
 	mockReadFileImpl = () => Promise.reject(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
 	mockWriteFileCalls = [];
-	_spawnStub = null;
 	restoreSpawn();
 	ZellijAuth.__resetZellijAuthForTests();
 });
