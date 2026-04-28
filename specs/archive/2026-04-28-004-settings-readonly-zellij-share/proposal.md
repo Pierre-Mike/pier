@@ -1,7 +1,7 @@
 ---
 id: 004-settings-readonly-zellij-share
 title: Ensure settings share link is read-only zellij access
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/backend/src/infra/zellij-auth.test.ts
@@ -15,6 +15,7 @@ owner: main
 depends_on:
   - 002-settings-popup-zellij-share
 supersedes: null
+archived: 2026-04-28
 ---
 
 ## Intent

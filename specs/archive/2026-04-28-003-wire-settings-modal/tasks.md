@@ -1,6 +1,6 @@
 # Tasks
 
-- [ ] 1. Wire settings modal into dashboard init
+- [x] 1. Wire settings modal into dashboard init
   - agent: main
   - depends: []
   - file_targets: [apps/frontend/src/pages/index.astro, apps/frontend/src/dashboard/settings.test.ts]
