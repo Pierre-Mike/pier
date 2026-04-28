@@ -34,9 +34,9 @@ async function copyToClipboard(text: string, successMsg: string): Promise<boolea
 	return false;
 }
 
-function shellQuote(s: string): string {
-	if (/^[A-Za-z0-9_\-./~]+$/.test(s)) return s;
-	return `'${s.replace(/'/g, "'\\''")}'`;
+/** Called when the server returns injected: false — copies paths to clipboard so the user can paste manually. */
+async function handleTerminalNotReachable(paths: string): Promise<void> {
+	await copyToClipboard(paths, `Terminal not reachable — paths copied. ⌘V to paste.`);
 }
 
 async function handleOSFileDrop(files: File[]): Promise<void> {
@@ -57,9 +57,15 @@ async function handleOSFileDrop(files: File[]): Promise<void> {
 			toast(`Upload failed: ${(err as { error?: string }).error ?? r.status}`);
 			return;
 		}
-		const data = (await r.json()) as { files: Array<{ path: string }> };
-		const paths = data.files.map((f) => shellQuote(f.path)).join(" ");
-		await copyToClipboard(paths, `Saved to .drops/ — ⌘V to paste: ${paths}`);
+		const data = (await r.json()) as { files: Array<{ path: string }>; injected: boolean };
+		const paths = data.files.map((f) => f.path).join(" ");
+		if (data.injected) {
+			toast(`Inserted into terminal: ${paths}`);
+		} else {
+			// injected === false: server could not reach the zellij session.
+			// Delegate to clipboard fallback so user can paste manually.
+			await handleTerminalNotReachable(paths);
+		}
 		if (store.activeProject) await refreshFiles(store.activeProject);
 	} catch (e) {
 		const msg = e instanceof Error ? e.message : "unknown error";

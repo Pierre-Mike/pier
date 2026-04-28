@@ -3,10 +3,20 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 import { ConfigTest, defaultConfigLayer } from "../../infra/config.ts";
 import { makeRepoServiceLive, makeRepoServiceTest, RepoService } from "../../infra/repo.ts";
+import {
+	makeTerminalSessionsLive,
+	TerminalSessions,
+	TerminalSessionsTest,
+} from "../../infra/terminal-sessions.ts";
 import { type AppBindings, defineRoute } from "../effect-handler.ts";
 import type { RouteModule } from "./_types.ts";
 
-const dropHandler = (c: Context<{ Bindings: AppBindings }>) =>
+const shellQuote = (s: string): string => {
+	if (/^[A-Za-z0-9_\-./~]+$/.test(s)) return s;
+	return `'${s.replace(/'/g, "'\\''")}'`;
+};
+
+export const dropHandler = (c: Context<{ Bindings: AppBindings }>) =>
 	Effect.gen(function* () {
 		const idRaw = c.req.param("id");
 		const id = idRaw ?? "";
@@ -24,7 +34,10 @@ const dropHandler = (c: Context<{ Bindings: AppBindings }>) =>
 		if (files.length === 0) return c.json({ error: "no files" }, 400);
 		const repo = yield* RepoService;
 		const result = yield* repo.saveDropped({ projectId: id, files });
-		return c.json({ files: result }, 200);
+		const text = `${result.map((f) => shellQuote(f.path)).join(" ")} `;
+		const terminal = yield* TerminalSessions;
+		const { injected } = yield* terminal.writeChars({ projectId: id, text });
+		return c.json({ files: result, injected }, 200);
 	}).pipe(
 		Effect.catchAll((err) =>
 			Effect.succeed(
@@ -44,14 +57,21 @@ const dropHandler = (c: Context<{ Bindings: AppBindings }>) =>
 		),
 	);
 
-const makeDeps = () => Layer.provide(makeRepoServiceLive(), defaultConfigLayer);
+const makeDeps = () =>
+	Layer.mergeAll(
+		Layer.provide(makeRepoServiceLive(), defaultConfigLayer),
+		Layer.provide(makeTerminalSessionsLive(), defaultConfigLayer),
+	);
 
 const app = new Hono<{ Bindings: AppBindings }>().post(
 	"/api/projects/:id/drop",
 	defineRoute({ deps: makeDeps, handler: dropHandler }),
 );
 
-const testDeps = Layer.provide(makeRepoServiceTest(new Map()), ConfigTest);
+const testDeps = Layer.merge(
+	Layer.provide(makeRepoServiceTest(new Map()), ConfigTest),
+	TerminalSessionsTest,
+);
 
 const testApp = new Hono<{ Bindings: AppBindings }>().post(
 	"/api/projects/:id/drop",

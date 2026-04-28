@@ -27,7 +27,6 @@ export interface RepoService {
 
 export const RepoService = Context.GenericTag<RepoService>("RepoService");
 
-const DROPS_DIR_NAME = ".drops";
 const MAX_DROP_BYTES = 100 * 1024 * 1024;
 
 const projectRootFor = (projectsRoot: string, id: string): string => {
@@ -70,7 +69,7 @@ const uniqueDropPath = async (dir: string, name: string): Promise<string> => {
 };
 
 const ensureDropsDir = async (root: string): Promise<string> => {
-	const dropsDir = join(root, DROPS_DIR_NAME);
+	const dropsDir = join(root, ".pier", "drops");
 	await mkdir(dropsDir, { recursive: true });
 	const ignorePath = join(dropsDir, ".gitignore");
 	try {
@@ -176,6 +175,6 @@ export const makeRepoServiceTest = (
 		fileStat: () => Effect.succeed({ size: 0 }),
 		saveDropped: ({ files: dropped }) =>
 			Effect.succeed(
-				dropped.map((f) => ({ name: f.name, path: `/test/.drops/${f.name}`, size: f.size })),
+				dropped.map((f) => ({ name: f.name, path: `/test/.pier/drops/${f.name}`, size: f.size })),
 			),
 	});

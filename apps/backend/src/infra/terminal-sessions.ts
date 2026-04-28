@@ -34,6 +34,10 @@ export interface TerminalSessions {
 	readonly list: () => Effect.Effect<Session[], never, never>;
 	readonly get: (id: SessionId) => Effect.Effect<Session | null, never, never>;
 	readonly health: (id: SessionId) => Effect.Effect<boolean, never, never>;
+	readonly writeChars: (args: {
+		projectId: string;
+		text: string;
+	}) => Effect.Effect<{ injected: boolean }, never, never>;
 }
 
 export const TerminalSessions = Context.GenericTag<TerminalSessions>("TerminalSessions");
@@ -200,6 +204,28 @@ export const makeTerminalSessionsLive = (): Layer.Layer<TerminalSessions, never,
 					Effect.succeed(Array.from(registry.values()).filter((s) => s.status === "live")),
 				get: (id) => Effect.succeed(registry.get(id) ?? null),
 				health: (id) => Effect.succeed(registry.get(id)?.status === "live" || false),
+				writeChars: ({ projectId, text }) =>
+					Effect.tryPromise({
+						try: async () => {
+							const id = sessionIdFromProjectId(projectId);
+							const proc = Bun.spawn(["zellij", "--session", id, "action", "write-chars", text], {
+								env: { ...process.env, ZELLIJ_SOCKET_DIR },
+								stdout: "pipe",
+								stderr: "pipe",
+							});
+							const timeoutMs = 2000;
+							const result = await Promise.race([
+								proc.exited,
+								new Promise<number>((resolve) => setTimeout(() => resolve(-1), timeoutMs)),
+							]);
+							if (result !== 0) {
+								proc.kill();
+								return { injected: false };
+							}
+							return { injected: true };
+						},
+						catch: () => ({ injected: false }),
+					}).pipe(Effect.orElseSucceed(() => ({ injected: false }))),
 			};
 		}),
 	);
@@ -225,4 +251,5 @@ export const TerminalSessionsTest: Layer.Layer<TerminalSessions> = Layer.succeed
 	list: () => Effect.succeed([]),
 	get: () => Effect.succeed(null),
 	health: () => Effect.succeed(false),
+	writeChars: () => Effect.succeed({ injected: true }),
 });
