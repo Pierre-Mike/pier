@@ -1,7 +1,7 @@
 ---
 id: 003-wire-settings-modal
 title: Wire settings modal into dashboard init
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/frontend/src/dashboard/settings.test.ts
@@ -11,6 +11,7 @@ owner: main
 depends_on:
   - 002-settings-popup-zellij-share
 supersedes: null
+archived: 2026-04-28
 ---
 
 ## Intent
