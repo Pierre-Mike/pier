@@ -1,17 +1,18 @@
 ---
 id: 009-carve-out-test-cast-scan
 title: Carve out test files from cast-violation scanner
-status: active
+status: archived
 kind: code
 gate:
   - path: packages/api-contract/src/invariants.test.ts
     level: unit
   - path: scripts/smoke-invariants-009.ts
     level: e2e
-created: 2026-04-28
+created: 2026-04-28T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-04-28'
 ---
 
 ## Intent
