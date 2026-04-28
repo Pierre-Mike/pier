@@ -1,13 +1,14 @@
 ---
 id: 003-replace-unsafe-isnan
 title: Replace unsafe isNaN in retro preflight
-status: active
+status: archived
 kind: rule
 gate: scripts/gates/no-global-isnan-retro-preflight.ts
-created: 2026-04-28
+created: 2026-04-28T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-04-28'
 ---
 
 ## Intent

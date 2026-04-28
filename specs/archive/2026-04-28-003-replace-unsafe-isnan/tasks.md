@@ -1,6 +1,6 @@
 # Tasks
 
-- [ ] 1. Replace unsafe global isNaN usage
+- [x] 1. Replace unsafe global isNaN usage
   - agent: main
   - depends: []
   - file_targets: [scripts/retro-preflight.ts]
