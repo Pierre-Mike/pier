@@ -17,5 +17,8 @@
 		"astro": "^6.1.9",
 		"hono": "^4.12.8",
 		"typescript": "^5.9.3"
+	},
+	"devDependencies": {
+		"happy-dom": "^20.9.0"
 	}
 }
