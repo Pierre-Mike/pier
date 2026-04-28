@@ -1,13 +1,14 @@
 ---
 id: 006-polish-readme
 title: Polish README to flagship quality
-status: active
+status: archived
 kind: writeup
 gate: specs/active/006-polish-readme/readme-rubric.md
-created: 2026-04-28
+created: 2026-04-28T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-04-28'
 ---
 
 ## Intent

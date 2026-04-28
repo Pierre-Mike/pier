@@ -9,22 +9,22 @@ and `boundary`.
   file a task actually modifies must match at least one glob here, or
   `tasks-verify.ts` will fail the spec.
 
-- [ ] 1. Rewrite README.md hero, why, and features sections
+- [x] 1. Rewrite README.md hero, why, and features sections
   - agent: main
   - depends: []
   - file_targets: [README.md, specs/active/006-polish-readme/readme-rubric.md]
   - boundary: [README.md, specs/active/006-polish-readme/**]
-- [ ] 2. Add quickstart, install, usage, and architecture sections
+- [x] 2. Add quickstart, install, usage, and architecture sections
   - agent: main
   - depends: [1]
   - file_targets: [README.md, specs/active/006-polish-readme/readme-rubric.md]
   - boundary: [README.md, specs/active/006-polish-readme/**]
-- [ ] 3. Add structure, config, dev, contributing, license, and acknowledgements sections
+- [x] 3. Add structure, config, dev, contributing, license, and acknowledgements sections
   - agent: main
   - depends: [2]
   - file_targets: [README.md, specs/active/006-polish-readme/readme-rubric.md]
   - boundary: [README.md, specs/active/006-polish-readme/**]
-- [ ] 4. Tick all rubric cells and write "All Checks Complete"
+- [x] 4. Tick all rubric cells and write "All Checks Complete"
   - agent: main
   - depends: [3]
   - file_targets: [specs/active/006-polish-readme/readme-rubric.md]
