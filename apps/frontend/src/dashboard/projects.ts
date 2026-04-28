@@ -4,7 +4,6 @@
 import { api } from "../api";
 import { refreshFiles } from "./files";
 import { store } from "./state";
-import { installTerminalClipboardHelper, wireTerminalClipboardBridge } from "./terminal-clipboard";
 import type { Project } from "./types";
 import { $, escapeHTML, projectColor, projectInitial, toast } from "./utils";
 
@@ -160,6 +159,13 @@ export async function closeSession(id: string): Promise<void> {
 	}
 }
 
+function focusTerminalIframe(event: Event): void {
+	const iframe = event.currentTarget;
+	if (iframe instanceof HTMLIFrameElement) {
+		iframe.focus({ preventScroll: true });
+	}
+}
+
 export function renderTerminal(): void {
 	const host = $("#terminals");
 	if (store.sessions.size === 0) {
@@ -173,13 +179,14 @@ export function renderTerminal(): void {
 			const iframe = document.createElement("iframe");
 			iframe.src = sess.url;
 			iframe.dataset.project = pid;
+			iframe.tabIndex = 0;
 			iframe.setAttribute("allow", "clipboard-read; clipboard-write");
 			iframe.style.width = "calc(100% - 24px)";
 			iframe.style.height = "calc(100% - 24px)";
+			iframe.addEventListener("pointerdown", focusTerminalIframe);
 			iframe.addEventListener(
 				"load",
 				() => {
-					installTerminalClipboardHelper(iframe);
 					requestAnimationFrame(() => {
 						iframe.style.width = "";
 						iframe.style.height = "";
@@ -212,7 +219,6 @@ function wireIframeFocusGlow(): void {
 
 export function wireProjectsUI(): void {
 	wireIframeFocusGlow();
-	wireTerminalClipboardBridge({ terminalHost: $("#terminals") });
 	$("#refresh-projects").addEventListener("click", () => void refreshProjects());
 	const projFilter = $("#project-filter") as HTMLInputElement;
 	projFilter.addEventListener("input", (e) => {
