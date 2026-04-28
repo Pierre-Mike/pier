@@ -63,12 +63,14 @@ beforeEach(() => {
 // AC-1: shape — GET /settings/zellij-readonly returns { url, tokenName }
 // ---------------------------------------------------------------------------
 describe("GET /settings/zellij-readonly — response shape", () => {
-	it("returns 200 with { url, tokenName } keys", async () => {
+	it("returns 200 with readonly/watch-only metadata", async () => {
 		const res = await settingsRoute.testApp.request("/settings/zellij-readonly");
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Record<string, unknown>;
+		expect(body["access"]).toBe("read-only");
+		expect(body["mode"]).toBe("watch");
 		expect(typeof body["url"]).toBe("string");
-		expect(typeof body["tokenName"]).toBe("string");
+		expect(body["tokenName"]).toBe("zellij-readonly-token");
 	});
 });
 
@@ -80,7 +82,14 @@ describe("GET /settings/zellij-readonly — url fragment", () => {
 		mockTokenValue = "ro_tok_frag_check";
 		const res = await settingsRoute.testApp.request("/settings/zellij-readonly");
 		expect(res.status).toBe(200);
-		const body = (await res.json()) as { url: string; tokenName: string };
+		const body = (await res.json()) as {
+			access: string;
+			mode: string;
+			url: string;
+			tokenName: string;
+		};
+		expect(body.access).toBe("read-only");
+		expect(body.mode).toBe("watch");
 		expect(body.url).toContain("#token=ro_tok_frag_check");
 	});
 
