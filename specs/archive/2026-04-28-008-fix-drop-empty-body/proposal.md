@@ -1,17 +1,19 @@
 ---
 id: 008-fix-drop-empty-body
 title: Fix drag-drop upload empty multipart body
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/frontend/src/dashboard/drop.test.ts
     level: unit
   - path: scripts/smoke-drop-form.ts
     level: e2e
-created: 2026-04-28
+created: 2026-04-28T00:00:00.000Z
 owner: main
-depends_on: ["007-drop-injects-terminal-path"]
+depends_on:
+  - 007-drop-injects-terminal-path
 supersedes: null
+archived: '2026-04-28'
 ---
 
 ## Intent
