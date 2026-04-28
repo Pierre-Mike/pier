@@ -16,7 +16,9 @@ const shellQuote = (s: string): string => {
 	return `'${s.replace(/'/g, "'\\''")}'`;
 };
 
-export const dropHandler = (c: Context<{ Bindings: AppBindings }>) =>
+export const dropHandler = (
+	c: Context<{ Bindings: AppBindings }>,
+): Effect.Effect<Response, never, RepoService | TerminalSessions> =>
 	Effect.gen(function* () {
 		const idRaw = c.req.param("id");
 		const id = idRaw ?? "";
