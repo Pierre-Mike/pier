@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 
 const source = readFileSync("scripts/retro-preflight.ts", "utf8");
 
-if (source.includes("isNaN(commitMs)")) {
+if (/[^.]\bisNaN\(commitMs\)/.test(source)) {
 	throw new Error("scripts/retro-preflight.ts must not use global isNaN(commitMs)");
 }
 
