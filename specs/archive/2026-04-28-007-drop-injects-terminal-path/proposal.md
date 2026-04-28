@@ -1,7 +1,7 @@
 ---
 id: 007-drop-injects-terminal-path
 title: Drag-and-drop injects path into active terminal
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/backend/src/shell/routes/projects-drop.test.ts
@@ -10,10 +10,11 @@ gate:
     level: unit
   - path: scripts/smoke-007-drop-injects-terminal-path.ts
     level: e2e
-created: 2026-04-28
+created: 2026-04-28T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-04-28'
 ---
 
 ## Intent
