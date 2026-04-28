@@ -1,17 +1,18 @@
 ---
 id: 005-restore-terminal-keyboard-focus
 title: Restore terminal keyboard focus
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/frontend/src/dashboard/terminal-focus.test.ts
     level: unit
   - path: apps/frontend/src/dashboard/projects.test.ts
     level: integration
-created: 2026-04-28
+created: 2026-04-28T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-04-28'
 ---
 
 ## Intent

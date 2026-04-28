@@ -4,6 +4,7 @@
 import { api } from "../api";
 import { refreshFiles } from "./files";
 import { store } from "./state";
+import { focusTerminalIframe } from "./terminal-focus";
 import type { Project } from "./types";
 import { $, escapeHTML, projectColor, projectInitial, toast } from "./utils";
 
@@ -156,13 +157,6 @@ export async function closeSession(id: string): Promise<void> {
 		store.activeFilePath = null;
 		const filesTitle = document.getElementById("files-title");
 		if (filesTitle) filesTitle.textContent = "Files";
-	}
-}
-
-function focusTerminalIframe(event: Event): void {
-	const iframe = event.currentTarget;
-	if (iframe instanceof HTMLIFrameElement) {
-		iframe.focus({ preventScroll: true });
 	}
 }
 
