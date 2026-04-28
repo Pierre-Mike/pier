@@ -3,8 +3,11 @@
  *
  * Cycle 1: api-contract only has allowed runtime dependencies
  * Cycle 2: cast isolation — `as unknown as` never appears in apps/frontend/
+ * Cycle 3 (spec 009): findCastViolations skips *.test.ts and *.test.tsx files
  */
-import { describe, expect, it } from "bun:test";
+import { afterAll, describe, expect, it } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { findCastViolations, hasOnlyAllowedDeps } from "./invariants";
 
@@ -30,5 +33,47 @@ describe("frontend: no `as unknown as` casts", () => {
 			violations,
 			`Cast 'as unknown as' must only appear in packages/api-contract/src/index.ts, not in apps/frontend/. Found in: ${violations.join(", ")}`,
 		).toEqual([]);
+	});
+});
+
+// --- Cycle 3 (spec 009): findCastViolations skips *.test.ts and *.test.tsx ---
+describe("findCastViolations skips *.test.ts and *.test.tsx files", () => {
+	const tmp = mkdtempSync(join(tmpdir(), "invariants-009-"));
+
+	afterAll(() => {
+		rmSync(tmp, { recursive: true });
+	});
+
+	it("returns only non-test files with as unknown as", () => {
+		// clean.ts — no violation
+		writeFileSync(join(tmp, "clean.ts"), "export const x = 1;\n");
+		// bad.ts — has violation, should be flagged
+		writeFileSync(join(tmp, "bad.ts"), "const y = {} as unknown as string;\n");
+		// bad.test.ts — has violation, should be SKIPPED
+		writeFileSync(join(tmp, "bad.test.ts"), "const a = {} as unknown as string;\n");
+		// bad.test.tsx — has violation, should be SKIPPED
+		writeFileSync(join(tmp, "bad.test.tsx"), "const b = {} as unknown as string;\n");
+
+		const violations = findCastViolations(tmp, "");
+
+		expect(
+			violations.length,
+			`Expected exactly 1 violation but got ${violations.length}: ${violations.join(", ")}`,
+		).toBe(1);
+
+		expect(
+			violations.some((v) => v.endsWith("bad.ts")),
+			"bad.ts must be flagged",
+		).toBe(true);
+
+		expect(
+			violations.some((v) => v.endsWith("bad.test.ts")),
+			"bad.test.ts must be skipped",
+		).toBe(false);
+
+		expect(
+			violations.some((v) => v.endsWith("bad.test.tsx")),
+			"bad.test.tsx must be skipped",
+		).toBe(false);
 	});
 });

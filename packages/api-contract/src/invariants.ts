@@ -36,6 +36,7 @@ export function collectTsFiles(dir: string): string[] {
 /** Returns paths (relative to repoRoot) of files containing "as unknown as". */
 export function findCastViolations(dir: string, repoRoot: string): readonly string[] {
 	return collectTsFiles(dir)
+		.filter((file) => !file.endsWith(".test.ts") && !file.endsWith(".test.tsx"))
 		.filter((file) => readFileSync(file, "utf-8").includes("as unknown as"))
 		.map((file) => file.replace(repoRoot, ""));
 }
