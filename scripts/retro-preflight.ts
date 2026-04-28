@@ -150,7 +150,7 @@ export async function detectDormantWorktrees(): Promise<DormantSpec[]> {
 		if (!commit) continue;
 
 		const commitMs = new Date(commit.ts).getTime();
-		if (isNaN(commitMs)) continue;
+		if (Number.isNaN(commitMs)) continue;
 		const ageMs = now - commitMs;
 		if (ageMs <= ONE_HOUR_MS) continue;
 
