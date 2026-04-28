@@ -6,6 +6,18 @@ export type { AppBindings };
 
 type AnyContext = HonoContext<{ Bindings: AppBindings }>;
 
+/**
+ * defineRoute overload 0: escape hatch for dynamic imports — handler R is
+ * `unknown` (e.g. after a `m as { handler?: (c) => Effect<unknown, unknown, unknown> }` cast).
+ * deps are accepted without constraining handler's R; R must not be never.
+ * Returns `(c) => Promise<Response>` so Hono's HandlerResponse constraint is met.
+ */
+export function defineRoute<R>(config: {
+	deps: [R] extends [never] ? never : ((c: AnyContext) => Layer.Layer<R>) | Layer.Layer<R>;
+	onError?: (error: never, c: AnyContext) => Response;
+	handler: (c: AnyContext) => Effect.Effect<unknown, unknown, unknown>;
+}): (c: AnyContext) => Promise<Response>;
+
 /** defineRoute overload 1: no deps — R must be never, `deps` is forbidden */
 export function defineRoute<R extends never, E = never, A = Response>(config: {
 	deps?: never;
