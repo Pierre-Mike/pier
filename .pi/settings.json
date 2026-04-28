@@ -1,0 +1,4 @@
+{
+	"skills": ["~/.claude/skills", "~/.claude/agents", "../.claude/skills", "../.claude/agents"],
+	"prompts": ["~/.claude/prompts", "../.claude/prompts"]
+}
