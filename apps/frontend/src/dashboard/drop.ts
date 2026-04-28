@@ -45,12 +45,10 @@ async function handleOSFileDrop(files: File[]): Promise<void> {
 		return;
 	}
 	toast(`Uploading ${files.length} file${files.length > 1 ? "s" : ""}…`);
-	const fd = new FormData();
-	for (const f of files) fd.append("files", f, f.name);
 	try {
 		const r = await api.api.projects[":id"].drop.$post({
 			param: { id: store.activeProject },
-			form: fd,
+			form: { files },
 		});
 		if (!r.ok) {
 			const err = await r.json().catch(() => ({ error: "Upload failed" }));
