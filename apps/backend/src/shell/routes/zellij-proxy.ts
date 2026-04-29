@@ -18,6 +18,7 @@
 import { Hono } from "hono";
 import { clearZellijCookie, ensureZellijWeb, getZellijCookie } from "../../infra/zellij-auth.ts";
 import type { AppBindings } from "../bindings.ts";
+import { injectPaletteRelay } from "../zellij-wrapper.ts";
 
 const STRIPPED_RESPONSE_HEADERS = new Set([
 	"x-frame-options",
@@ -133,7 +134,13 @@ const proxyHttp = async (req: Request): Promise<Response> => {
 	const contentType = upstream.headers.get("content-type") ?? "";
 	if (contentType.includes("text/html")) {
 		// Re-base relative URLs so the proxied client resolves assets/WS through /zellij/.
-		const body = (await upstream.text()).replace(/<base href="\/" \/>/, '<base href="/zellij/" />');
+		// Inject the palette postMessage relay so Shift keydowns inside the iframe
+		// are forwarded to the parent window (spec 010, Decision 1).
+		const rebased = (await upstream.text()).replace(
+			/<base href="\/" \/>/,
+			'<base href="/zellij/" />',
+		);
+		const body = injectPaletteRelay(rebased);
 		headers.delete("content-length");
 		return new Response(body, { status: upstream.status, headers });
 	}
