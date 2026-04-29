@@ -1027,3 +1027,166 @@ body.resizing iframe {
 .logs-detail-row .detail-box .sect:first-child {
 	margin-top: 0;
 }
+
+/* ---------------------------------------------------------------------------
+ * Command palette (spec 010) — global styles so runtime-created .palette-row
+ * children match (Astro scoped <style> only reaches template-rendered nodes).
+ * ------------------------------------------------------------------------ */
+.palette-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 9000;
+	display: flex;
+	align-items: flex-start;
+	justify-content: center;
+	padding-top: 10vh;
+}
+.palette-overlay.hidden {
+	display: none;
+}
+.palette-backdrop {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.55);
+	backdrop-filter: blur(3px);
+}
+.palette-dialog {
+	position: relative;
+	z-index: 1;
+	width: min(720px, 92vw);
+	max-height: 72vh;
+	background: var(--bg-elev);
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	box-shadow: 0 20px 60px rgba(0, 0, 0, 0.65);
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	font-family: inherit;
+}
+.palette-input {
+	width: 100%;
+	box-sizing: border-box;
+	padding: 16px 20px;
+	font: inherit;
+	font-size: 1.05rem;
+	background: var(--bg);
+	border: none;
+	border-bottom: 1px solid var(--border);
+	color: var(--fg);
+	outline: none;
+}
+.palette-input::placeholder {
+	color: var(--fg-dim);
+}
+.palette-input:focus {
+	border-bottom-color: var(--accent-dim);
+}
+.palette-list {
+	list-style: none;
+	margin: 0;
+	padding: 10px 8px;
+	overflow-y: auto;
+	overflow-x: hidden;
+}
+.palette-list:empty::after {
+	content: "no matches";
+	display: block;
+	padding: 16px 20px;
+	color: var(--fg-dim);
+	font-size: 0.9rem;
+}
+.palette-row {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	padding: 14px 18px;
+	margin: 4px 0;
+	border-radius: 6px;
+	cursor: pointer;
+	color: var(--fg);
+	font-size: 0.95rem;
+	border-left: 3px solid transparent;
+	user-select: none;
+	transition: background-color 80ms ease, border-color 80ms ease;
+}
+.palette-row.project {
+	background: rgba(92, 207, 230, 0.06);
+	border-left-color: rgba(92, 207, 230, 0.3);
+}
+.palette-row.file {
+	background: rgba(120, 217, 143, 0.06);
+	border-left-color: rgba(120, 217, 143, 0.3);
+}
+.palette-row.project:hover {
+	background: rgba(92, 207, 230, 0.14);
+}
+.palette-row.file:hover {
+	background: rgba(120, 217, 143, 0.14);
+}
+.palette-row.project[aria-selected="true"] {
+	background: rgba(92, 207, 230, 0.22);
+	border-left-color: var(--accent);
+	box-shadow: inset 0 0 0 1px rgba(92, 207, 230, 0.4);
+}
+.palette-row.file[aria-selected="true"] {
+	background: rgba(120, 217, 143, 0.22);
+	border-left-color: var(--ok);
+	box-shadow: inset 0 0 0 1px rgba(120, 217, 143, 0.4);
+}
+.palette-row[aria-selected="true"] .palette-row-name {
+	font-weight: 600;
+	color: #ffffff;
+}
+.palette-row-glyph {
+	flex-shrink: 0;
+	width: 14px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 0.6rem;
+}
+.palette-row.project .palette-row-glyph {
+	color: var(--accent);
+}
+.palette-row.file .palette-row-glyph {
+	color: var(--ok);
+}
+.palette-row.project .palette-row-caption {
+	color: var(--accent);
+	opacity: 0.7;
+}
+.palette-row.file .palette-row-caption {
+	color: var(--ok);
+	opacity: 0.7;
+}
+.palette-row-label {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	overflow: hidden;
+}
+.palette-row-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.palette-row-dir {
+	color: var(--fg-dim);
+	font-size: 0.85rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	direction: rtl;
+	text-align: left;
+	flex-shrink: 1;
+	min-width: 0;
+}
+.palette-row-caption {
+	flex-shrink: 0;
+	font-size: 0.75rem;
+	color: var(--fg-dim);
+	letter-spacing: 0.04em;
+}
