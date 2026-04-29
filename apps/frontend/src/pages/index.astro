@@ -124,24 +124,57 @@ import Base from "../layouts/Base.astro";
 
 		let highlighted = 0;
 
+		function setHighlight(rows: NodeListOf<HTMLElement>, idx: number) {
+			highlighted = idx;
+			rows.forEach((r, i) => r.setAttribute("aria-selected", i === idx ? "true" : "false"));
+			rows[idx]?.scrollIntoView({ block: "nearest" });
+		}
+
 		function renderList(query: string) {
 			const entries = handle.getEntries(query);
 			paletteList.innerHTML = "";
 			highlighted = 0;
 			entries.forEach((entry, idx) => {
 				const li = document.createElement("li");
-				li.className = "palette-row";
+				li.className = `palette-row ${entry.kind}`;
 				li.setAttribute("role", "option");
 				li.setAttribute("aria-selected", idx === highlighted ? "true" : "false");
 				li.dataset.index = String(idx);
-				const badge = document.createElement("span");
-				badge.className = `palette-row-kind ${entry.kind}`;
-				badge.textContent = entry.kind === "project" ? "proj" : "file";
+
+				const glyph = document.createElement("span");
+				glyph.className = "palette-row-glyph";
+				glyph.textContent = "●";
+
 				const labelEl = document.createElement("span");
 				labelEl.className = "palette-row-label";
-				labelEl.textContent = entry.label;
-				li.appendChild(badge);
+				if (entry.kind === "file") {
+					const lastSlash = entry.label.lastIndexOf("/");
+					const dirText = lastSlash >= 0 ? entry.label.slice(0, lastSlash) : "";
+					const baseText = lastSlash >= 0 ? entry.label.slice(lastSlash + 1) : entry.label;
+					const nameSpan = document.createElement("span");
+					nameSpan.className = "palette-row-name";
+					nameSpan.textContent = baseText;
+					labelEl.appendChild(nameSpan);
+					if (dirText) {
+						const dirSpan = document.createElement("span");
+						dirSpan.className = "palette-row-dir";
+						dirSpan.textContent = dirText;
+						labelEl.appendChild(dirSpan);
+					}
+				} else {
+					const nameSpan = document.createElement("span");
+					nameSpan.className = "palette-row-name";
+					nameSpan.textContent = entry.label;
+					labelEl.appendChild(nameSpan);
+				}
+
+				const caption = document.createElement("span");
+				caption.className = "palette-row-caption";
+				caption.textContent = entry.kind;
+
+				li.appendChild(glyph);
 				li.appendChild(labelEl);
+				li.appendChild(caption);
 				li.addEventListener("click", () => {
 					handle.selectRowAt(idx);
 					syncModal();
@@ -163,14 +196,35 @@ import Base from "../layouts/Base.astro";
 			}
 		}
 
-		// Keydown on document (capture phase) for Shift,Shift gesture
+		// Keydown on document (capture phase) — handles the Shift,Shift gesture,
+		// and when the palette is open also owns arrow-key nav + Enter so the
+		// keys work regardless of which child element currently has focus.
 		document.addEventListener(
 			"keydown",
 			(e: KeyboardEvent) => {
-				if (handle.isOpen() && e.key === "Escape") {
-					handle.esc();
-					syncModal();
-					return;
+				if (handle.isOpen()) {
+					const rows = paletteList.querySelectorAll<HTMLElement>(".palette-row");
+					if (e.key === "ArrowDown") {
+						e.preventDefault();
+						setHighlight(rows, Math.min(highlighted + 1, rows.length - 1));
+						return;
+					}
+					if (e.key === "ArrowUp") {
+						e.preventDefault();
+						setHighlight(rows, Math.max(highlighted - 1, 0));
+						return;
+					}
+					if (e.key === "Enter") {
+						e.preventDefault();
+						handle.selectRowAt(highlighted);
+						syncModal();
+						return;
+					}
+					if (e.key === "Escape") {
+						handle.esc();
+						syncModal();
+						return;
+					}
 				}
 				if (e.key === "Shift") {
 					handle.tap(Date.now(), {
@@ -192,26 +246,6 @@ import Base from "../layouts/Base.astro";
 		window.addEventListener("message", (e: MessageEvent) => {
 			const data = e.data as { type?: string } | null;
 			if (data && data.type === "palette-shift-tap") syncModal();
-		});
-
-		// Palette-local keyboard nav
-		paletteInput.addEventListener("keydown", (e: KeyboardEvent) => {
-			const rows = paletteList.querySelectorAll<HTMLElement>(".palette-row");
-			if (e.key === "ArrowDown") {
-				e.preventDefault();
-				highlighted = Math.min(highlighted + 1, rows.length - 1);
-				rows.forEach((r, i) => r.setAttribute("aria-selected", i === highlighted ? "true" : "false"));
-				rows[highlighted]?.scrollIntoView({ block: "nearest" });
-			} else if (e.key === "ArrowUp") {
-				e.preventDefault();
-				highlighted = Math.max(highlighted - 1, 0);
-				rows.forEach((r, i) => r.setAttribute("aria-selected", i === highlighted ? "true" : "false"));
-				rows[highlighted]?.scrollIntoView({ block: "nearest" });
-			} else if (e.key === "Enter") {
-				e.preventDefault();
-				handle.selectRowAt(highlighted);
-				syncModal();
-			}
 		});
 
 		paletteInput.addEventListener("input", () => {
