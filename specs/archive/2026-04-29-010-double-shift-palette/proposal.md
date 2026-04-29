@@ -1,17 +1,18 @@
 ---
 id: 010-double-shift-palette
 title: Double-shift command palette for projects and files
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/frontend/src/dashboard/palette.test.ts
     level: unit
   - path: scripts/smoke-010-palette-dispatch.ts
     level: e2e
-created: 2026-04-29
+created: 2026-04-29T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-04-29'
 ---
 
 ## Intent
