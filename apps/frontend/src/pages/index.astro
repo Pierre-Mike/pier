@@ -186,6 +186,14 @@ import Base from "../layouts/Base.astro";
 			true,
 		);
 
+		// Relay from cross-origin terminal iframe — installPalette already listens
+		// on globalThis for the message and updates open-state. This sibling
+		// listener exists solely to repaint the modal after a relayed tap.
+		window.addEventListener("message", (e: MessageEvent) => {
+			const data = e.data as { type?: string } | null;
+			if (data && data.type === "palette-shift-tap") syncModal();
+		});
+
 		// Palette-local keyboard nav
 		paletteInput.addEventListener("keydown", (e: KeyboardEvent) => {
 			const rows = paletteList.querySelectorAll<HTMLElement>(".palette-row");
