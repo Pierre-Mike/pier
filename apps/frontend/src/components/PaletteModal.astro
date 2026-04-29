@@ -1,0 +1,135 @@
+---
+/**
+ * Command palette overlay — spec 010.
+ * Triggered by a double-shift gesture (see palette.ts + index.astro).
+ * Mirrors the LogsModal / viewer-modal overlay structure.
+ */
+---
+
+<div id="palette-modal" class="palette-overlay hidden" role="dialog" aria-modal="true" aria-label="Command palette">
+	<div class="palette-backdrop" id="palette-backdrop"></div>
+	<div class="palette-dialog">
+		<input
+			id="palette-input"
+			class="palette-input"
+			type="search"
+			placeholder="Jump to project or file…"
+			autocomplete="off"
+			spellcheck="false"
+		/>
+		<ul id="palette-list" class="palette-list" role="listbox" aria-label="Results"></ul>
+	</div>
+</div>
+
+<style>
+	:root {
+		--palette-z: 9000;
+	}
+
+	.palette-overlay {
+		position: fixed;
+		inset: 0;
+		z-index: var(--palette-z);
+		display: flex;
+		align-items: flex-start;
+		justify-content: center;
+		padding-top: 15vh;
+	}
+
+	.palette-overlay.hidden {
+		display: none;
+	}
+
+	.palette-backdrop {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.55);
+	}
+
+	.palette-dialog {
+		position: relative;
+		z-index: 1;
+		width: min(640px, 90vw);
+		background: var(--color-bg-2, #1e1e2e);
+		border: 1px solid var(--color-border, #45475a);
+		border-radius: 8px;
+		box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.palette-input {
+		width: 100%;
+		box-sizing: border-box;
+		padding: 12px 16px;
+		font-size: 1rem;
+		background: transparent;
+		border: none;
+		border-bottom: 1px solid var(--color-border, #45475a);
+		color: var(--color-fg, #cdd6f4);
+		outline: none;
+	}
+
+	.palette-input::placeholder {
+		color: var(--color-fg-muted, #6c7086);
+	}
+
+	.palette-list {
+		list-style: none;
+		margin: 0;
+		padding: 4px 0;
+		max-height: 400px;
+		overflow-y: auto;
+		overflow-x: hidden;
+	}
+
+	.palette-list:empty::after {
+		content: "No results";
+		display: block;
+		padding: 12px 16px;
+		color: var(--color-fg-muted, #6c7086);
+		font-size: 0.875rem;
+	}
+
+	.palette-row {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding: 8px 16px;
+		cursor: pointer;
+		color: var(--color-fg, #cdd6f4);
+		font-size: 0.9rem;
+		user-select: none;
+	}
+
+	.palette-row:hover,
+	.palette-row[aria-selected="true"] {
+		background: var(--color-bg-3, #313244);
+	}
+
+	.palette-row-kind {
+		font-size: 0.7rem;
+		padding: 2px 5px;
+		border-radius: 3px;
+		flex-shrink: 0;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	.palette-row-kind.project {
+		background: var(--color-accent, #89b4fa);
+		color: var(--color-bg, #1e1e2e);
+	}
+
+	.palette-row-kind.file {
+		background: var(--color-green, #a6e3a1);
+		color: var(--color-bg, #1e1e2e);
+	}
+
+	.palette-row-label {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+</style>

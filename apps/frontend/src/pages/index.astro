@@ -1,6 +1,7 @@
 ---
 import ArtifactsPane from "../components/ArtifactsPane.astro";
 import LogsModal from "../components/LogsModal.astro";
+import PaletteModal from "../components/PaletteModal.astro";
 import Sidebar from "../components/Sidebar.astro";
 import TerminalPane from "../components/TerminalPane.astro";
 import Base from "../layouts/Base.astro";
@@ -11,6 +12,7 @@ import Base from "../layouts/Base.astro";
 	<TerminalPane />
 	<ArtifactsPane />
 	<LogsModal />
+	<PaletteModal />
 
 	<div id="viewer-modal" class="viewer-modal hidden" role="dialog" aria-modal="true" aria-label="File viewer">
 		<div class="viewer-backdrop" data-close></div>
@@ -44,6 +46,8 @@ import Base from "../layouts/Base.astro";
 	import { subscribeEvents } from "../dashboard/sse";
 	import type { ClaudeEvent } from "../dashboard/types";
 	import { wireDefaultSession } from "../dashboard/default-session";
+	import { installPalette } from "../dashboard/palette";
+	import { openRepoFile } from "../dashboard/viewer";
 
 	async function init() {
 		await loadConfig();
@@ -86,9 +90,124 @@ import Base from "../layouts/Base.astro";
 		wireViewerModal();
 		wireLogsModal();
 		wireSettingsModal();
+		wirePaletteUI();
 		wirePaneToggle("collapse-sidebar", "sidebar", "collapsed-left", "❮", "❯");
 		wirePaneToggle("collapse-artifacts", "artifacts", "collapsed-right", "❯", "❮");
 		wireResizeHandle();
+	}
+
+	function wirePaletteUI() {
+		const modal = document.getElementById("palette-modal");
+		const input = document.getElementById("palette-input") as HTMLInputElement | null;
+		const list = document.getElementById("palette-list");
+		const backdrop = document.getElementById("palette-backdrop");
+		if (!modal || !input || !list || !backdrop) return;
+
+		const handle = installPalette({
+			selectProject,
+			openViewer: (projectId: string, path: string) => {
+				void openRepoFile(path, path.split("/").at(-1) ?? path);
+			},
+			getStore: () => ({
+				projects: store.projects,
+				files: store.files,
+				activeProject: store.activeProject,
+			}),
+		});
+
+		let highlighted = 0;
+
+		function renderList(query: string) {
+			const entries = handle.getEntries(query);
+			list.innerHTML = "";
+			highlighted = 0;
+			entries.forEach((entry, idx) => {
+				const li = document.createElement("li");
+				li.className = "palette-row";
+				li.setAttribute("role", "option");
+				li.setAttribute("aria-selected", idx === highlighted ? "true" : "false");
+				li.dataset.index = String(idx);
+				const badge = document.createElement("span");
+				badge.className = `palette-row-kind ${entry.kind}`;
+				badge.textContent = entry.kind === "project" ? "proj" : "file";
+				const label = document.createElement("span");
+				label.className = "palette-row-label";
+				label.textContent = entry.label;
+				li.appendChild(badge);
+				li.appendChild(label);
+				li.addEventListener("click", () => {
+					handle.selectRowAt(idx);
+					syncModal();
+				});
+				list.appendChild(li);
+			});
+		}
+
+		function syncModal() {
+			if (handle.isOpen()) {
+				modal.classList.remove("hidden");
+				input.value = "";
+				renderList("");
+				input.focus();
+			} else {
+				modal.classList.add("hidden");
+				input.value = "";
+				list.innerHTML = "";
+			}
+		}
+
+		// Keydown on document (capture phase) for Shift,Shift gesture
+		document.addEventListener(
+			"keydown",
+			(e: KeyboardEvent) => {
+				if (handle.isOpen() && e.key === "Escape") {
+					handle.esc();
+					syncModal();
+					return;
+				}
+				if (e.key === "Shift") {
+					handle.tap(Date.now(), {
+						ctrlKey: e.ctrlKey,
+						metaKey: e.metaKey,
+						altKey: e.altKey,
+					});
+					syncModal();
+				} else if (e.key !== "Shift") {
+					handle.nonShiftKey();
+				}
+			},
+			true,
+		);
+
+		// Palette-local keyboard nav
+		input.addEventListener("keydown", (e: KeyboardEvent) => {
+			const rows = list.querySelectorAll<HTMLElement>(".palette-row");
+			if (e.key === "ArrowDown") {
+				e.preventDefault();
+				highlighted = Math.min(highlighted + 1, rows.length - 1);
+				rows.forEach((r, i) => r.setAttribute("aria-selected", i === highlighted ? "true" : "false"));
+				rows[highlighted]?.scrollIntoView({ block: "nearest" });
+			} else if (e.key === "ArrowUp") {
+				e.preventDefault();
+				highlighted = Math.max(highlighted - 1, 0);
+				rows.forEach((r, i) => r.setAttribute("aria-selected", i === highlighted ? "true" : "false"));
+				rows[highlighted]?.scrollIntoView({ block: "nearest" });
+			} else if (e.key === "Enter") {
+				e.preventDefault();
+				handle.selectRowAt(highlighted);
+				syncModal();
+			}
+		});
+
+		input.addEventListener("input", () => {
+			renderList(input.value);
+		});
+
+		// Close on backdrop click
+		backdrop.addEventListener("click", () => {
+			handle.esc();
+			syncModal();
+		});
 	}
 
 	init().catch((e) => {
