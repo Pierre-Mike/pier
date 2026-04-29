@@ -96,16 +96,23 @@ import Base from "../layouts/Base.astro";
 		wireResizeHandle();
 	}
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: palette UI wiring
 	function wirePaletteUI() {
-		const modal = document.getElementById("palette-modal");
-		const input = document.getElementById("palette-input") as HTMLInputElement | null;
-		const list = document.getElementById("palette-list");
-		const backdrop = document.getElementById("palette-backdrop");
-		if (!modal || !input || !list || !backdrop) return;
+		const modalEl = document.getElementById("palette-modal");
+		const inputEl = document.getElementById("palette-input");
+		const listEl = document.getElementById("palette-list");
+		const backdropEl = document.getElementById("palette-backdrop");
+		if (!modalEl || !inputEl || !listEl || !backdropEl) return;
+
+		// Rebind as concrete types after null guard — TypeScript narrows let-bindings
+		// inside closures to their widened type, so we use local const aliases.
+		const paletteModal: HTMLElement = modalEl;
+		const paletteInput: HTMLInputElement = inputEl as HTMLInputElement;
+		const paletteList: HTMLElement = listEl;
 
 		const handle = installPalette({
 			selectProject,
-			openViewer: (projectId: string, path: string) => {
+			openViewer: (_pid: string, path: string) => {
 				void openRepoFile(path, path.split("/").at(-1) ?? path);
 			},
 			getStore: () => ({
@@ -119,7 +126,7 @@ import Base from "../layouts/Base.astro";
 
 		function renderList(query: string) {
 			const entries = handle.getEntries(query);
-			list.innerHTML = "";
+			paletteList.innerHTML = "";
 			highlighted = 0;
 			entries.forEach((entry, idx) => {
 				const li = document.createElement("li");
@@ -130,29 +137,29 @@ import Base from "../layouts/Base.astro";
 				const badge = document.createElement("span");
 				badge.className = `palette-row-kind ${entry.kind}`;
 				badge.textContent = entry.kind === "project" ? "proj" : "file";
-				const label = document.createElement("span");
-				label.className = "palette-row-label";
-				label.textContent = entry.label;
+				const labelEl = document.createElement("span");
+				labelEl.className = "palette-row-label";
+				labelEl.textContent = entry.label;
 				li.appendChild(badge);
-				li.appendChild(label);
+				li.appendChild(labelEl);
 				li.addEventListener("click", () => {
 					handle.selectRowAt(idx);
 					syncModal();
 				});
-				list.appendChild(li);
+				paletteList.appendChild(li);
 			});
 		}
 
 		function syncModal() {
 			if (handle.isOpen()) {
-				modal.classList.remove("hidden");
-				input.value = "";
+				paletteModal.classList.remove("hidden");
+				paletteInput.value = "";
 				renderList("");
-				input.focus();
+				paletteInput.focus();
 			} else {
-				modal.classList.add("hidden");
-				input.value = "";
-				list.innerHTML = "";
+				paletteModal.classList.add("hidden");
+				paletteInput.value = "";
+				paletteList.innerHTML = "";
 			}
 		}
 
@@ -172,7 +179,7 @@ import Base from "../layouts/Base.astro";
 						altKey: e.altKey,
 					});
 					syncModal();
-				} else if (e.key !== "Shift") {
+				} else {
 					handle.nonShiftKey();
 				}
 			},
@@ -180,8 +187,8 @@ import Base from "../layouts/Base.astro";
 		);
 
 		// Palette-local keyboard nav
-		input.addEventListener("keydown", (e: KeyboardEvent) => {
-			const rows = list.querySelectorAll<HTMLElement>(".palette-row");
+		paletteInput.addEventListener("keydown", (e: KeyboardEvent) => {
+			const rows = paletteList.querySelectorAll<HTMLElement>(".palette-row");
 			if (e.key === "ArrowDown") {
 				e.preventDefault();
 				highlighted = Math.min(highlighted + 1, rows.length - 1);
@@ -199,12 +206,12 @@ import Base from "../layouts/Base.astro";
 			}
 		});
 
-		input.addEventListener("input", () => {
-			renderList(input.value);
+		paletteInput.addEventListener("input", () => {
+			renderList(paletteInput.value);
 		});
 
 		// Close on backdrop click
-		backdrop.addEventListener("click", () => {
+		backdropEl.addEventListener("click", () => {
 			handle.esc();
 			syncModal();
 		});
