@@ -82,7 +82,7 @@
 	.palette-list {
 		list-style: none;
 		margin: 0;
-		padding: 8px 0;
+		padding: 10px 8px;
 		overflow-y: auto;
 		overflow-x: hidden;
 	}
@@ -98,26 +98,51 @@
 	.palette-row {
 		display: flex;
 		align-items: center;
-		gap: 12px;
-		padding: 10px 20px;
+		gap: 14px;
+		padding: 14px 18px;
+		margin: 4px 0;
+		border-radius: 6px;
 		cursor: pointer;
 		color: var(--fg);
 		font-size: 0.95rem;
-		border-left: 2px solid transparent;
+		border-left: 3px solid transparent;
 		user-select: none;
+		transition: background-color 80ms ease, border-color 80ms ease;
 	}
 
-	.palette-row + .palette-row {
-		margin-top: 2px;
+	.palette-row.project {
+		background: rgba(92, 207, 230, 0.06);
+		border-left-color: rgba(92, 207, 230, 0.3);
 	}
 
-	.palette-row:hover {
-		background: var(--bg-hover);
+	.palette-row.file {
+		background: rgba(120, 217, 143, 0.06);
+		border-left-color: rgba(120, 217, 143, 0.3);
 	}
 
-	.palette-row[aria-selected="true"] {
-		background: var(--bg-hover);
+	.palette-row.project:hover {
+		background: rgba(92, 207, 230, 0.14);
+	}
+
+	.palette-row.file:hover {
+		background: rgba(120, 217, 143, 0.14);
+	}
+
+	.palette-row.project[aria-selected="true"] {
+		background: rgba(92, 207, 230, 0.22);
 		border-left-color: var(--accent);
+		box-shadow: inset 0 0 0 1px rgba(92, 207, 230, 0.4);
+	}
+
+	.palette-row.file[aria-selected="true"] {
+		background: rgba(120, 217, 143, 0.22);
+		border-left-color: var(--ok);
+		box-shadow: inset 0 0 0 1px rgba(120, 217, 143, 0.4);
+	}
+
+	.palette-row[aria-selected="true"] .palette-row-name {
+		font-weight: 600;
+		color: #ffffff;
 	}
 
 	.palette-row-glyph {
@@ -126,7 +151,7 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		font-size: 0.55rem;
+		font-size: 0.6rem;
 	}
 
 	.palette-row.project .palette-row-glyph {
@@ -138,12 +163,13 @@
 	}
 
 	.palette-row.project .palette-row-caption {
-		color: var(--accent-dim);
+		color: var(--accent);
+		opacity: 0.7;
 	}
 
 	.palette-row.file .palette-row-caption {
 		color: var(--ok);
-		opacity: 0.65;
+		opacity: 0.7;
 	}
 
 	.palette-row-label {
