@@ -15,7 +15,7 @@ Parallel-safe siblings are marked `[P]`.
   - file_targets: [apps/frontend/src/dashboard/palette.test.ts, scripts/smoke-010-palette-dispatch.ts]
   - boundary: [apps/frontend/src/dashboard/palette.test.ts, scripts/smoke-010-palette-dispatch.ts]
 
-- [ ] 2. Palette state machine + fuzzy filter (palette.ts pure logic)
+- [ ] 2. Implement palette.ts: installPalette + internal state machine, fuzzy filter, entry builder
   - agent: main
   - depends: [1]
   - file_targets: [apps/frontend/src/dashboard/palette.ts]

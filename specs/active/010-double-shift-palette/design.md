@@ -4,10 +4,37 @@
 
 A new `palette.ts` module holds the entire state machine, fuzzy filter, entry builder, and dispatch logic as pure functions (no DOM refs, importable in tests without JSDOM). A `PaletteModal.astro` component renders the overlay, mirroring the shape of `LogsModal.astro`. The bootstrap in `index.astro` attaches a single `document` capture-phase `keydown` listener plus a `window.addEventListener("message", ...)` handler; both feed into `createPaletteStateMachine`. The Zellij iframe wrapper route in `apps/backend/` injects a 15-line relay script that forwards Shift keydowns to `window.parent` as `{type:"palette-shift-tap", t: Date.now()}`.
 
+## Public behavioral interface (gate contract)
+
+The gate tests drive the palette entirely through `installPalette(deps)`:
+
+```ts
+installPalette(deps: {
+  selectProject: (id: string) => Promise<void>;
+  openViewer: (projectId: string, path: string) => void;
+  getStore?: () => { projects: Project[]; files: FileEntry[]; activeProject: string | null };
+  relayTarget?: EventTarget;  // defaults to globalThis; palette attaches "message" listener here
+}) → PaletteHandle;
+
+PaletteHandle: {
+  isOpen(): boolean;
+  tap(t: number, mods?: { ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean }): void;
+  nonShiftKey(): void;
+  esc(): void;
+  getEntries(query: string): ReadonlyArray<{ kind: "project" | "file"; label: string }>;
+  selectRowAt(index: number): void;
+  dispose(): void;
+}
+```
+
+The implementer is free to choose internal factoring (state machine, helper functions, etc.).
+The `relayTarget` dependency enables the test to inject a custom `EventTarget` and dispatch
+real `MessageEvent`s, ensuring the implementer registers `relayTarget.addEventListener("message", ...)`.
+
 ## Files touched
 
-- `apps/frontend/src/dashboard/palette.ts` — NEW. State machine (`createPaletteStateMachine`), `dispatchEntry`, `buildEntries`, `applyFuzzyFilter`, and the `PaletteEntry` type.
-- `apps/frontend/src/dashboard/palette.test.ts` — NEW (gate). Unit tests for the above exports; authored in RED state.
+- `apps/frontend/src/dashboard/palette.ts` — NEW. Exports `installPalette`. Internal factoring at implementer's discretion.
+- `apps/frontend/src/dashboard/palette.test.ts` — NEW (gate). Unit tests driven through `installPalette`; authored in RED state.
 - `apps/frontend/src/components/PaletteModal.astro` — NEW. Overlay markup + styles (input, scrollable list, row tags). Mirrors `SettingsModal.astro` / `LogsModal.astro` structure.
 - `apps/frontend/src/pages/index.astro` — MODIFIED. Import and register palette listener in the page bootstrap block.
 - `apps/backend/` (Zellij wrapper route) — MODIFIED. Inject the postMessage relay snippet into the HTML page that wraps the Zellij iframe.

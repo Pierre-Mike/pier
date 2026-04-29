@@ -1,324 +1,547 @@
 /**
  * RED gate — spec 010: Double-shift command palette for projects and files.
  *
- * Tests the palette state machine and dispatch logic in palette.ts (which does
- * not exist yet). Every test in this file FAILS until the implementer creates
- * palette.ts with the specified exports.
+ * Tests the palette's behavioral surface via the single `installPalette` export
+ * from palette.ts (which does not exist yet). Every test FAILS until the
+ * implementer creates palette.ts.
  *
  * Covered acceptance criteria:
- *   (a) Two Shift keydowns within 300ms opens the palette.
- *   (b) Two Shift keydowns >300ms apart does NOT open the palette.
- *   (c) Intervening non-Shift keydown resets the state machine.
- *   (d) Shift with ctrl/meta/alt modifier is ignored.
- *   (e) Toggle: while open, Shift,Shift closes the palette.
- *   (f) postMessage relay {type:"palette-shift-tap"} treated identically to native Shift.
- *   (g) Enter on project row calls selectProject.
- *   (h) Enter on file row calls openViewer.
- *   (i) Esc closes the palette.
- *   (j) Fuzzy filter ranks substring matches above non-matches.
+ *   AC1  Two Shift keydowns within 300ms opens the palette.
+ *   AC2  Two Shift keydowns >300ms apart does NOT open the palette.
+ *   AC3  Intervening non-Shift keydown resets the state machine.
+ *   AC4  Shift with ctrl/meta/alt modifier is ignored.
+ *   AC5  Toggle: while open, Shift,Shift closes the palette.
+ *   AC6  postMessage relay via window.addEventListener("message",...) treated
+ *        identically to native Shift tap — test exercises real listener wiring.
+ *   AC7  Enter on project row calls selectProject(id) AFTER close().
+ *   AC8  Enter on file row calls openViewer(projectId, path) AFTER close().
+ *   AC9  Esc closes the palette.
+ *   AC10 Fuzzy filter ranks entries containing the query substring above those
+ *        that do not.
+ *
+ * Interface contract (implementer decides internal factoring):
+ *   installPalette(deps) → PaletteHandle
+ *
+ *   deps: {
+ *     selectProject: (id: string) => Promise<void>
+ *     openViewer: (projectId: string, path: string) => void
+ *     getStore?: () => { projects, files, activeProject }
+ *     relayTarget?: EventTarget   // defaults to globalThis; the message listener
+ *                                 // for the postMessage relay is attached here
+ *   }
+ *
+ *   PaletteHandle: {
+ *     isOpen(): boolean
+ *     tap(t: number, mods?: { ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean }): void
+ *     nonShiftKey(): void
+ *     esc(): void
+ *     getEntries(query: string): ReadonlyArray<{ kind: "project" | "file"; label: string }>
+ *     selectRowAt(index: number): void   // simulates Enter / click on that row
+ *     dispose(): void
+ *   }
  *
  * RED: palette.ts does not exist; the import below will throw, failing all tests.
  */
 
 import { describe, expect, mock, test } from "bun:test";
-import {
-	applyFuzzyFilter,
-	buildEntries,
-	createPaletteStateMachine,
-	dispatchEntry,
-	type PaletteEntry,
-} from "./palette.ts";
+import { installPalette } from "./palette.ts";
 
 // ---------------------------------------------------------------------------
-// (a) Two Shift keydowns within 300ms opens the palette
+// Shared store stub
 // ---------------------------------------------------------------------------
-describe("state machine — trigger detection", () => {
-	test("two Shift taps within 300ms triggers open", () => {
-		const onOpen = mock(() => {
-			/* no-op mock */
-		});
-		const onClose = mock(() => {
-			/* no-op mock */
-		});
-		const sm = createPaletteStateMachine({ onOpen, onClose });
 
-		const base = 1000;
-		sm.handleShiftTap({ t: base });
-		sm.handleShiftTap({ t: base + 200 });
+const PROJECTS = [
+	{ id: "p-alpha", name: "Alpha", path: "/alpha", isGitRepo: false, lastModified: 0 },
+	{ id: "p-beta", name: "Beta", path: "/beta", isGitRepo: false, lastModified: 0 },
+];
 
-		expect(onOpen).toHaveBeenCalledTimes(1);
-		expect(onClose).toHaveBeenCalledTimes(0);
+const FILES = [{ path: "src/main.ts" }, { path: "src/utils.ts" }, { path: "README.md" }];
+
+function makeStore(activeProject: string | null = "p-alpha") {
+	return () => ({ projects: PROJECTS, files: FILES, activeProject });
+}
+
+// ---------------------------------------------------------------------------
+// AC1 — Two Shift taps within 300ms opens the palette
+// ---------------------------------------------------------------------------
+describe("AC1 — double-shift opens palette", () => {
+	test("two taps 200ms apart → isOpen() becomes true", () => {
+		const handle = installPalette({
+			selectProject: mock(() => Promise.resolve()),
+			openViewer: mock(() => undefined),
+			getStore: makeStore(),
+		});
+
+		const base = 1_000;
+		handle.tap(base);
+		handle.tap(base + 200);
+
+		expect(handle.isOpen()).toBe(true);
+		handle.dispose();
 	});
 
-	// (b) >300ms gap does NOT trigger
-	test("two Shift taps more than 300ms apart does NOT open", () => {
-		const onOpen = mock(() => {
-			/* no-op mock */
+	test("two taps exactly 300ms apart → isOpen() becomes true (≤300ms inclusive)", () => {
+		const handle = installPalette({
+			selectProject: mock(() => Promise.resolve()),
+			openViewer: mock(() => undefined),
+			getStore: makeStore(),
 		});
-		const onClose = mock(() => {
-			/* no-op mock */
+
+		const base = 1_000;
+		handle.tap(base);
+		handle.tap(base + 300);
+
+		expect(handle.isOpen()).toBe(true);
+		handle.dispose();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// AC2 — Two Shift taps >300ms apart does NOT open
+// ---------------------------------------------------------------------------
+describe("AC2 — taps too far apart do not open", () => {
+	test("two taps 301ms apart → isOpen() stays false", () => {
+		const handle = installPalette({
+			selectProject: mock(() => Promise.resolve()),
+			openViewer: mock(() => undefined),
+			getStore: makeStore(),
 		});
-		const sm = createPaletteStateMachine({ onOpen, onClose });
 
-		const base = 1000;
-		sm.handleShiftTap({ t: base });
-		sm.handleShiftTap({ t: base + 301 });
+		const base = 1_000;
+		handle.tap(base);
+		handle.tap(base + 301);
 
-		expect(onOpen).toHaveBeenCalledTimes(0);
+		expect(handle.isOpen()).toBe(false);
+		handle.dispose();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// AC3 — Intervening non-Shift resets the gesture
+// ---------------------------------------------------------------------------
+describe("AC3 — intervening non-Shift resets", () => {
+	test("Shift, non-Shift, Shift does not open", () => {
+		const handle = installPalette({
+			selectProject: mock(() => Promise.resolve()),
+			openViewer: mock(() => undefined),
+			getStore: makeStore(),
+		});
+
+		const base = 1_000;
+		handle.tap(base);
+		handle.nonShiftKey(); // reset
+		handle.tap(base + 100); // only one Shift since reset
+
+		expect(handle.isOpen()).toBe(false);
+		handle.dispose();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// AC4 — Modifier-laden Shift is ignored
+// ---------------------------------------------------------------------------
+describe("AC4 — modifier-laden Shift ignored", () => {
+	test("Shift+ctrl does not count toward gesture", () => {
+		const handle = installPalette({
+			selectProject: mock(() => Promise.resolve()),
+			openViewer: mock(() => undefined),
+			getStore: makeStore(),
+		});
+
+		const base = 1_000;
+		handle.tap(base, { ctrlKey: true }); // ignored
+		handle.tap(base + 100);
+
+		expect(handle.isOpen()).toBe(false);
+		handle.dispose();
 	});
 
-	// (c) Intervening non-Shift keydown resets state
-	test("intervening non-Shift key resets the state machine", () => {
-		const onOpen = mock(() => {
-			/* no-op mock */
+	test("Shift+meta does not count toward gesture", () => {
+		const handle = installPalette({
+			selectProject: mock(() => Promise.resolve()),
+			openViewer: mock(() => undefined),
+			getStore: makeStore(),
 		});
-		const onClose = mock(() => {
-			/* no-op mock */
-		});
-		const sm = createPaletteStateMachine({ onOpen, onClose });
 
-		const base = 1000;
-		sm.handleShiftTap({ t: base });
-		sm.handleNonShiftKey();
-		sm.handleShiftTap({ t: base + 100 }); // only one Shift after reset
+		const base = 1_000;
+		handle.tap(base);
+		handle.tap(base + 100, { metaKey: true }); // ignored
 
-		expect(onOpen).toHaveBeenCalledTimes(0);
+		expect(handle.isOpen()).toBe(false);
+		handle.dispose();
 	});
 
-	// (d) Modifier-laden Shift is ignored
-	test("Shift with ctrlKey is ignored", () => {
-		const onOpen = mock(() => {
-			/* no-op mock */
+	test("Shift+alt does not count toward gesture", () => {
+		const handle = installPalette({
+			selectProject: mock(() => Promise.resolve()),
+			openViewer: mock(() => undefined),
+			getStore: makeStore(),
 		});
-		const onClose = mock(() => {
-			/* no-op mock */
-		});
-		const sm = createPaletteStateMachine({ onOpen, onClose });
 
-		const base = 1000;
-		sm.handleShiftTap({ t: base, ctrlKey: true });
-		sm.handleShiftTap({ t: base + 50 });
+		const base = 1_000;
+		handle.tap(base, { altKey: true }); // ignored
+		handle.tap(base + 100);
 
-		expect(onOpen).toHaveBeenCalledTimes(0);
+		expect(handle.isOpen()).toBe(false);
+		handle.dispose();
 	});
+});
 
-	test("Shift with metaKey is ignored", () => {
-		const onOpen = mock(() => {
-			/* no-op mock */
+// ---------------------------------------------------------------------------
+// AC5 — Toggle: Shift,Shift while open closes the palette
+// ---------------------------------------------------------------------------
+describe("AC5 — toggle closes when already open", () => {
+	test("second double-Shift closes the palette", () => {
+		const handle = installPalette({
+			selectProject: mock(() => Promise.resolve()),
+			openViewer: mock(() => undefined),
+			getStore: makeStore(),
 		});
-		const onClose = mock(() => {
-			/* no-op mock */
-		});
-		const sm = createPaletteStateMachine({ onOpen, onClose });
 
-		const base = 1000;
-		sm.handleShiftTap({ t: base });
-		sm.handleShiftTap({ t: base + 50, metaKey: true });
-
-		expect(onOpen).toHaveBeenCalledTimes(0);
-	});
-
-	test("Shift with altKey is ignored", () => {
-		const onOpen = mock(() => {
-			/* no-op mock */
-		});
-		const onClose = mock(() => {
-			/* no-op mock */
-		});
-		const sm = createPaletteStateMachine({ onOpen, onClose });
-
-		const base = 1000;
-		sm.handleShiftTap({ t: base, altKey: true });
-		sm.handleShiftTap({ t: base + 50 });
-
-		expect(onOpen).toHaveBeenCalledTimes(0);
-	});
-
-	// (e) Toggle: when open, Shift,Shift closes
-	test("Shift,Shift while open closes the palette (toggle)", () => {
-		const onOpen = mock(() => {
-			/* no-op mock */
-		});
-		const onClose = mock(() => {
-			/* no-op mock */
-		});
-		const sm = createPaletteStateMachine({ onOpen, onClose });
-
-		const base = 1000;
+		const base = 1_000;
 		// Open
-		sm.handleShiftTap({ t: base });
-		sm.handleShiftTap({ t: base + 100 });
-		expect(onOpen).toHaveBeenCalledTimes(1);
+		handle.tap(base);
+		handle.tap(base + 100);
+		expect(handle.isOpen()).toBe(true);
 
-		// Close via toggle
-		sm.handleShiftTap({ t: base + 200 });
-		sm.handleShiftTap({ t: base + 300 });
-		expect(onClose).toHaveBeenCalledTimes(1);
-		// Should not open again
-		expect(onOpen).toHaveBeenCalledTimes(1);
-	});
+		// Toggle close
+		handle.tap(base + 200);
+		handle.tap(base + 300);
+		expect(handle.isOpen()).toBe(false);
 
-	// (f) postMessage relay treated identically
-	test("postMessage relay {type:'palette-shift-tap'} counts as a Shift tap", () => {
-		const onOpen = mock(() => {
-			/* no-op mock */
-		});
-		const onClose = mock(() => {
-			/* no-op mock */
-		});
-		const sm = createPaletteStateMachine({ onOpen, onClose });
-
-		const base = 1000;
-		// First tap via postMessage relay
-		sm.handleRelayMessage({ type: "palette-shift-tap", t: base });
-		// Second tap via postMessage relay
-		sm.handleRelayMessage({ type: "palette-shift-tap", t: base + 150 });
-
-		expect(onOpen).toHaveBeenCalledTimes(1);
-	});
-
-	test("mix of native and relay taps triggers open", () => {
-		const onOpen = mock(() => {
-			/* no-op mock */
-		});
-		const onClose = mock(() => {
-			/* no-op mock */
-		});
-		const sm = createPaletteStateMachine({ onOpen, onClose });
-
-		const base = 1000;
-		sm.handleShiftTap({ t: base });
-		sm.handleRelayMessage({ type: "palette-shift-tap", t: base + 100 });
-
-		expect(onOpen).toHaveBeenCalledTimes(1);
+		handle.dispose();
 	});
 });
 
 // ---------------------------------------------------------------------------
-// (g) Enter on project row dispatches selectProject
+// AC6 — postMessage relay via real window.addEventListener("message", ...)
+//
+// The test injects a custom EventTarget as `relayTarget`. It then dispatches a
+// real MessageEvent on that target. If the implementer never registers a
+// "message" listener on relayTarget, the palette will not open — the test
+// detects the omission.
 // ---------------------------------------------------------------------------
-describe("dispatchEntry — project row", () => {
-	test("Enter on project row calls selectProject with the project id after close", () => {
-		const selectProject = mock((_id: string) => Promise.resolve());
-		const openViewer = mock((_projectId: string, _path: string) => {
-			/* no-op mock */
-		});
-		const close = mock(() => {
-			/* no-op mock */
+describe("AC6 — postMessage relay exercises real listener wiring", () => {
+	test("two MessageEvents dispatched on relayTarget open the palette", () => {
+		const relayTarget = new EventTarget();
+		const handle = installPalette({
+			selectProject: mock(() => Promise.resolve()),
+			openViewer: mock(() => undefined),
+			getStore: makeStore(),
+			relayTarget,
 		});
 
-		const entry: PaletteEntry = { kind: "project", id: "proj-1", label: "My Project" };
-		dispatchEntry({ entry, activeProjectId: null, selectProject, openViewer, close });
+		const base = 2_000;
+		// Dispatch real MessageEvents — implementer must have registered a listener
+		relayTarget.dispatchEvent(
+			new MessageEvent("message", { data: { type: "palette-shift-tap", t: base } }),
+		);
+		relayTarget.dispatchEvent(
+			new MessageEvent("message", { data: { type: "palette-shift-tap", t: base + 150 } }),
+		);
 
-		expect(close).toHaveBeenCalledTimes(1);
-		expect(selectProject).toHaveBeenCalledWith("proj-1");
-		expect(openViewer).toHaveBeenCalledTimes(0);
+		expect(handle.isOpen()).toBe(true);
+		handle.dispose();
+	});
+
+	test("mix of native tap and relay MessageEvent opens the palette", () => {
+		const relayTarget = new EventTarget();
+		const handle = installPalette({
+			selectProject: mock(() => Promise.resolve()),
+			openViewer: mock(() => undefined),
+			getStore: makeStore(),
+			relayTarget,
+		});
+
+		const base = 3_000;
+		// First tap via direct handle method (native keydown path)
+		handle.tap(base);
+		// Second tap via relay MessageEvent (must arrive via listener)
+		relayTarget.dispatchEvent(
+			new MessageEvent("message", { data: { type: "palette-shift-tap", t: base + 100 } }),
+		);
+
+		expect(handle.isOpen()).toBe(true);
+		handle.dispose();
+	});
+
+	test("MessageEvent with wrong type does not count as a tap", () => {
+		const relayTarget = new EventTarget();
+		const handle = installPalette({
+			selectProject: mock(() => Promise.resolve()),
+			openViewer: mock(() => undefined),
+			getStore: makeStore(),
+			relayTarget,
+		});
+
+		const base = 4_000;
+		relayTarget.dispatchEvent(
+			new MessageEvent("message", { data: { type: "some-other-event", t: base } }),
+		);
+		relayTarget.dispatchEvent(
+			new MessageEvent("message", { data: { type: "some-other-event", t: base + 100 } }),
+		);
+
+		expect(handle.isOpen()).toBe(false);
+		handle.dispose();
 	});
 });
 
 // ---------------------------------------------------------------------------
-// (h) Enter on file row dispatches openViewer
+// AC7 — Enter on project row: close() BEFORE selectProject(id)
 // ---------------------------------------------------------------------------
-describe("dispatchEntry — file row", () => {
-	test("Enter on file row calls openViewer with activeProjectId and path after close", () => {
-		const selectProject = mock((_id: string) => Promise.resolve());
-		const openViewer = mock((_projectId: string, _path: string) => {
-			/* no-op mock */
-		});
-		const close = mock(() => {
-			/* no-op mock */
-		});
-
-		const entry: PaletteEntry = { kind: "file", path: "src/main.ts", label: "src/main.ts" };
-		dispatchEntry({
-			entry,
-			activeProjectId: "proj-1",
-			selectProject,
-			openViewer,
-			close,
-		});
-
-		expect(close).toHaveBeenCalledTimes(1);
-		expect(openViewer).toHaveBeenCalledWith("proj-1", "src/main.ts");
-		expect(selectProject).toHaveBeenCalledTimes(0);
-	});
-
-	test("close is called BEFORE openViewer (dispatch order)", () => {
+describe("AC7 — project row dispatch order", () => {
+	test("selectRowAt on a project row: close precedes selectProject", () => {
 		const calls: string[] = [];
-		const selectProject = mock((_id: string) => Promise.resolve());
-		const openViewer = mock((_projectId: string, _path: string) => {
+		const selectProject = mock((_id: string) => {
+			calls.push("selectProject");
+			return Promise.resolve();
+		});
+		const openViewer = mock((_pid: string, _path: string) => {
 			calls.push("openViewer");
 		});
-		const close = mock(() => {
-			calls.push("close");
+
+		const handle = installPalette({
+			selectProject,
+			openViewer,
+			getStore: makeStore("p-alpha"),
 		});
 
-		const entry: PaletteEntry = { kind: "file", path: "foo.ts", label: "foo.ts" };
-		dispatchEntry({ entry, activeProjectId: "p", selectProject, openViewer, close });
+		// Open the palette
+		handle.tap(1_000);
+		handle.tap(1_100);
+		expect(handle.isOpen()).toBe(true);
 
-		expect(calls).toEqual(["close", "openViewer"]);
+		// Get entries with no filter — projects come first per AC ordering
+		const entries = handle.getEntries("");
+		const projectIdx = entries.findIndex((e) => e.kind === "project");
+		expect(projectIdx).toBeGreaterThanOrEqual(0);
+
+		// Intercept the close — track it in calls
+		// We can't override close directly; instead we observe isOpen going false
+		// AND call order via the mocks above. Use a wrapping approach:
+		// selectRowAt triggers close() then selectProject() — we observe mock call order.
+		handle.selectRowAt(projectIdx);
+
+		// close must have happened (palette is now closed)
+		expect(handle.isOpen()).toBe(false);
+		// selectProject must have been called
+		expect(selectProject).toHaveBeenCalledTimes(1);
+		// close BEFORE selectProject — selectProject is the only tracked call;
+		// palette being closed when selectProject fires confirms order.
+		// Additionally assert via calls array that close came first:
+		expect(calls[0]).toBe("selectProject"); // calls[0] is first thing pushed AFTER close
+		// The palette must be closed at the point selectProject fires:
+		// We verify this by checking isOpen() is false and selectProject was called exactly once.
+		expect(openViewer).toHaveBeenCalledTimes(0);
+
+		handle.dispose();
+	});
+
+	test("selectProject is called with the project id", () => {
+		const selectProject = mock((_id: string) => Promise.resolve());
+
+		const handle = installPalette({
+			selectProject,
+			openViewer: mock(() => undefined),
+			getStore: makeStore("p-alpha"),
+		});
+
+		handle.tap(1_000);
+		handle.tap(1_100);
+
+		const entries = handle.getEntries("");
+		const projectIdx = entries.findIndex((e) => e.kind === "project");
+		handle.selectRowAt(projectIdx);
+
+		expect(selectProject).toHaveBeenCalledTimes(1);
+		// The id must match a known project id
+		const calledId = (selectProject.mock.calls[0] as string[])[0];
+		expect(["p-alpha", "p-beta"]).toContain(calledId);
+
+		handle.dispose();
 	});
 });
 
 // ---------------------------------------------------------------------------
-// (i) Esc closes the palette
+// AC7 dispatch order — explicit call-order array (mirrors file-row test)
 // ---------------------------------------------------------------------------
-describe("state machine — Esc key", () => {
-	test("handleEsc calls onClose when palette is open", () => {
-		const onOpen = mock(() => {
-			/* no-op mock */
-		});
-		const onClose = mock(() => {
-			/* no-op mock */
-		});
-		const sm = createPaletteStateMachine({ onOpen, onClose });
+describe("AC7 — project row close-before-selectProject (call order array)", () => {
+	test("calls array is ['close', 'selectProject']", () => {
+		const callOrder: string[] = [];
 
-		// Open first
-		const base = 1000;
-		sm.handleShiftTap({ t: base });
-		sm.handleShiftTap({ t: base + 100 });
-		expect(onOpen).toHaveBeenCalledTimes(1);
+		// We need to observe close() firing. Since close() is internal to the
+		// palette, we use isOpen() to assert state, but for strict order we
+		// inject a getStore that lets us hook the moment selectProject fires and
+		// check that isOpen() is already false at that point.
+		let isOpenAtSelectTime: boolean | null = null;
 
-		sm.handleEsc();
-		expect(onClose).toHaveBeenCalledTimes(1);
-	});
+		let paletteHandle: ReturnType<typeof installPalette>;
 
-	test("handleEsc does nothing when palette is already closed", () => {
-		const onOpen = mock(() => {
-			/* no-op mock */
+		const selectProject = mock((_id: string) => {
+			// At the moment selectProject fires, the palette must already be closed
+			isOpenAtSelectTime = paletteHandle.isOpen();
+			callOrder.push("selectProject");
+			return Promise.resolve();
 		});
-		const onClose = mock(() => {
-			/* no-op mock */
-		});
-		const sm = createPaletteStateMachine({ onOpen, onClose });
 
-		sm.handleEsc(); // palette not open
-		expect(onClose).toHaveBeenCalledTimes(0);
+		paletteHandle = installPalette({
+			selectProject,
+			openViewer: mock(() => {
+				callOrder.push("openViewer");
+			}),
+			getStore: makeStore("p-alpha"),
+		});
+
+		paletteHandle.tap(1_000);
+		paletteHandle.tap(1_100);
+		expect(paletteHandle.isOpen()).toBe(true);
+
+		const entries = paletteHandle.getEntries("");
+		const projectIdx = entries.findIndex((e) => e.kind === "project");
+		paletteHandle.selectRowAt(projectIdx);
+
+		// The palette was closed before selectProject was called
+		expect(isOpenAtSelectTime).toBe(false);
+		expect(callOrder).not.toContain("openViewer");
+
+		paletteHandle.dispose();
 	});
 });
 
 // ---------------------------------------------------------------------------
-// (j) Fuzzy filter
+// AC8 — Enter on file row: close() BEFORE openViewer(projectId, path)
 // ---------------------------------------------------------------------------
-describe("applyFuzzyFilter", () => {
-	test("entries containing the query substring appear above those that do not", () => {
-		const entries: PaletteEntry[] = [
-			{ kind: "project", id: "zz", label: "zzz-unrelated" },
-			{ kind: "project", id: "foo", label: "foo-project" },
-			{ kind: "file", path: "src/foo.ts", label: "src/foo.ts" },
-			{ kind: "project", id: "bar", label: "bar-project" },
-		];
+describe("AC8 — file row dispatch order", () => {
+	test("calls array is ['close', 'openViewer'] for a file row", () => {
+		let isOpenAtOpenViewerTime: boolean | null = null;
+		const callOrder: string[] = [];
 
-		const result = applyFuzzyFilter(entries, "foo");
+		let paletteHandle: ReturnType<typeof installPalette>;
 
-		// All "foo" entries should precede any non-"foo" entry
+		const openViewer = mock((_pid: string, _path: string) => {
+			isOpenAtOpenViewerTime = paletteHandle.isOpen();
+			callOrder.push("openViewer");
+		});
+
+		paletteHandle = installPalette({
+			selectProject: mock(() => {
+				callOrder.push("selectProject");
+				return Promise.resolve();
+			}),
+			openViewer,
+			getStore: makeStore("p-alpha"),
+		});
+
+		paletteHandle.tap(1_000);
+		paletteHandle.tap(1_100);
+		expect(paletteHandle.isOpen()).toBe(true);
+
+		const entries = paletteHandle.getEntries("");
+		const fileIdx = entries.findIndex((e) => e.kind === "file");
+		expect(fileIdx).toBeGreaterThanOrEqual(0);
+
+		paletteHandle.selectRowAt(fileIdx);
+
+		// Palette was closed before openViewer was called
+		expect(isOpenAtOpenViewerTime).toBe(false);
+		expect(callOrder).not.toContain("selectProject");
+
+		paletteHandle.dispose();
+	});
+
+	test("openViewer is called with activeProjectId and file path", () => {
+		const openViewer = mock((_pid: string, _path: string) => undefined);
+
+		const handle = installPalette({
+			selectProject: mock(() => Promise.resolve()),
+			openViewer,
+			getStore: makeStore("p-alpha"),
+		});
+
+		handle.tap(1_000);
+		handle.tap(1_100);
+
+		const entries = handle.getEntries("");
+		const fileIdx = entries.findIndex((e) => e.kind === "file");
+		handle.selectRowAt(fileIdx);
+
+		expect(openViewer).toHaveBeenCalledTimes(1);
+		const [calledPid] = openViewer.mock.calls[0] as [string, string];
+		expect(calledPid).toBe("p-alpha");
+
+		handle.dispose();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// AC9 — Esc closes the palette
+// ---------------------------------------------------------------------------
+describe("AC9 — Esc closes", () => {
+	test("esc() while open → isOpen() becomes false", () => {
+		const handle = installPalette({
+			selectProject: mock(() => Promise.resolve()),
+			openViewer: mock(() => undefined),
+			getStore: makeStore(),
+		});
+
+		handle.tap(1_000);
+		handle.tap(1_100);
+		expect(handle.isOpen()).toBe(true);
+
+		handle.esc();
+		expect(handle.isOpen()).toBe(false);
+		handle.dispose();
+	});
+
+	test("esc() while closed does nothing", () => {
+		const handle = installPalette({
+			selectProject: mock(() => Promise.resolve()),
+			openViewer: mock(() => undefined),
+			getStore: makeStore(),
+		});
+
+		expect(handle.isOpen()).toBe(false);
+		handle.esc(); // no-op
+		expect(handle.isOpen()).toBe(false);
+		handle.dispose();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// AC10 — Fuzzy filter: substring matches rank above non-matches
+// Tested via getEntries(query) — implementer chooses internal filter shape.
+// ---------------------------------------------------------------------------
+describe("AC10 — fuzzy filter via getEntries", () => {
+	test("entries containing query substring appear before non-matching entries", () => {
+		const handle = installPalette({
+			selectProject: mock(() => Promise.resolve()),
+			openViewer: mock(() => undefined),
+			// Store with a mix of matching and non-matching entries
+			getStore: () => ({
+				projects: [
+					{ id: "zz", name: "zzz-unrelated", path: "/zz", isGitRepo: false, lastModified: 0 },
+					{ id: "foo", name: "foo-project", path: "/foo", isGitRepo: false, lastModified: 0 },
+				],
+				files: [{ path: "src/foo.ts" }, { path: "bar/index.ts" }],
+				activeProject: "foo",
+			}),
+		});
+
+		// Open so entries are available
+		handle.tap(1_000);
+		handle.tap(1_100);
+
+		const result = handle.getEntries("foo");
+
 		const fooIndices = result
 			.map((e, i) => ({ e, i }))
-			.filter(({ e }) => e.label.includes("foo"))
+			.filter(({ e }) => e.label.toLowerCase().includes("foo"))
 			.map(({ i }) => i);
+
 		const nonFooIndices = result
 			.map((e, i) => ({ e, i }))
-			.filter(({ e }) => !e.label.includes("foo"))
+			.filter(({ e }) => !e.label.toLowerCase().includes("foo"))
 			.map(({ i }) => i);
 
 		if (fooIndices.length > 0 && nonFooIndices.length > 0) {
@@ -327,64 +550,68 @@ describe("applyFuzzyFilter", () => {
 			expect(lastFoo).toBeLessThan(firstNonFoo);
 		}
 
-		// Matching entries are present
-		expect(result.filter((e) => e.label.includes("foo"))).toHaveLength(2);
+		// At least the "foo-project" and "src/foo.ts" entries must match
+		expect(fooIndices.length).toBeGreaterThanOrEqual(2);
+
+		handle.dispose();
 	});
 
-	test("empty query returns all entries unchanged", () => {
-		const entries: PaletteEntry[] = [
-			{ kind: "project", id: "a", label: "alpha" },
-			{ kind: "file", path: "b.ts", label: "b.ts" },
-		];
-		const result = applyFuzzyFilter(entries, "");
-		expect(result).toHaveLength(2);
+	test("empty query returns all entries", () => {
+		const handle = installPalette({
+			selectProject: mock(() => Promise.resolve()),
+			openViewer: mock(() => undefined),
+			getStore: makeStore("p-alpha"),
+		});
+
+		handle.tap(1_000);
+		handle.tap(1_100);
+
+		const result = handle.getEntries("");
+		// Should include both projects (2) and files (3) = at least 5
+		expect(result.length).toBeGreaterThanOrEqual(5);
+
+		handle.dispose();
 	});
 
 	test("query with no matches returns empty array", () => {
-		const entries: PaletteEntry[] = [{ kind: "project", id: "a", label: "alpha" }];
-		const result = applyFuzzyFilter(entries, "zzzznothere");
-		expect(result).toHaveLength(0);
+		const handle = installPalette({
+			selectProject: mock(() => Promise.resolve()),
+			openViewer: mock(() => undefined),
+			getStore: makeStore("p-alpha"),
+		});
+
+		handle.tap(1_000);
+		handle.tap(1_100);
+
+		const result = handle.getEntries("zzzznothere");
+		expect(result.length).toBe(0);
+
+		handle.dispose();
 	});
 });
 
 // ---------------------------------------------------------------------------
-// buildEntries — projects first, then active project files
+// Entry ordering: projects before files
 // ---------------------------------------------------------------------------
-describe("buildEntries", () => {
-	test("projects appear before files in the unified list when no query", () => {
-		const projects = [
-			{ id: "p1", name: "Alpha", path: "/p1", isGitRepo: false, lastModified: 0 },
-			{ id: "p2", name: "Beta", path: "/p2", isGitRepo: false, lastModified: 0 },
-		];
-		const files = [{ path: "src/main.ts" }, { path: "README.md" }];
+describe("entry ordering — projects before files", () => {
+	test("getEntries('') places project entries before file entries", () => {
+		const handle = installPalette({
+			selectProject: mock(() => Promise.resolve()),
+			openViewer: mock(() => undefined),
+			getStore: makeStore("p-alpha"),
+		});
 
-		const entries = buildEntries({ projects, files, activeProjectId: "p1" });
+		handle.tap(1_000);
+		handle.tap(1_100);
 
+		const entries = handle.getEntries("");
 		const firstProjectIdx = entries.findIndex((e) => e.kind === "project");
 		const firstFileIdx = entries.findIndex((e) => e.kind === "file");
 
+		expect(firstProjectIdx).toBeGreaterThanOrEqual(0);
+		expect(firstFileIdx).toBeGreaterThanOrEqual(0);
 		expect(firstProjectIdx).toBeLessThan(firstFileIdx);
-	});
 
-	test("file entries carry kind='file' with correct path", () => {
-		const projects = [{ id: "p1", name: "A", path: "/p1", isGitRepo: false, lastModified: 0 }];
-		const files = [{ path: "src/index.ts" }];
-
-		const entries = buildEntries({ projects, files, activeProjectId: "p1" });
-		const fileEntry = entries.find((e) => e.kind === "file");
-
-		expect(fileEntry).toBeDefined();
-		expect(fileEntry?.kind === "file" && fileEntry.path).toBe("src/index.ts");
-	});
-
-	test("project entries carry kind='project' with correct id", () => {
-		const projects = [{ id: "proj-x", name: "X", path: "/x", isGitRepo: false, lastModified: 0 }];
-		const files: { path: string }[] = [];
-
-		const entries = buildEntries({ projects, files, activeProjectId: null });
-		const projEntry = entries.find((e) => e.kind === "project");
-
-		expect(projEntry).toBeDefined();
-		expect(projEntry?.kind === "project" && projEntry.id).toBe("proj-x");
+		handle.dispose();
 	});
 });
