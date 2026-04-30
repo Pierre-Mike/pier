@@ -231,7 +231,7 @@ body.collapsed-right {
 	background: var(--ok);
 	flex: 0 0 auto;
 }
-#sessions li .name {
+:where(#sessions) li .name {
 	flex: 1;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -373,7 +373,7 @@ body.collapsed-right {
 		inset 0 0 24px rgba(92, 207, 230, 0.35),
 		0 0 12px rgba(92, 207, 230, 0.45);
 }
-#terminals iframe {
+:where(#terminals) iframe {
 	position: absolute;
 	inset: 0;
 	width: 100%;
@@ -385,7 +385,7 @@ body.collapsed-right {
 #terminals iframe.hidden {
 	display: none;
 }
-#terminals .placeholder {
+:where(#terminals) .placeholder {
 	color: var(--fg-dim);
 	text-align: center;
 	padding: 40px;
@@ -410,10 +410,10 @@ body.dragging-file #terminals iframe {
 .file-tree .tree-file[draggable="true"] {
 	user-select: none;
 }
-.file-tree .tree-file[draggable="true"] .tree-row {
+:where(.file-tree .tree-file[draggable="true"]) .tree-row {
 	cursor: grab;
 }
-.file-tree .tree-file[draggable="true"]:active .tree-row {
+:where(.file-tree .tree-file[draggable="true"]:active) .tree-row {
 	cursor: grabbing;
 }
 #toast {
@@ -926,7 +926,7 @@ body.resizing iframe {
 	letter-spacing: 0.06em;
 	z-index: 1;
 }
-.logs-table tbody td {
+:where(.logs-table) tbody td {
 	padding: 3px 10px;
 	border-bottom: 1px solid rgba(34, 42, 53, 0.5);
 	vertical-align: top;
@@ -1153,10 +1153,6 @@ body.resizing iframe {
 	border-left-color: var(--ok);
 	box-shadow: inset 0 0 0 1px rgba(120, 217, 143, 0.4);
 }
-.palette-row[aria-selected="true"] .palette-row-name {
-	font-weight: 600;
-	color: #ffffff;
-}
 .palette-row-glyph {
 	flex-shrink: 0;
 	width: 14px;
@@ -1171,14 +1167,6 @@ body.resizing iframe {
 .palette-row.file .palette-row-glyph {
 	color: var(--ok);
 }
-.palette-row.project .palette-row-caption {
-	color: var(--accent);
-	opacity: 0.7;
-}
-.palette-row.file .palette-row-caption {
-	color: var(--ok);
-	opacity: 0.7;
-}
 .palette-row-label {
 	flex: 1;
 	min-width: 0;
@@ -1191,6 +1179,10 @@ body.resizing iframe {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+.palette-row[aria-selected="true"] .palette-row-name {
+	font-weight: 600;
+	color: #ffffff;
 }
 .palette-row-dir {
 	color: var(--fg-dim);
@@ -1208,4 +1200,12 @@ body.resizing iframe {
 	font-size: 0.75rem;
 	color: var(--fg-dim);
 	letter-spacing: 0.04em;
+}
+.palette-row.project .palette-row-caption {
+	color: var(--accent);
+	opacity: 0.7;
+}
+.palette-row.file .palette-row-caption {
+	color: var(--ok);
+	opacity: 0.7;
 }
