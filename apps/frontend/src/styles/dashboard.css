@@ -1125,7 +1125,9 @@ body.resizing iframe {
 	font-size: 0.95rem;
 	border-left: 3px solid transparent;
 	user-select: none;
-	transition: background-color 80ms ease, border-color 80ms ease;
+	transition:
+		background-color 80ms ease,
+		border-color 80ms ease;
 }
 .palette-row.project {
 	background: rgba(92, 207, 230, 0.06);
