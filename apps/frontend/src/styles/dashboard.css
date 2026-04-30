@@ -628,6 +628,23 @@ body.resizing iframe {
 #artifact-viewer .viewer-head a:hover {
 	text-decoration: underline;
 }
+#artifact-viewer .viewer-head .copy-path-btn {
+	background: transparent;
+	border: 1px solid var(--border);
+	color: var(--accent);
+	font-family: var(--mono);
+	font-size: 11px;
+	padding: 1px 6px;
+	cursor: pointer;
+	border-radius: 3px;
+}
+#artifact-viewer .viewer-head .copy-path-btn:hover {
+	background: var(--bg);
+}
+#artifact-viewer .viewer-head .copy-path-btn.copied {
+	color: var(--fg-dim);
+	border-color: var(--fg-dim);
+}
 #artifact-viewer .viewer-body {
 	padding: 12px;
 }

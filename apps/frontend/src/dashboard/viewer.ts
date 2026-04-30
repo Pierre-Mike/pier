@@ -62,6 +62,7 @@ export function renderViewerHead(
       <a href="${escapeAttr(folderUrl)}" title="Open project folder in VSCode Insiders">Folder ↗</a>
       <a href="${effectiveOpenUrl}" target="_blank" rel="noopener">open ↗</a>
       <a href="${derivedBlobUrl}" download>download</a>
+      <button type="button" class="copy-path-btn" data-copy-path="${escapeAttr(absPath)}" title="Copy full file path">copy path</button>
     </div>`;
 }
 
@@ -111,6 +112,12 @@ export function wireViewerModal(): void {
 	modal.addEventListener("click", (e) => {
 		const target = e.target as HTMLElement;
 		if (target.dataset && target.dataset.close !== undefined) closeViewer();
+		const copyBtn = target.closest<HTMLElement>("[data-copy-path]");
+		if (copyBtn) {
+			e.preventDefault();
+			const path = copyBtn.dataset["copyPath"] ?? "";
+			void copyPathToClipboard(path, copyBtn);
+		}
 	});
 	document.addEventListener("keydown", (e) => {
 		if (e.key === "Escape") {
@@ -119,6 +126,32 @@ export function wireViewerModal(): void {
 			if (!logsOpen && !modal.classList.contains("hidden")) closeViewer();
 		}
 	});
+}
+
+async function copyPathToClipboard(path: string, btn: HTMLElement): Promise<void> {
+	if (!path) return;
+	try {
+		await navigator.clipboard.writeText(path);
+	} catch {
+		const ta = document.createElement("textarea");
+		ta.value = path;
+		ta.style.position = "fixed";
+		ta.style.opacity = "0";
+		document.body.appendChild(ta);
+		ta.select();
+		try {
+			document.execCommand("copy");
+		} finally {
+			ta.remove();
+		}
+	}
+	const original = btn.textContent;
+	btn.textContent = "copied";
+	btn.classList.add("copied");
+	setTimeout(() => {
+		btn.textContent = original;
+		btn.classList.remove("copied");
+	}, 1200);
 }
 
 function openViewer(): void {
