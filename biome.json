@@ -95,7 +95,7 @@
 			"!**/.astro",
 			"!**/.wrangler",
 			"!**/.agentic",
-			"!**/.claude"
+			"!.claude"
 		]
 	}
 }
