@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Effect, Exit } from "effect";
-import { getVersion } from "./version.ts";
+import { getVersion } from "./version.core.ts";
 
 describe("getVersion", () => {
 	it("succeeds with valid input", async () => {

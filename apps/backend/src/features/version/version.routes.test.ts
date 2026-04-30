@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { versionRoute } from "./version.ts";
+import { versionRoute } from "./version.routes.ts";
 
 describe("GET /version via versionRoute.testApp (isolated)", () => {
 	it("returns 200 with version shape", async () => {

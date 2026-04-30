@@ -1,13 +1,14 @@
 import { join } from "node:path";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { configRoute } from "./features/config/config.routes.ts";
+import { healthRoute } from "./features/health/health.routes.ts";
+import { versionRoute } from "./features/version/version.routes.ts";
 import type { AppBindings } from "./platform/bindings.ts";
 import { localhostGuard, setSecurityHeaders } from "./platform/security.ts";
 import { artifactsRoute } from "./shell/routes/artifacts.ts";
 import { artifactsBlobRoute } from "./shell/routes/artifacts-blob.ts";
-import { configRoute } from "./shell/routes/config.ts";
 import { eventsHistoryRoute } from "./shell/routes/events-history.ts";
-import { healthRoute } from "./shell/routes/health.ts";
 import { projectsRoute } from "./shell/routes/projects.ts";
 import { projectsBlobRoute } from "./shell/routes/projects-blob.ts";
 import { projectsDropRoute } from "./shell/routes/projects-drop.ts";
@@ -17,7 +18,6 @@ import { streamArtifactsRoute } from "./shell/routes/stream-artifacts.ts";
 import { streamEventsRoute } from "./shell/routes/stream-events.ts";
 import { streamReloadRoute } from "./shell/routes/stream-reload.ts";
 import { tunnelRoute } from "./shell/routes/tunnel.ts";
-import { versionRoute } from "./shell/routes/version.ts";
 import { zellijProxyRoute } from "./shell/routes/zellij-proxy.ts";
 
 const app = new Hono<{ Bindings: AppBindings }>();

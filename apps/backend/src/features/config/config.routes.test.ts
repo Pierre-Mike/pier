@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { configRoute } from "./config.ts";
+import { configRoute } from "./config.routes.ts";
 
 describe("GET /api/config", () => {
 	const { testApp } = configRoute;

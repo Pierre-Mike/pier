@@ -21,21 +21,34 @@ describe("GET /health", () => {
 });
 
 describe("structural: all route modules mounted in api.ts", () => {
-	it("api.ts imports every route file in shell/routes/", async () => {
-		const routesDir = new URL("./shell/routes/", import.meta.url).pathname;
-		const entries = await readdir(routesDir);
-		// Only consider route module files (not _types, not test files)
-		const routeFiles = entries.filter(
-			(f) => !f.startsWith("_") && !f.includes(".test") && f.endsWith(".ts"),
-		);
-
+	it("api.ts imports every route file in shell/routes/ and features/*/", async () => {
 		const source = await Bun.file(new URL("./api.ts", import.meta.url)).text();
 
-		for (const file of routeFiles) {
+		// Legacy shell/routes/ directory — emptied during the feature-slice migration
+		// but still scanned so the invariant holds for any straggler routes.
+		const shellRoutesDir = new URL("./shell/routes/", import.meta.url).pathname;
+		const shellEntries = await readdir(shellRoutesDir).catch(() => [] as string[]);
+		const shellRouteFiles = shellEntries.filter(
+			(f) => !f.startsWith("_") && !f.includes(".test") && f.endsWith(".ts"),
+		);
+		for (const file of shellRouteFiles) {
 			const moduleName = file.replace(".ts", "");
 			expect(source, `api.ts should import from ./shell/routes/${moduleName}.ts`).toContain(
 				`./shell/routes/${moduleName}.ts`,
 			);
+		}
+
+		// New feature-slice layout: every features/<name>/<name>*.routes.ts must be mounted.
+		const featuresDir = new URL("./features/", import.meta.url).pathname;
+		const featureNames = await readdir(featuresDir).catch(() => [] as string[]);
+		for (const feature of featureNames) {
+			const featureDir = `${featuresDir}${feature}/`;
+			const files = await readdir(featureDir).catch(() => [] as string[]);
+			const routesFiles = files.filter((f) => f.endsWith(".routes.ts") && !f.includes(".test"));
+			for (const file of routesFiles) {
+				const importPath = `./features/${feature}/${file}`;
+				expect(source, `api.ts should import from ${importPath}`).toContain(importPath);
+			}
 		}
 	});
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { healthRoute } from "./health.ts";
+import { healthRoute } from "./health.routes.ts";
 
 describe("GET /health", () => {
 	it("200 returns ok status and timestamp", async () => {
