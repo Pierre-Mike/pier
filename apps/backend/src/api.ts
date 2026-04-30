@@ -16,9 +16,9 @@ import { sessionsRoute } from "./features/sessions/sessions.routes.ts";
 import { settingsRoute } from "./features/settings/settings.routes.ts";
 import { tunnelRoute } from "./features/tunnel/tunnel.routes.ts";
 import { versionRoute } from "./features/version/version.routes.ts";
+import { zellijProxyRoute } from "./features/zellij/zellij.routes.ts";
 import type { AppBindings } from "./platform/bindings.ts";
 import { localhostGuard, setSecurityHeaders } from "./platform/security.ts";
-import { zellijProxyRoute } from "./shell/routes/zellij-proxy.ts";
 
 const app = new Hono<{ Bindings: AppBindings }>();
 

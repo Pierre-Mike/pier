@@ -14,7 +14,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { Context, Data, Effect, Layer } from "effect";
-import { ZELLIJ_SOCKET_DIR } from "../features/sessions/sessions.repo.ts";
+import { ZELLIJ_SOCKET_DIR } from "../sessions/sessions.repo.ts";
 
 const TOKEN_PATH = join(homedir(), ".config", "pier", "zellij-token");
 

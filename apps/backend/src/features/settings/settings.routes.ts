@@ -12,10 +12,10 @@
 import { Effect, type Layer } from "effect";
 import type { Context } from "hono";
 import { Hono } from "hono";
-import { ZellijAuthLive, ZellijAuthService, ZellijAuthTest } from "../../infra/zellij-auth.ts";
 import { type AppBindings, defineRoute } from "../../platform/effect-handler.ts";
 import type { RouteModule } from "../../platform/route-types.ts";
 import { localhostGuard } from "../../platform/security.ts";
+import { ZellijAuthLive, ZellijAuthService, ZellijAuthTest } from "../zellij/zellij.auth.repo.ts";
 
 const DEFAULT_ZELLIJ_ORIGIN = "https://127.0.0.1:8082";
 

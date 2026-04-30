@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { Effect, Layer } from "effect";
 import type { hc } from "hono/client";
 import type { AppType } from "../../api.ts";
-import { ZellijAuthError, ZellijAuthService } from "../../infra/zellij-auth.ts";
+import { ZellijAuthError, ZellijAuthService } from "../zellij/zellij.auth.repo.ts";
 import { buildSettingsTestApp, settingsRoute } from "./settings.routes.ts";
 
 // ---------------------------------------------------------------------------
