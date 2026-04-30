@@ -5,40 +5,56 @@
  *   Returns a read-only zellij watcher URL with the token in the URL fragment
  *   so it never appears in server logs. Restricted to loopback callers via
  *   localhostGuard (enforced on both app and testApp).
+ *
+ * The zellij read-only token is supplied via Effect's Layer system
+ * (ZellijAuthService). Tests inject a stub layer through buildSettingsTestApp().
  */
+import { Effect, type Layer } from "effect";
 import type { Context } from "hono";
 import { Hono } from "hono";
-import { getZellijReadOnlyToken } from "../../infra/zellij-auth.ts";
-import type { AppBindings } from "../../platform/bindings.ts";
+import { ZellijAuthLive, ZellijAuthService, ZellijAuthTest } from "../../infra/zellij-auth.ts";
+import { type AppBindings, defineRoute } from "../../platform/effect-handler.ts";
 import type { RouteModule } from "../../platform/route-types.ts";
 import { localhostGuard } from "../../platform/security.ts";
 
 const DEFAULT_ZELLIJ_ORIGIN = "https://127.0.0.1:8082";
 
-/** Basename of the readonly-token cache file — informative tokenName for callers. */
 const READONLY_TOKEN_NAME = "zellij-readonly-token";
 
-const zellijReadonlyHandler = async (c: Context<{ Bindings: AppBindings }>): Promise<Response> => {
-	const token = await getZellijReadOnlyToken();
-	const base = process.env["PIGUY_ZELLIJ_URL"] ?? DEFAULT_ZELLIJ_ORIGIN;
-	const url = `${base}#token=${token}`;
-	return c.json({ access: "read-only", mode: "watch", url, tokenName: READONLY_TOKEN_NAME }, 200);
-};
+const zellijReadonlyHandler = (c: Context<{ Bindings: AppBindings }>) =>
+	Effect.gen(function* () {
+		const auth = yield* ZellijAuthService;
+		const token = yield* auth.getReadOnlyToken();
+		const base = process.env["PIGUY_ZELLIJ_URL"] ?? DEFAULT_ZELLIJ_ORIGIN;
+		const url = `${base}#token=${token}`;
+		return c.json({ access: "read-only", mode: "watch", url, tokenName: READONLY_TOKEN_NAME }, 200);
+	});
 
 const app = new Hono<{ Bindings: AppBindings }>()
 	.use("/settings/*", localhostGuard)
-	.get("/settings/zellij-readonly", zellijReadonlyHandler);
+	.get(
+		"/settings/zellij-readonly",
+		defineRoute({ deps: ZellijAuthLive, handler: zellijReadonlyHandler }),
+	);
 
-const testApp = new Hono<{ Bindings: AppBindings }>()
-	.use("/settings/*", async (c, next) => {
-		// In tests, requests with no Host header originate from loopback.
-		// Inject a default so localhostGuard passes.
-		if (!c.req.header("host")) {
-			c.req.raw.headers.set("host", "localhost");
-		}
-		await next();
-	})
-	.use("/settings/*", localhostGuard)
-	.get("/settings/zellij-readonly", zellijReadonlyHandler);
+/**
+ * Build a test-style settings Hono app with a caller-supplied ZellijAuthService
+ * layer. Tests use this to inject a Layer.succeed stub (no mock.module needed).
+ *
+ * The leading middleware injects a `host: localhost` header when bun's request
+ * stub omits one — without it, localhostGuard would 403 every request.
+ */
+export const buildSettingsTestApp = (layer: Layer.Layer<ZellijAuthService>) =>
+	new Hono<{ Bindings: AppBindings }>()
+		.use("/settings/*", async (c, next) => {
+			if (!c.req.header("host")) {
+				c.req.raw.headers.set("host", "localhost");
+			}
+			await next();
+		})
+		.use("/settings/*", localhostGuard)
+		.get("/settings/zellij-readonly", defineRoute({ deps: layer, handler: zellijReadonlyHandler }));
+
+const testApp = buildSettingsTestApp(ZellijAuthTest);
 
 export const settingsRoute = { app, testApp } satisfies RouteModule<typeof app>;

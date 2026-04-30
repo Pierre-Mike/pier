@@ -1,66 +1,54 @@
 /**
- * Integration gate for spec 002 slice 2 — settings route (RED).
+ * Integration tests for settings.routes — zellij-readonly endpoint.
  *
- * This file imports from ./settings (which does not exist yet) and asserts a
- * compile-time AppType shape that is not yet wired in ../api.ts.  Every test
- * block will fail until the spec-implementer creates the route and updates api.ts.
- *
- * Mock strategy:
- *   - mock.module replaces ../../infra/zellij-auth so no real zellij binary or
- *     disk access occurs.
- *   - process.env.PIGUY_ZELLIJ_URL is set/cleared per test to exercise the
- *     fallback URL behaviour.
- *   - localhostGuard is exercised directly on settingsRoute.testApp by sending
- *     requests with a non-loopback Host header.
+ * The zellij read-only token is supplied via Effect's Layer system, not
+ * mock.module. The TestLayer below closes over module-scoped `stubToken` /
+ * `stubError` lets so individual tests can vary the stubbed behaviour by
+ * mutating those values, while `beforeEach` resets them. This avoids the
+ * specifier-keyed mock.module leak that previously contaminated other suites.
  */
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { beforeEach, describe, expect, it } from "bun:test";
+import { Effect, Layer } from "effect";
 import type { hc } from "hono/client";
 import type { AppType } from "../../api.ts";
+import { ZellijAuthError, ZellijAuthService } from "../../infra/zellij-auth.ts";
+import { buildSettingsTestApp, settingsRoute } from "./settings.routes.ts";
 
 // ---------------------------------------------------------------------------
-// Stub getZellijReadOnlyToken — must be registered before the subject import.
+// Test layer — closure-reads from module-scoped lets so tests can vary the
+// stubbed token / error without rebuilding the Hono app per case.
 // ---------------------------------------------------------------------------
 
-let mockTokenValue = "ro_tok_test_default";
-let mockTokenError: Error | null = null;
+let stubToken = "ro_tok_test_default";
+let stubError: Error | null = null;
 
-// Mock path matches the specifier used by settings.ts (same depth) — keeping
-// it distinct from the relative path used by zellij.auth.repo.test.ts (1
-// segment) so Bun's per-specifier mock entry does not collide with that
-// suite's own module load. mock.module is keyed on specifier string, not
-// resolved absolute path.
-mock.module("../../infra/zellij-auth.ts", () => ({
-	getZellijReadOnlyToken: async (): Promise<string> => {
-		if (mockTokenError) throw mockTokenError;
-		return mockTokenValue;
-	},
-}));
+const TestLayer: Layer.Layer<ZellijAuthService> = Layer.succeed(ZellijAuthService, {
+	getReadOnlyToken: () =>
+		stubError !== null
+			? Effect.fail(new ZellijAuthError({ cause: stubError }))
+			: Effect.succeed(stubToken),
+});
+
+const testApp = buildSettingsTestApp(TestLayer);
 
 // ---------------------------------------------------------------------------
-// Subject import — this module does not exist yet; the import will fail at
-// runtime (RED) until the implementer creates settings.ts.
-// ---------------------------------------------------------------------------
-import { settingsRoute } from "./settings.routes.ts";
-
-// ---------------------------------------------------------------------------
-// Compile-time AppType assertion.
-// The type `_SettingsClientShape` must resolve to a callable.  Since
-// settingsRoute is not yet composed into AppType in ../api.ts, TypeScript
-// cannot resolve `client.settings["zellij-readonly"].$get` and will emit a
-// type error — that is the RED signal for this AC.
+// Compile-time AppType assertion — settingsRoute must be wired into AppType.
 // ---------------------------------------------------------------------------
 type _BackendClient = ReturnType<typeof hc<AppType>>;
-// @ts-expect-error — settingsRoute not yet in AppType; remove this directive once implemented
 type _SettingsClientShape = _BackendClient["settings"]["zellij-readonly"]["$get"];
+
+// Reference exports so unused-symbol checks stay satisfied without runtime cost.
+void settingsRoute;
+const _checkClientShape: _SettingsClientShape | undefined = undefined;
+void _checkClientShape;
 
 // ---------------------------------------------------------------------------
 
 const DEFAULT_ZELLIJ_ORIGIN = "https://127.0.0.1:8082";
 
 beforeEach(() => {
-	mockTokenValue = "ro_tok_test_default";
-	mockTokenError = null;
-	// Remove the env override so tests default to the built-in origin.
+	stubToken = "ro_tok_test_default";
+	stubError = null;
 	delete process.env["PIGUY_ZELLIJ_URL"];
 });
 
@@ -69,7 +57,7 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 describe("GET /settings/zellij-readonly — response shape", () => {
 	it("returns 200 with readonly/watch-only metadata", async () => {
-		const res = await settingsRoute.testApp.request("/settings/zellij-readonly");
+		const res = await testApp.request("/settings/zellij-readonly");
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Record<string, unknown>;
 		expect(body["access"]).toBe("read-only");
@@ -84,8 +72,8 @@ describe("GET /settings/zellij-readonly — response shape", () => {
 // ---------------------------------------------------------------------------
 describe("GET /settings/zellij-readonly — url fragment", () => {
 	it("returned url ends with #token=<readonly-token>", async () => {
-		mockTokenValue = "ro_tok_frag_check";
-		const res = await settingsRoute.testApp.request("/settings/zellij-readonly");
+		stubToken = "ro_tok_frag_check";
+		const res = await testApp.request("/settings/zellij-readonly");
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as {
 			access: string;
@@ -99,7 +87,7 @@ describe("GET /settings/zellij-readonly — url fragment", () => {
 	});
 
 	it("url base is the default zellij web origin when PIGUY_ZELLIJ_URL is unset", async () => {
-		const res = await settingsRoute.testApp.request("/settings/zellij-readonly");
+		const res = await testApp.request("/settings/zellij-readonly");
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { url: string };
 		expect(body.url.startsWith(DEFAULT_ZELLIJ_ORIGIN)).toBe(true);
@@ -112,7 +100,7 @@ describe("GET /settings/zellij-readonly — url fragment", () => {
 describe("GET /settings/zellij-readonly — PIGUY_ZELLIJ_URL fallback", () => {
 	it("uses PIGUY_ZELLIJ_URL as base when set", async () => {
 		process.env["PIGUY_ZELLIJ_URL"] = "https://192.168.1.42:8082";
-		const res = await settingsRoute.testApp.request("/settings/zellij-readonly");
+		const res = await testApp.request("/settings/zellij-readonly");
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { url: string };
 		expect(body.url.startsWith("https://192.168.1.42:8082")).toBe(true);
@@ -120,8 +108,8 @@ describe("GET /settings/zellij-readonly — PIGUY_ZELLIJ_URL fallback", () => {
 
 	it("still appends the #token fragment when PIGUY_ZELLIJ_URL is set", async () => {
 		process.env["PIGUY_ZELLIJ_URL"] = "https://192.168.1.42:8082";
-		mockTokenValue = "ro_tok_env_var";
-		const res = await settingsRoute.testApp.request("/settings/zellij-readonly");
+		stubToken = "ro_tok_env_var";
+		const res = await testApp.request("/settings/zellij-readonly");
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { url: string };
 		expect(body.url).toContain("#token=ro_tok_env_var");
@@ -133,21 +121,21 @@ describe("GET /settings/zellij-readonly — PIGUY_ZELLIJ_URL fallback", () => {
 // ---------------------------------------------------------------------------
 describe("GET /settings/zellij-readonly — localhostGuard", () => {
 	it("returns 403 when Host header is a non-loopback hostname", async () => {
-		const res = await settingsRoute.testApp.request("/settings/zellij-readonly", {
+		const res = await testApp.request("/settings/zellij-readonly", {
 			headers: { host: "evil.example.com" },
 		});
 		expect(res.status).toBe(403);
 	});
 
 	it("returns 200 when Host header is 127.0.0.1", async () => {
-		const res = await settingsRoute.testApp.request("/settings/zellij-readonly", {
+		const res = await testApp.request("/settings/zellij-readonly", {
 			headers: { host: "127.0.0.1:5273" },
 		});
 		expect(res.status).toBe(200);
 	});
 
 	it("returns 200 when Host header is localhost", async () => {
-		const res = await settingsRoute.testApp.request("/settings/zellij-readonly", {
+		const res = await testApp.request("/settings/zellij-readonly", {
 			headers: { host: "localhost:5273" },
 		});
 		expect(res.status).toBe(200);
