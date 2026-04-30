@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { reloadBusInstance } from "../../infra/sse-bus.ts";
-import { streamReloadRoute } from "./stream-reload.ts";
+import { reloadBusInstance } from "../../platform/sse-bus.ts";
+import { streamReloadRoute } from "./events.reload.routes.ts";
 
 const reset = (): void => {
 	const ref = reloadBusInstance as unknown as { subs: Set<unknown>; history: unknown[] };

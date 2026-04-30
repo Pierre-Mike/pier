@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { eventBusInstance } from "../../infra/sse-bus.ts";
-import { streamEventsRoute } from "./stream-events.ts";
+import { eventBusInstance } from "../../platform/sse-bus.ts";
+import { streamEventsRoute } from "./events.stream.routes.ts";
 
 const reset = (): void => {
 	const ref = eventBusInstance as unknown as { subs: Set<unknown>; history: unknown[] };

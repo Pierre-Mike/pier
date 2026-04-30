@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Effect } from "effect";
-import { ClaudeEventStream, ClaudeEventStreamTest } from "./claude-events.ts";
+import { ClaudeEventStream, ClaudeEventStreamTest } from "./events.claude.repo.ts";
 
 describe("ClaudeEventStreamTest", () => {
 	it("start is idempotent", async () => {

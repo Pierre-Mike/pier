@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { classify, kindOf } from "./artifact-classify.ts";
+import { classify, kindOf } from "./artifacts.classify.core.ts";
 
 test("kindOf extracts kind from classify result", () => {
 	expect(kindOf("file.md")).toBe("markdown");

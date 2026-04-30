@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { AGENT_TOOL_NAMES, adapt } from "./event-adapt.ts";
+import { AGENT_TOOL_NAMES, adapt } from "./events.adapt.core.ts";
 
 const ctx = { project: "test-proj", session: "sess-123" };
 

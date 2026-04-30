@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { artifactBusInstance } from "../../infra/sse-bus.ts";
-import { streamArtifactsRoute } from "./stream-artifacts.ts";
+import { artifactBusInstance } from "../../platform/sse-bus.ts";
+import { streamArtifactsRoute } from "./artifacts.stream.routes.ts";
 
 const reset = (): void => {
 	const ref = artifactBusInstance as unknown as { subs: Set<unknown>; history: unknown[] };

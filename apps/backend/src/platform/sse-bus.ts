@@ -1,6 +1,6 @@
 import { Context, Effect, Layer } from "effect";
-import type { ArtifactKind } from "../core/blob-classify.ts";
-import type { PiEvent } from "../core/event-adapt.ts";
+import type { ArtifactKind } from "../features/artifacts/artifacts.blob-classify.core.ts";
+import type { PiEvent } from "../features/events/events.adapt.core.ts";
 
 export type Artifact = {
 	id: string;

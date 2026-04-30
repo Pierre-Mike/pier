@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { eventsHistoryRoute } from "./events-history.ts";
+import { eventsHistoryRoute } from "./events.history.routes.ts";
 
 describe("GET /api/events/history", () => {
 	const { testApp } = eventsHistoryRoute;

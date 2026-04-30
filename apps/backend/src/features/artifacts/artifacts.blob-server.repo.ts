@@ -1,7 +1,7 @@
 import { createReadStream } from "node:fs";
 import { Readable } from "node:stream";
 import { Context, Data, Effect, Layer } from "effect";
-import { classify } from "../core/blob-classify.ts";
+import { classify } from "./artifacts.blob-classify.core.ts";
 
 export class BlobError extends Data.TaggedError("BlobError")<{ message: string }> {}
 

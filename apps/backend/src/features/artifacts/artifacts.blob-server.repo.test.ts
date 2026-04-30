@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Effect } from "effect";
-import { BlobServer, makeBlobServerTest } from "./blob-server.ts";
+import { BlobServer, makeBlobServerTest } from "./artifacts.blob-server.repo.ts";
 
 describe("BlobServer — Test layer", () => {
 	it("serves known path with mime + no-store header", async () => {

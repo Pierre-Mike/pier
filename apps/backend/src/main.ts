@@ -3,9 +3,14 @@
  */
 import { Effect, Layer } from "effect";
 import app from "./api.ts";
-import { ArtifactWatcher, makeArtifactWatcherLive } from "./infra/artifact-watcher.ts";
-import { ClaudeEventStream, makeClaudeEventStreamLive } from "./infra/claude-events.ts";
-import { makeArtifactBusLive, makeEventBusLive } from "./infra/sse-bus.ts";
+import {
+	ArtifactWatcher,
+	makeArtifactWatcherLive,
+} from "./features/artifacts/artifacts.watcher.repo.ts";
+import {
+	ClaudeEventStream,
+	makeClaudeEventStreamLive,
+} from "./features/events/events.claude.repo.ts";
 import { ensureZellijWeb } from "./infra/zellij-auth.ts";
 import {
 	handleZellijWsUpgrade,
@@ -15,6 +20,7 @@ import {
 import { stopTunnel } from "./platform/cloudflared.ts";
 import { ConfigService, makeConfigLayer } from "./platform/config.repo.ts";
 import { createSandboxApp } from "./platform/sandbox-app.ts";
+import { makeArtifactBusLive, makeEventBusLive } from "./platform/sse-bus.ts";
 
 const program = Effect.gen(function* () {
 	const env = process.env["NODE_ENV"];

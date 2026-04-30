@@ -1,7 +1,13 @@
 import { join } from "node:path";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { artifactsBlobRoute } from "./features/artifacts/artifacts.blob.routes.ts";
+import { artifactsRoute } from "./features/artifacts/artifacts.routes.ts";
+import { streamArtifactsRoute } from "./features/artifacts/artifacts.stream.routes.ts";
 import { configRoute } from "./features/config/config.routes.ts";
+import { eventsHistoryRoute } from "./features/events/events.history.routes.ts";
+import { streamReloadRoute } from "./features/events/events.reload.routes.ts";
+import { streamEventsRoute } from "./features/events/events.stream.routes.ts";
 import { healthRoute } from "./features/health/health.routes.ts";
 import { projectsBlobRoute } from "./features/projects/projects.blob.routes.ts";
 import { projectsDropRoute } from "./features/projects/projects.drop.routes.ts";
@@ -11,13 +17,7 @@ import { tunnelRoute } from "./features/tunnel/tunnel.routes.ts";
 import { versionRoute } from "./features/version/version.routes.ts";
 import type { AppBindings } from "./platform/bindings.ts";
 import { localhostGuard, setSecurityHeaders } from "./platform/security.ts";
-import { artifactsRoute } from "./shell/routes/artifacts.ts";
-import { artifactsBlobRoute } from "./shell/routes/artifacts-blob.ts";
-import { eventsHistoryRoute } from "./shell/routes/events-history.ts";
 import { settingsRoute } from "./shell/routes/settings.ts";
-import { streamArtifactsRoute } from "./shell/routes/stream-artifacts.ts";
-import { streamEventsRoute } from "./shell/routes/stream-events.ts";
-import { streamReloadRoute } from "./shell/routes/stream-reload.ts";
 import { zellijProxyRoute } from "./shell/routes/zellij-proxy.ts";
 
 const app = new Hono<{ Bindings: AppBindings }>();

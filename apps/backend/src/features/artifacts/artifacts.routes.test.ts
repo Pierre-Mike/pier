@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { artifactsRoute } from "./artifacts.ts";
+import { artifactsRoute } from "./artifacts.routes.ts";
 
 describe("GET /api/artifacts", () => {
 	const { testApp } = artifactsRoute;

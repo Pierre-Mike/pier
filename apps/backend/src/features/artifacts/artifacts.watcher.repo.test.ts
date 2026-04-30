@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Effect } from "effect";
-import { ArtifactWatcher, ArtifactWatcherTest } from "./artifact-watcher.ts";
+import { ArtifactWatcher, ArtifactWatcherTest } from "./artifacts.watcher.repo.ts";
 
 describe("ArtifactWatcherTest", () => {
 	it("start is idempotent", async () => {

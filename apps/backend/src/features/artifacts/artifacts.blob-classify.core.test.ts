@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { type ArtifactKind, classify, EXT_TO_MIME } from "./blob-classify.ts";
+import { type ArtifactKind, classify, EXT_TO_MIME } from "./artifacts.blob-classify.core.ts";
 
 test("classify recognizes markdown", () => {
 	expect(classify("foo.md")).toEqual({ kind: "markdown", mime: "text/markdown; charset=utf-8" });

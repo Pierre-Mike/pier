@@ -3,10 +3,10 @@ import { watch } from "node:fs";
 import { mkdir, readdir, stat } from "node:fs/promises";
 import { extname, join, relative } from "node:path";
 import { Context, Effect, Layer } from "effect";
-import { classify } from "../core/blob-classify.ts";
-import { ConfigService } from "../platform/config.repo.ts";
-import type { Artifact, ArtifactBusService, ArtifactEvent } from "./sse-bus.ts";
-import { ArtifactBus } from "./sse-bus.ts";
+import { ConfigService } from "../../platform/config.repo.ts";
+import type { Artifact, ArtifactBusService, ArtifactEvent } from "../../platform/sse-bus.ts";
+import { ArtifactBus } from "../../platform/sse-bus.ts";
+import { classify } from "./artifacts.blob-classify.core.ts";
 
 export interface ArtifactWatcher {
 	readonly start: () => Effect.Effect<void, never, never>;
