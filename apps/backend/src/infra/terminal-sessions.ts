@@ -1,7 +1,7 @@
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Context, Data, Effect, Layer } from "effect";
-import { ConfigService } from "./config.ts";
+import { ConfigService } from "../platform/config.repo.ts";
 
 // Zellij names a unix socket `<socket_dir>/<version>/<name>`. macOS sun_path is
 // 104 bytes; default `$TMPDIR/zellij-<uid>` on macOS is ~62 chars, leaving too

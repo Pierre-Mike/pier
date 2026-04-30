@@ -4,7 +4,7 @@ import { mkdir, readdir, stat } from "node:fs/promises";
 import { extname, join, relative } from "node:path";
 import { Context, Effect, Layer } from "effect";
 import { classify } from "../core/blob-classify.ts";
-import { ConfigService } from "./config.ts";
+import { ConfigService } from "../platform/config.repo.ts";
 import type { Artifact, ArtifactBusService, ArtifactEvent } from "./sse-bus.ts";
 import { ArtifactBus } from "./sse-bus.ts";
 

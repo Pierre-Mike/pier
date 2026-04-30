@@ -11,9 +11,9 @@ import {
 	stopTunnel,
 	type TunnelState,
 } from "../../infra/cloudflared.ts";
-import type { AppBindings } from "../bindings.ts";
-import { strictLoopbackGuard } from "../security.ts";
-import type { RouteModule } from "./_types.ts";
+import type { AppBindings } from "../../platform/bindings.ts";
+import type { RouteModule } from "../../platform/route-types.ts";
+import { strictLoopbackGuard } from "../../platform/security.ts";
 
 const appPort = (): number => Number(process.env["PIGUY_PORT"] ?? 5273);
 

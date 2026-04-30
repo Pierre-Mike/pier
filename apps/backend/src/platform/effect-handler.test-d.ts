@@ -4,7 +4,7 @@
  * No runtime assertions — TypeScript is the test runner here.
  */
 import { Effect } from "effect";
-import { type ConfigService, ConfigTest } from "../infra/config.ts";
+import { type ConfigService, ConfigTest } from "./config.repo.ts";
 import { defineRoute } from "./effect-handler.ts";
 
 // ---------------------------------------------------------------------------

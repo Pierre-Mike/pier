@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { artifactBusInstance } from "../../infra/sse-bus.ts";
-import type { AppBindings } from "../bindings.ts";
-import type { RouteModule } from "./_types.ts";
+import type { AppBindings } from "../../platform/bindings.ts";
+import type { RouteModule } from "../../platform/route-types.ts";
 
 const KEEPALIVE_MS = 15_000;
 const HOLD_OPEN_MS = 60_000;

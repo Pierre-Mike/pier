@@ -3,7 +3,7 @@ import { open, readdir, readFile, stat } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { Context, Effect, Layer } from "effect";
 import { adapt, type PiEvent } from "../core/event-adapt.ts";
-import { ConfigService } from "./config.ts";
+import { ConfigService } from "../platform/config.repo.ts";
 import { EventBus, type EventBusService } from "./sse-bus.ts";
 
 type ClaudeEntry = {

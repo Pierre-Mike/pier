@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { Effect, Layer } from "effect";
 import { Hono } from "hono";
-import { ConfigTest } from "../../infra/config.ts";
 import { makeRepoServiceTest } from "../../infra/repo.ts";
 import { TerminalSessions } from "../../infra/terminal-sessions.ts";
-import type { AppBindings } from "../effect-handler.ts";
-import { defineRoute } from "../effect-handler.ts";
+import { ConfigTest } from "../../platform/config.repo.ts";
+import type { AppBindings } from "../../platform/effect-handler.ts";
+import { defineRoute } from "../../platform/effect-handler.ts";
 import { projectsDropRoute } from "./projects-drop.ts";
 
 // ---------------------------------------------------------------------------

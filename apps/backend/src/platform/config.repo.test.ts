@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Effect } from "effect";
-import { ConfigService, ConfigTest } from "./config.ts";
+import { ConfigService, ConfigTest } from "./config.repo.ts";
 
 describe("ConfigTest layer", () => {
 	it("returns test config with all fields", async () => {

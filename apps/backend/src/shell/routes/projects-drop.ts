@@ -1,15 +1,15 @@
 import { Effect, Layer } from "effect";
 import type { Context } from "hono";
 import { Hono } from "hono";
-import { ConfigTest, defaultConfigLayer } from "../../infra/config.ts";
 import { makeRepoServiceLive, makeRepoServiceTest, RepoService } from "../../infra/repo.ts";
 import {
 	makeTerminalSessionsLive,
 	TerminalSessions,
 	TerminalSessionsTest,
 } from "../../infra/terminal-sessions.ts";
-import { type AppBindings, defineRoute } from "../effect-handler.ts";
-import type { RouteModule } from "./_types.ts";
+import { ConfigTest, defaultConfigLayer } from "../../platform/config.repo.ts";
+import { type AppBindings, defineRoute } from "../../platform/effect-handler.ts";
+import type { RouteModule } from "../../platform/route-types.ts";
 
 const shellQuote = (s: string): string => {
 	if (/^[A-Za-z0-9_\-./~]+$/.test(s)) return s;

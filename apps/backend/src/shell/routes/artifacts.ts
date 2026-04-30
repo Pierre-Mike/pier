@@ -6,10 +6,10 @@ import {
 	ArtifactWatcherTest,
 	makeArtifactWatcherLive,
 } from "../../infra/artifact-watcher.ts";
-import { ConfigTest, defaultConfigLayer } from "../../infra/config.ts";
 import { makeArtifactBusLive } from "../../infra/sse-bus.ts";
-import { type AppBindings, defineRoute } from "../effect-handler.ts";
-import type { RouteModule } from "./_types.ts";
+import { ConfigTest, defaultConfigLayer } from "../../platform/config.repo.ts";
+import { type AppBindings, defineRoute } from "../../platform/effect-handler.ts";
+import type { RouteModule } from "../../platform/route-types.ts";
 
 type ListOptions = { project?: string; limit?: number };
 

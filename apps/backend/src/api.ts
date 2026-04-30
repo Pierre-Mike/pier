@@ -1,24 +1,24 @@
 import { join } from "node:path";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import type { AppBindings } from "./bindings.ts";
-import { artifactsRoute } from "./routes/artifacts.ts";
-import { artifactsBlobRoute } from "./routes/artifacts-blob.ts";
-import { configRoute } from "./routes/config.ts";
-import { eventsHistoryRoute } from "./routes/events-history.ts";
-import { healthRoute } from "./routes/health.ts";
-import { projectsRoute } from "./routes/projects.ts";
-import { projectsBlobRoute } from "./routes/projects-blob.ts";
-import { projectsDropRoute } from "./routes/projects-drop.ts";
-import { sessionsRoute } from "./routes/sessions.ts";
-import { settingsRoute } from "./routes/settings.ts";
-import { streamArtifactsRoute } from "./routes/stream-artifacts.ts";
-import { streamEventsRoute } from "./routes/stream-events.ts";
-import { streamReloadRoute } from "./routes/stream-reload.ts";
-import { tunnelRoute } from "./routes/tunnel.ts";
-import { versionRoute } from "./routes/version.ts";
-import { zellijProxyRoute } from "./routes/zellij-proxy.ts";
-import { localhostGuard, setSecurityHeaders } from "./security.ts";
+import type { AppBindings } from "./platform/bindings.ts";
+import { localhostGuard, setSecurityHeaders } from "./platform/security.ts";
+import { artifactsRoute } from "./shell/routes/artifacts.ts";
+import { artifactsBlobRoute } from "./shell/routes/artifacts-blob.ts";
+import { configRoute } from "./shell/routes/config.ts";
+import { eventsHistoryRoute } from "./shell/routes/events-history.ts";
+import { healthRoute } from "./shell/routes/health.ts";
+import { projectsRoute } from "./shell/routes/projects.ts";
+import { projectsBlobRoute } from "./shell/routes/projects-blob.ts";
+import { projectsDropRoute } from "./shell/routes/projects-drop.ts";
+import { sessionsRoute } from "./shell/routes/sessions.ts";
+import { settingsRoute } from "./shell/routes/settings.ts";
+import { streamArtifactsRoute } from "./shell/routes/stream-artifacts.ts";
+import { streamEventsRoute } from "./shell/routes/stream-events.ts";
+import { streamReloadRoute } from "./shell/routes/stream-reload.ts";
+import { tunnelRoute } from "./shell/routes/tunnel.ts";
+import { versionRoute } from "./shell/routes/version.ts";
+import { zellijProxyRoute } from "./shell/routes/zellij-proxy.ts";
 
 const app = new Hono<{ Bindings: AppBindings }>();
 
@@ -71,7 +71,7 @@ const routedApp = app
 // Serve the built frontend (apps/frontend/dist) as a fallback for any GET that
 // no API route handled. No-op when dist/ is missing (pure dev with Astro on
 // :5274), active when frontend has been built (single-origin / tunnel mode).
-const FRONTEND_DIST = join(import.meta.dir, "..", "..", "..", "frontend", "dist");
+const FRONTEND_DIST = join(import.meta.dir, "..", "..", "frontend", "dist");
 if (await Bun.file(join(FRONTEND_DIST, "index.html")).exists()) {
 	routedApp.get("*", async (c) => {
 		const path = new URL(c.req.url).pathname;

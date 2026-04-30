@@ -2,9 +2,9 @@ import { Effect } from "effect";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { getVersion } from "../../core/version.ts";
-import { ConfigService, ConfigTest, makeConfigLayer } from "../../infra/config.ts";
-import { type AppBindings, defineRoute } from "../effect-handler.ts";
-import type { RouteModule } from "./_types.ts";
+import { ConfigService, ConfigTest, makeConfigLayer } from "../../platform/config.repo.ts";
+import { type AppBindings, defineRoute } from "../../platform/effect-handler.ts";
+import type { RouteModule } from "../../platform/route-types.ts";
 
 const versionHandler = (c: Context<{ Bindings: AppBindings }>) =>
 	Effect.gen(function* () {

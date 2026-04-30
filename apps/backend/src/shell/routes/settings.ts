@@ -9,9 +9,9 @@
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { getZellijReadOnlyToken } from "../../infra/zellij-auth.ts";
-import type { AppBindings } from "../bindings.ts";
-import { localhostGuard } from "../security.ts";
-import type { RouteModule } from "./_types.ts";
+import type { AppBindings } from "../../platform/bindings.ts";
+import type { RouteModule } from "../../platform/route-types.ts";
+import { localhostGuard } from "../../platform/security.ts";
 
 const DEFAULT_ZELLIJ_ORIGIN = "https://127.0.0.1:8082";
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { Effect } from "effect";
 import { Hono } from "hono";
-import { ConfigService, ConfigTest, makeConfigLayer } from "../infra/config.ts";
+import { ConfigService, ConfigTest, makeConfigLayer } from "./config.repo.ts";
 import { defineRoute } from "./effect-handler.ts";
 
 describe("defineRoute", () => {

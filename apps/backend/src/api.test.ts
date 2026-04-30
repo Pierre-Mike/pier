@@ -22,7 +22,7 @@ describe("GET /health", () => {
 
 describe("structural: all route modules mounted in api.ts", () => {
 	it("api.ts imports every route file in shell/routes/", async () => {
-		const routesDir = new URL("./routes/", import.meta.url).pathname;
+		const routesDir = new URL("./shell/routes/", import.meta.url).pathname;
 		const entries = await readdir(routesDir);
 		// Only consider route module files (not _types, not test files)
 		const routeFiles = entries.filter(
@@ -33,8 +33,8 @@ describe("structural: all route modules mounted in api.ts", () => {
 
 		for (const file of routeFiles) {
 			const moduleName = file.replace(".ts", "");
-			expect(source, `api.ts should import from ./routes/${moduleName}.ts`).toContain(
-				`./routes/${moduleName}.ts`,
+			expect(source, `api.ts should import from ./shell/routes/${moduleName}.ts`).toContain(
+				`./shell/routes/${moduleName}.ts`,
 			);
 		}
 	});

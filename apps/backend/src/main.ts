@@ -2,10 +2,10 @@
  * Composition root — boots pier backend with full Effect-TS Layer composition.
  */
 import { Effect, Layer } from "effect";
+import app from "./api.ts";
 import { ArtifactWatcher, makeArtifactWatcherLive } from "./infra/artifact-watcher.ts";
 import { ClaudeEventStream, makeClaudeEventStreamLive } from "./infra/claude-events.ts";
 import { stopTunnel } from "./infra/cloudflared.ts";
-import { ConfigService, makeConfigLayer } from "./infra/config.ts";
 import { makeArtifactBusLive, makeEventBusLive } from "./infra/sse-bus.ts";
 import { ensureZellijWeb } from "./infra/zellij-auth.ts";
 import {
@@ -13,8 +13,8 @@ import {
 	type ZellijWsBridge,
 	zellijWsHandlers,
 } from "./infra/zellij-ws-proxy.ts";
-import app from "./shell/api.ts";
-import { createSandboxApp } from "./shell/sandbox-app.ts";
+import { ConfigService, makeConfigLayer } from "./platform/config.repo.ts";
+import { createSandboxApp } from "./platform/sandbox-app.ts";
 
 const program = Effect.gen(function* () {
 	const env = process.env["NODE_ENV"];

@@ -15,7 +15,7 @@
  */
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import type { hc } from "hono/client";
-import type { AppType } from "../api.ts";
+import type { AppType } from "../../api.ts";
 
 // ---------------------------------------------------------------------------
 // Stub getZellijReadOnlyToken — must be registered before the subject import.

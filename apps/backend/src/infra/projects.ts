@@ -1,7 +1,7 @@
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { Context, Effect, Layer } from "effect";
-import { ConfigService } from "./config.ts";
+import { ConfigService } from "../platform/config.repo.ts";
 
 export type Project = {
 	id: string;
