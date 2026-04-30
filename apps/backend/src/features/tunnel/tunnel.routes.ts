@@ -5,13 +5,13 @@
  */
 import type { Context } from "hono";
 import { Hono } from "hono";
+import type { AppBindings } from "../../platform/bindings.ts";
 import {
 	getTunnelState,
 	startTunnel,
 	stopTunnel,
 	type TunnelState,
-} from "../../infra/cloudflared.ts";
-import type { AppBindings } from "../../platform/bindings.ts";
+} from "../../platform/cloudflared.ts";
 import type { RouteModule } from "../../platform/route-types.ts";
 import { strictLoopbackGuard } from "../../platform/security.ts";
 

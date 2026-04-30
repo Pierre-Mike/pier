@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { projectsBlobRoute } from "./projects-blob.ts";
+import { projectsBlobRoute } from "./projects.blob.routes.ts";
 
 describe("GET /api/projects/:id/blob", () => {
 	const { testApp } = projectsBlobRoute;

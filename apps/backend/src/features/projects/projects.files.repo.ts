@@ -3,7 +3,7 @@ import { access, mkdir, stat, writeFile } from "node:fs/promises";
 import { basename, extname, join, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import { Context, Data, Effect, Layer } from "effect";
-import { ConfigService } from "../platform/config.repo.ts";
+import { ConfigService } from "../../platform/config.repo.ts";
 
 const exec = promisify(execFile);
 

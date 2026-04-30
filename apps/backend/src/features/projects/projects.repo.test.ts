@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Effect } from "effect";
-import { makeProjectsServiceTest, ProjectsService } from "./projects.ts";
+import { makeProjectsServiceTest, ProjectsService } from "./projects.repo.ts";
 
 describe("ProjectsService — Test layer", () => {
 	it("returns provided fixtures sorted by lastModified desc", async () => {

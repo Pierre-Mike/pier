@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Effect } from "effect";
-import { makeRepoServiceTest, RepoService } from "./repo.ts";
+import { makeRepoServiceTest, RepoService } from "./projects.files.repo.ts";
 
 describe("RepoService — Test layer", () => {
 	const layer = makeRepoServiceTest(

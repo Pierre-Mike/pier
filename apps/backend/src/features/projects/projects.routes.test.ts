@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { projectsRoute } from "./projects.ts";
+import { projectsRoute } from "./projects.routes.ts";
 
 describe("GET /api/projects", () => {
 	const { testApp } = projectsRoute;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Effect } from "effect";
-import { TerminalSessions, TerminalSessionsTest } from "./terminal-sessions.ts";
+import { TerminalSessions, TerminalSessionsTest } from "./sessions.repo.ts";
 
 describe("TerminalSessionsTest", () => {
 	it("open creates a new session", async () => {

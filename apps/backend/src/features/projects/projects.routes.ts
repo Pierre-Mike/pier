@@ -1,15 +1,15 @@
 import { Effect, Layer } from "effect";
 import type { Context } from "hono";
 import { Hono } from "hono";
+import { ConfigTest, defaultConfigLayer } from "../../platform/config.repo.ts";
+import { type AppBindings, defineRoute } from "../../platform/effect-handler.ts";
+import type { RouteModule } from "../../platform/route-types.ts";
+import { makeRepoServiceLive, makeRepoServiceTest, RepoService } from "./projects.files.repo.ts";
 import {
 	makeProjectsServiceLive,
 	makeProjectsServiceTest,
 	ProjectsService,
-} from "../../infra/projects.ts";
-import { makeRepoServiceLive, makeRepoServiceTest, RepoService } from "../../infra/repo.ts";
-import { ConfigTest, defaultConfigLayer } from "../../platform/config.repo.ts";
-import { type AppBindings, defineRoute } from "../../platform/effect-handler.ts";
-import type { RouteModule } from "../../platform/route-types.ts";
+} from "./projects.repo.ts";
 
 const projectsListHandler = (_c: Context<{ Bindings: AppBindings }>) =>
 	Effect.gen(function* () {

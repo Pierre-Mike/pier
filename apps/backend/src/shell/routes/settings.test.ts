@@ -24,6 +24,11 @@ import type { AppType } from "../../api.ts";
 let mockTokenValue = "ro_tok_test_default";
 let mockTokenError: Error | null = null;
 
+// Mock path matches the specifier used by settings.ts (same depth) — keeping
+// it distinct from the relative path used by zellij.auth.repo.test.ts (1
+// segment) so Bun's per-specifier mock entry does not collide with that
+// suite's own module load. mock.module is keyed on specifier string, not
+// resolved absolute path.
 mock.module("../../infra/zellij-auth.ts", () => ({
 	getZellijReadOnlyToken: async (): Promise<string> => {
 		if (mockTokenError) throw mockTokenError;

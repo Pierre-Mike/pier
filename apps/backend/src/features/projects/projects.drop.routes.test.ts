@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { Effect, Layer } from "effect";
 import { Hono } from "hono";
-import { makeRepoServiceTest } from "../../infra/repo.ts";
-import { TerminalSessions } from "../../infra/terminal-sessions.ts";
 import { ConfigTest } from "../../platform/config.repo.ts";
 import type { AppBindings } from "../../platform/effect-handler.ts";
 import { defineRoute } from "../../platform/effect-handler.ts";
-import { projectsDropRoute } from "./projects-drop.ts";
+import { TerminalSessions } from "../sessions/sessions.repo.ts";
+import { projectsDropRoute } from "./projects.drop.routes.ts";
+import { makeRepoServiceTest } from "./projects.files.repo.ts";
 
 // ---------------------------------------------------------------------------
 // RED trigger: this Layer.succeed adds `writeChars` to the TerminalSessions
@@ -63,7 +63,7 @@ const capturedDeps = Layer.merge(testDeps, TerminalSessionsWithWriteChars);
 // Dynamic import: RED until dropHandler is exported from projects-drop.ts
 type DropHandlerType = Parameters<typeof defineRoute>[0]["handler"];
 
-const { dropHandler: importedDropHandler } = await import("./projects-drop.ts").then(
+const { dropHandler: importedDropHandler } = await import("./projects.drop.routes.ts").then(
 	(m) => m as { dropHandler?: DropHandlerType },
 );
 

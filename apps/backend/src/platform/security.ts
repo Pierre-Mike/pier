@@ -1,5 +1,5 @@
 import type { Context, MiddlewareHandler } from "hono";
-import { getDynamicAllowedHost } from "../infra/cloudflared.ts";
+import { getDynamicAllowedHost } from "./cloudflared.ts";
 
 const ALLOWED_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
 const EXTRA_HOSTS = (process.env["PIGUY_ALLOWED_HOSTS"] ?? "")
