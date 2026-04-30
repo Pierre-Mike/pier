@@ -9,9 +9,11 @@
  * State is module-local because there is exactly one zellij web instance per
  * pier process. Concurrent callers share a single in-flight login.
  */
+
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { Context, Data, Effect, Layer } from "effect";
 import { ZELLIJ_SOCKET_DIR } from "../features/sessions/sessions.repo.ts";
 
 const TOKEN_PATH = join(homedir(), ".config", "pier", "zellij-token");
@@ -190,3 +192,34 @@ export const __resetZellijAuthForTests = (): void => {
 	cachedReadOnlyToken = null;
 	inflightReadOnlyMint = null;
 };
+
+// ---------------------------------------------------------------------------
+// Effect service surface
+//
+// Wraps getZellijReadOnlyToken so route handlers can declare the token as a
+// service dependency instead of importing the bare function. This is what lets
+// tests inject a stub via Layer.succeed without using mock.module.
+// ---------------------------------------------------------------------------
+
+export class ZellijAuthError extends Data.TaggedError("ZellijAuthError")<{
+	readonly cause: unknown;
+}> {}
+
+export interface ZellijAuthService {
+	readonly getReadOnlyToken: () => Effect.Effect<string, ZellijAuthError>;
+}
+
+export const ZellijAuthService = Context.GenericTag<ZellijAuthService>("ZellijAuthService");
+
+export const ZellijAuthLive: Layer.Layer<ZellijAuthService> = Layer.succeed(ZellijAuthService, {
+	getReadOnlyToken: () =>
+		Effect.tryPromise({
+			try: () => getZellijReadOnlyToken(),
+			catch: (cause) => new ZellijAuthError({ cause }),
+		}),
+});
+
+/** Inert default — used by settingsRoute.testApp when no test layer is supplied. */
+export const ZellijAuthTest: Layer.Layer<ZellijAuthService> = Layer.succeed(ZellijAuthService, {
+	getReadOnlyToken: () => Effect.succeed(""),
+});
