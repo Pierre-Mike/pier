@@ -17,7 +17,7 @@
  */
 import { Hono } from "hono";
 import { clearZellijCookie, ensureZellijWeb, getZellijCookie } from "../../infra/zellij-auth.ts";
-import type { AppBindings } from "../bindings.ts";
+import type { AppBindings } from "../../platform/bindings.ts";
 import { injectPaletteRelay } from "../zellij-wrapper.ts";
 
 const STRIPPED_RESPONSE_HEADERS = new Set([
