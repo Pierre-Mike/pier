@@ -19,15 +19,19 @@ module.exports = {
 				"Cross-cutting services (e.g. ConfigService, sse-bus, cloudflared) live in platform/, not in a feature.",
 			severity: "error",
 			from: { path: "^src/features/([^/]+)/" },
-			// Two known couplings allow-listed (tracked for follow-up refactor):
+			// Known couplings allow-listed (tracked for follow-up refactor):
 			//   1. projects/projects.drop.routes.ts → sessions/sessions.repo.ts
 			//      (drop writes the dropped path into the user's open terminal session)
 			//   2. projects/projects.blob.routes.ts → artifacts/artifacts.blob-server.repo.ts
 			//      (project file viewer reuses the artifact blob server)
+			//   3. settings/settings.routes.ts → zellij/zellij.auth.repo.ts
+			//      (settings exposes the read-only zellij watcher token via Effect Layer DI)
+			//   4. zellij/zellij.auth.repo.ts → sessions/sessions.repo.ts
+			//      (zellij CLI is invoked with ZELLIJ_SOCKET_DIR — owned by sessions)
 			to: {
 				path: "^src/features/(?!$1/)[^/]+/",
 				pathNot:
-					"^src/features/sessions/sessions\\.repo\\.ts$|^src/features/artifacts/artifacts\\.blob-server\\.repo\\.ts$",
+					"^src/features/sessions/sessions\\.repo\\.ts$|^src/features/artifacts/artifacts\\.blob-server\\.repo\\.ts$|^src/features/zellij/zellij\\.auth\\.repo\\.ts$",
 			},
 		},
 		{

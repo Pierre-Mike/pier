@@ -39,7 +39,7 @@ mock.module("node:fs/promises", () => ({
 // We import the full module namespace. getZellijReadOnlyToken is the symbol
 // under test; it does NOT exist yet — accessing it yields `undefined` at
 // runtime, causing each assertion below to fail (RED).
-import * as ZellijAuth from "./zellij-auth.ts";
+import * as ZellijAuth from "./zellij.auth.repo.ts";
 
 // Narrow alias — intentionally typed as `unknown` so TypeScript accepts the
 // absent export without `any`.  The `expect(typeof fn).toBe("function")`

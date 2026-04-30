@@ -11,12 +11,12 @@ import {
 	ClaudeEventStream,
 	makeClaudeEventStreamLive,
 } from "./features/events/events.claude.repo.ts";
-import { ensureZellijWeb } from "./infra/zellij-auth.ts";
+import { ensureZellijWeb } from "./features/zellij/zellij.auth.repo.ts";
 import {
 	handleZellijWsUpgrade,
 	type ZellijWsBridge,
 	zellijWsHandlers,
-} from "./infra/zellij-ws-proxy.ts";
+} from "./features/zellij/zellij.ws-proxy.repo.ts";
 import { stopTunnel } from "./platform/cloudflared.ts";
 import { ConfigService, makeConfigLayer } from "./platform/config.repo.ts";
 import { createSandboxApp } from "./platform/sandbox-app.ts";

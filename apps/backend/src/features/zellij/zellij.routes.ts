@@ -7,8 +7,8 @@
  *  - zellij web sends `X-Frame-Options: DENY`, which would break embedding.
  *    The proxy strips it.
  *  - zellij requires a session cookie obtained via /command/login. The proxy
- *    holds the cookie server-side (see zellij-auth.ts) so the iframe never
- *    sees a login prompt.
+ *    holds the cookie server-side (see zellij.auth.repo.ts) so the iframe
+ *    never sees a login prompt.
  *  - zellij listens over HTTPS with a self-signed cert. The proxy speaks
  *    HTTPS upstream and serves plain HTTP downstream, so no cert-trust UX.
  *
@@ -16,9 +16,9 @@
  * main.ts, not here — Hono routing is HTTP-only.
  */
 import { Hono } from "hono";
-import { clearZellijCookie, ensureZellijWeb, getZellijCookie } from "../../infra/zellij-auth.ts";
 import type { AppBindings } from "../../platform/bindings.ts";
-import { injectPaletteRelay } from "../zellij-wrapper.ts";
+import { clearZellijCookie, ensureZellijWeb, getZellijCookie } from "./zellij.auth.repo.ts";
+import { injectPaletteRelay } from "./zellij.wrapper.ts";
 
 const STRIPPED_RESPONSE_HEADERS = new Set([
 	"x-frame-options",

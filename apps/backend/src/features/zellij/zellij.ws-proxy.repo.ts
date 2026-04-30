@@ -4,11 +4,11 @@
  * connected to the local zellij web server, copying frames in both
  * directions and authenticating with the cached session cookie.
  *
- * Lives in infra/ because Hono cannot mount Bun WebSocket handlers — the
- * upgrade has to happen at the Bun.serve layer (see main.ts).
+ * Lives alongside zellij.auth.repo.ts because Hono cannot mount Bun WebSocket
+ * handlers — the upgrade has to happen at the Bun.serve layer (see main.ts).
  */
 import type { Server, ServerWebSocket, WebSocketHandler } from "bun";
-import { clearZellijCookie, ensureZellijWeb, getZellijCookie } from "./zellij-auth.ts";
+import { clearZellijCookie, ensureZellijWeb, getZellijCookie } from "./zellij.auth.repo.ts";
 
 export interface ZellijWsBridge {
 	cookie: string;
