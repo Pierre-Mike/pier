@@ -40,7 +40,7 @@ mock.module("../../infra/zellij-auth.ts", () => ({
 // Subject import — this module does not exist yet; the import will fail at
 // runtime (RED) until the implementer creates settings.ts.
 // ---------------------------------------------------------------------------
-import { settingsRoute } from "./settings.ts";
+import { settingsRoute } from "./settings.routes.ts";
 
 // ---------------------------------------------------------------------------
 // Compile-time AppType assertion.

@@ -26,11 +26,24 @@ apps/
 ├── backend/          # Hono on Cloudflare Workers (Effect-TS)
 │   ├── wrangler.toml # Workers config
 │   └── src/
-│       ├── core/     # PURE — no I/O, no side effects, no imports from infra/ or shell/
-│       ├── infra/    # Effect services (one per external system) with Context.Tag
-│       ├── shell/    # Hono routes + Effect.gen coordinators — orchestrate core + infra
-│       │   └── api.ts  # Route definitions, exports AppType for RPC
-│       └── main.ts   # Composition root — re-exports Hono app as Workers fetch handler
+│       ├── features/ # One folder per feature (artifacts, events, projects, …)
+│       │   └── <name>/
+│       │       ├── <name>.<concern>?.core.ts      # PURE — no I/O, pure functions
+│       │       ├── <name>.<concern>?.repo.ts      # Effect services behind Context.Tag
+│       │       └── <name>.<concern>?.routes.ts    # Hono routes + Effect.gen orchestration
+│       ├── platform/ # Feature-agnostic infrastructure shared by features/
+│       │   ├── effect-handler.ts                  # defineRoute, Effect runtime adapter
+│       │   ├── config.repo.ts                     # ConfigService — used by every feature
+│       │   ├── sse-bus.ts                         # event/artifact pub-sub buses
+│       │   ├── cloudflared.ts                     # tunnel lifecycle + dynamic-host registry
+│       │   ├── security.ts, bindings.ts, sandbox-app.ts, route-types.ts
+│       │   └── agents-conventions.ts
+│       ├── api.ts                                 # Composition root — registers every feature route
+│       └── main.ts                                # Bun.serve boot + Effect Layer composition
+│
+│   Tier suffixes are file-level, not folders. FCIS discipline is preserved as
+│   filename suffix (.core.ts, .repo.ts, .routes.ts). Co-located tests next to
+│   the subject (`<name>.routes.test.ts` next to `<name>.routes.ts`).
 ├── frontend/         # Frontend app — imports typed API client from backend
 │   └── src/api.ts    # re-exports createBackendClient from api-contract
 packages/
@@ -41,29 +54,36 @@ biome.json            # Root-level Biome (Turborepo best practice)
 lefthook.yml          # Git hooks
 ```
 
-## Architecture: Functional Core / Imperative Shell
+## Architecture: Feature Slices + Functional Core / Imperative Shell
 
-- **Core:** pure functions, `Effect<A, E, never>` returns (no dependencies), zero I/O
-- **Infra:** Effect services behind `Context.Tag`
-- **Shell:** Hono routes + `Effect.gen` coordinators: impure(read) → pure(compute) → impure(write)
-- `Effect.runPromise` calls restricted to `shell/` and `main.ts`
+The codebase is **vertically sliced** by feature, with FCIS discipline preserved as filename suffixes:
+
+- **`*.core.ts`** — pure functions, `Effect<A, E, never>` returns, zero I/O
+- **`*.repo.ts`** — Effect services behind `Context.Tag` (one per external system)
+- **`*.routes.ts`** — Hono routes + `Effect.gen` orchestration: impure(read) → pure(compute) → impure(write)
+- `Effect.runPromise` calls restricted to `*.routes.ts` and `main.ts`
+- `platform/` holds anything cross-cutting (config, sse-bus, cloudflared, security, effect-handler)
+
+### Boundary rules (enforced by dependency-cruiser)
+
+- `core-tier-is-pure` — `*.core.ts` cannot import sibling `repo`/`routes` tiers or platform adapters
+- `no-cross-feature-imports` — `features/X/*` cannot import `features/Y/*` (compose at `api.ts` or share via `platform/`)
+- `platform-has-no-feature-deps` — `platform/*` cannot import `features/*` (sse-bus excepted for data-shape types)
+- `effect-handler-stays-pure-glue` — `platform/effect-handler.ts` is the Effect runtime adapter, no feature imports
+- `fixtures-only-from-tests` — `*.fixture.ts` is test-only
 
 ### Core purity rules
 
-- **No side effects in `core/`** — no `new Date()`, no `crypto.randomUUID()`, no `Math.random()`. Pass timestamps, IDs, and random values as parameters. Generate them in `shell/` or `infra/`.
-- **Validate in one layer only** — validation logic lives in `core/` and is called from `infra/` or `shell/`. Never duplicate validation across layers.
+- **No side effects in `*.core.ts`** — no `new Date()`, no `crypto.randomUUID()`, no `Math.random()`. Pass timestamps, IDs, and random values as parameters. Generate them in `*.routes.ts` or `*.repo.ts`.
+- **Validate in one layer only** — validation logic lives in `*.core.ts` and is called from `*.repo.ts` or `*.routes.ts`. Never duplicate validation.
 - **No `as` type casts in non-test files** — use `Schema.decode`, brand constructors, or proper type narrowing instead of `as Foo` assertions.
-
-### Infra rules
-
-- **Shared D1 types** — import `D1Database` and `D1PreparedStatement` from `infra/d1-types.ts`. Do not redefine these interfaces in each repository file.
 
 ## Hono RPC (End-to-End Type Safety)
 
-- Backend exports `AppType` from `shell/api.ts` via `"exports": { "./types" }` in package.json
+- Backend exports `AppType` from `src/api.ts` via `"exports": { "./types" }` in package.json
 - `packages/api-contract` imports `AppType` and creates a typed `hc<AppType>` client via `createBackendClient(url)`
 - Frontend re-exports `createBackendClient` from `@template-bpe/api-contract` — fully typed params, query, body, response
-- **Adding a new route only requires changing `shell/api.ts`** — types propagate automatically
+- **Adding a new route only requires changing `src/api.ts`** — types propagate automatically
 - Zero codegen, zero runtime overhead — types are workspace-linked at build time
 - **Deploy target:** Cloudflare Workers (V8 isolates, not Bun — no Bun-specific APIs in backend code)
 
@@ -120,7 +140,7 @@ Pre-tool-use hook (`.claude/hooks/enforce.ts`) blocks edits to:
 
 ### Route file location
 
-Each route lives in its own file: `shell/routes/<name>.ts` — one file per route group.
+Each route lives inside its feature slice: `features/<name>/<name>.<concern>?.routes.ts` — one file per route group within a feature.
 
 ### RouteModule export shape
 
@@ -141,7 +161,7 @@ Use `defineRoute({ deps, handler })` for all routes. It accepts a single optiona
 
 ### `api.ts` registry rule
 
-`shell/api.ts` is a **thin registry** — it may only contain:
+`src/api.ts` is a **thin registry** — it may only contain:
 - `import` statements for route modules
 - `.route()` mount calls on the root Hono app
 - The `AppType` export
@@ -150,7 +170,7 @@ No handler logic, no `Effect.gen`, no service calls are allowed in `api.ts`.
 
 ### Test rule
 
-Every route file (`shell/routes/<name>.ts`) must have a co-located `<name>.test.ts`.
+Every route file (`features/<name>/<name>*.routes.ts`) must have a co-located `<name>*.routes.test.ts`.
 Tests must import and exercise `testApp`, **not** the production `app` or `api.ts`:
 
 ```ts
@@ -163,7 +183,7 @@ import app from "../api.ts";
 
 ### `effect-handler.ts` boundary rule
 
-`shell/effect-handler.ts` is pure infrastructure glue (Effect runtime adapter).
-It **must not** import from `core/` or `infra/` — enforced by dependency-cruiser in CI.
+`platform/effect-handler.ts` is pure infrastructure glue (Effect runtime adapter).
+It **must not** import from `features/` — enforced by dependency-cruiser in CI.
 
-Violation: adding `import ... from '../core/...'` inside `effect-handler.ts` will fail the `lint:deps` check.
+Violation: adding `import ... from '../features/...'` inside `effect-handler.ts` will fail the `lint:deps` check.

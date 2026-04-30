@@ -6,8 +6,8 @@ import { describe, expect, it } from "bun:test";
 import { agentsDoc as content } from "./agents-conventions.ts";
 
 describe("AGENTS.md — route conventions", () => {
-	it("documents route file location convention (shell/routes/<name>.ts)", () => {
-		expect(content).toContain("shell/routes/");
+	it("documents route file location convention (features/<name>/<name>*.routes.ts)", () => {
+		expect(content).toContain("features/<name>/");
 	});
 
 	it("documents RouteModule export shape ({ app, testApp })", () => {
