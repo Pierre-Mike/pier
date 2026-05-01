@@ -1,6 +1,37 @@
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Context, Effect, Layer } from "effect";
+
+/**
+ * Walk from `startDir` upward looking for a directory that contains `marker`.
+ * Returns the directory path if found, otherwise returns `null`.
+ */
+const markerWalk = (startDir: string, marker: string): string | null => {
+	let dir = startDir;
+	for (let i = 0; i < 20; i++) {
+		if (existsSync(join(dir, marker))) return dir;
+		const parent = dirname(dir);
+		if (parent === dir) break;
+		dir = parent;
+	}
+	return null;
+};
+
+/**
+ * Resolve the pier app root:
+ * 1. `PIGUY_APP_ROOT` env override wins.
+ * 2. Marker-walk from import.meta.url looking for `pier-architecture.canvas`.
+ * 3. Fallback to `process.cwd()`.
+ */
+const resolveAppRoot = (): string => {
+	if (process.env["PIGUY_APP_ROOT"]) return process.env["PIGUY_APP_ROOT"];
+	const startDir = dirname(fileURLToPath(import.meta.url));
+	const found =
+		markerWalk(startDir, "pier-architecture.canvas") ?? markerWalk(startDir, "package.json");
+	return found ?? process.cwd();
+};
 
 export interface PiguyConfig {
 	readonly version: string;
@@ -12,6 +43,7 @@ export interface PiguyConfig {
 	readonly artifactsDir: string;
 	readonly claudeProjectsRoot: string;
 	readonly piRoot: string;
+	readonly appRoot: string;
 }
 
 export interface ConfigService {
@@ -23,6 +55,7 @@ export const makeConfigLayer = (workerEnv: {
 	ENVIRONMENT?: string;
 }): Layer.Layer<ConfigService> => {
 	const home = homedir();
+	const appRoot = resolveAppRoot();
 	return Layer.succeed(ConfigService, {
 		get: () =>
 			Effect.succeed({
@@ -36,6 +69,7 @@ export const makeConfigLayer = (workerEnv: {
 				artifactsDir: process.env["PIGUY_ARTIFACTS_DIR"] ?? join(home, ".pi", "artifacts"),
 				claudeProjectsRoot:
 					process.env["PIGUY_CLAUDE_PROJECTS_ROOT"] ?? join(home, ".claude", "projects"),
+				appRoot,
 			}),
 	});
 };
@@ -60,5 +94,6 @@ export const ConfigTest: Layer.Layer<ConfigService> = Layer.succeed(ConfigServic
 			piRoot: "/tmp/test-pi",
 			artifactsDir: "/tmp/test-pi/artifacts",
 			claudeProjectsRoot: "/tmp/test-claude/projects",
+			appRoot: "/tmp/test-app-root",
 		}),
 });

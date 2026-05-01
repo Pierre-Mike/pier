@@ -29,3 +29,24 @@ describe("dashboard settings modal wiring", () => {
 		expect(settingsSource).not.toContain("zellij URL (read-write)");
 	});
 });
+
+describe("dashboard settings Drops tab", () => {
+	test("Drops tab button exists in MODAL_HTML", () => {
+		expect(settingsSource).toContain('data-tab="drops"');
+		expect(settingsSource).toContain(">Drops</button>");
+	});
+
+	test("settings-panel-drops panel exists in MODAL_HTML", () => {
+		expect(settingsSource).toContain('id="settings-panel-drops"');
+	});
+
+	test("GET /api/drops is fetched when switching to Drops tab", () => {
+		expect(settingsSource).toContain("/api/drops");
+		expect(settingsSource).toContain("fetchDrops");
+	});
+
+	test("copy-path button writes absolute path to clipboard", () => {
+		expect(settingsSource).toContain("data-copy-path");
+		expect(settingsSource).toContain("clipboard.writeText");
+	});
+});

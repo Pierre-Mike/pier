@@ -90,6 +90,23 @@ describe("drop.ts frontend — AC 5 & 6: injected branching, toast text, clipboa
 	});
 
 	// -----------------------------------------------------------------------
+	// Structural: POST target is the new global /api/drops endpoint (spec 019)
+	// -----------------------------------------------------------------------
+	test("drop.ts posts to /api/drops (not per-project /api/projects/:id/drop)", () => {
+		// Spec 019 moved drops to the global endpoint.
+		expect(dropSource).toContain("/api/drops");
+		expect(dropSource).not.toContain("projects[");
+		expect(dropSource).not.toContain('":id"');
+	});
+
+	// -----------------------------------------------------------------------
+	// Structural: activeProjectId is included in FormData
+	// -----------------------------------------------------------------------
+	test("FormData includes activeProjectId field for global drops endpoint", () => {
+		expect(dropSource).toContain("activeProjectId");
+	});
+
+	// -----------------------------------------------------------------------
 	// Structural: no clipboard call on the injected: true branch
 	// Assert the string "Inserted into terminal:" and NOT clipboard in same branch.
 	// -----------------------------------------------------------------------

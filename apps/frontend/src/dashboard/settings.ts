@@ -30,6 +30,7 @@ const MODAL_HTML = `
       <div class="settings-tabs" role="tablist">
         <button class="settings-tab active" data-tab="share" role="tab">Share</button>
         <button class="settings-tab" data-tab="tunnel" role="tab">Tunnel</button>
+        <button class="settings-tab" data-tab="drops" role="tab">Drops</button>
         <button class="settings-tab" data-tab="about" role="tab">About</button>
       </div>
     </header>
@@ -58,6 +59,13 @@ const MODAL_HTML = `
         ⚠ Anyone with this URL gets full pier control, including remote terminal access.
         There is no authentication. Only share with trusted users, and stop the tunnel when done.
       </p>
+    </div>
+
+    <div id="settings-panel-drops" class="settings-panel hidden">
+      <p class="settings-label">Dropped files</p>
+      <div id="settings-drops-list" class="settings-drops-list">
+        <p class="settings-hint">Loading…</p>
+      </div>
     </div>
 
     <div id="settings-panel-about" class="settings-panel hidden">
@@ -197,6 +205,33 @@ const MODAL_HTML = `
   opacity: 0.5;
   cursor: not-allowed;
 }
+.settings-drops-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.settings-drops-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+.settings-drops-name {
+  flex: 1;
+  font-family: var(--mono);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.settings-drops-date {
+  color: var(--fg-dim);
+  font-size: 11px;
+  white-space: nowrap;
+}
 .settings-about {
   display: grid;
   grid-template-columns: max-content 1fr;
@@ -279,6 +314,57 @@ async function refreshTunnel(): Promise<void> {
 		tunnelState = { status: "error", url: null, error: "unreachable" };
 	}
 	renderTunnel();
+}
+
+type DroppedEntry = { name: string; path: string; size: number; mtime: number };
+
+async function fetchDrops(): Promise<DroppedEntry[]> {
+	try {
+		const res = await fetch(`${apiBase}/api/drops`, { credentials: "include" });
+		if (!res.ok) return [];
+		return (await res.json()) as DroppedEntry[];
+	} catch {
+		return [];
+	}
+}
+
+function relativeDate(mtime: number): string {
+	const diffMs = Date.now() - mtime;
+	const diffSec = Math.floor(diffMs / 1000);
+	if (diffSec < 60) return "just now";
+	const diffMin = Math.floor(diffSec / 60);
+	if (diffMin < 60) return `${diffMin}m ago`;
+	const diffHr = Math.floor(diffMin / 60);
+	if (diffHr < 24) return `${diffHr}h ago`;
+	return `${Math.floor(diffHr / 24)}d ago`;
+}
+
+function renderDrops(entries: DroppedEntry[]): void {
+	const list = document.getElementById("settings-drops-list");
+	if (!list) return;
+	if (entries.length === 0) {
+		list.innerHTML = '<p class="settings-hint">No files dropped yet.</p>';
+		return;
+	}
+	list.innerHTML = entries
+		.map(
+			(e) => `
+    <div class="settings-drops-row">
+      <span class="settings-drops-name" title="${e.path}">${e.name}</span>
+      <span class="settings-drops-date">${relativeDate(e.mtime)}</span>
+      <button class="settings-btn" data-copy-path="${e.path}">Copy path</button>
+    </div>`,
+		)
+		.join("");
+	list.querySelectorAll<HTMLButtonElement>("[data-copy-path]").forEach((btn) => {
+		btn.addEventListener("click", () => {
+			const p = btn.dataset["copyPath"] ?? "";
+			navigator.clipboard.writeText(p).then(
+				() => toast(`Copied: ${p}`),
+				() => toast("Copy failed"),
+			);
+		});
+	});
 }
 
 async function fetchReadOnlyUrl(): Promise<string> {
@@ -388,6 +474,10 @@ export function wireSettingsModal(): void {
 			});
 			const panel = document.getElementById(`settings-panel-${tab}`);
 			if (panel) panel.classList.remove("hidden");
+			// Refresh drops list when switching to Drops tab
+			if (tab === "drops") {
+				void fetchDrops().then(renderDrops);
+			}
 		});
 	});
 
