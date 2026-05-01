@@ -54,24 +54,36 @@ export function defineRoute(config: {
 					? (deps(c) as Layer.Layer<never>)
 					: (deps as Layer.Layer<never>);
 
-		const exit = await Effect.runPromiseExit(
-			(fn(c) as Effect.Effect<unknown, never, never>).pipe(Effect.provide(layer)),
-		);
-
-		if (Exit.isSuccess(exit)) {
-			return exit.value;
-		}
-
-		if (errorHandler !== undefined) {
-			const typedError = Option.getOrNull(Cause.failureOption(exit.cause));
-			if (typedError !== null) {
-				return errorHandler(typedError as never, c) as unknown;
-			}
-		}
-
-		return new Response(JSON.stringify({ error: "Internal Server Error" }), {
-			status: 500,
-			headers: { "Content-Type": "application/json" },
-		}) as unknown;
+		const effect = (fn(c) as Effect.Effect<unknown, never, never>).pipe(Effect.provide(layer));
+		return runHandler({ effect, context: c, onError: errorHandler });
 	};
 }
+
+/**
+ * @internal — shared by defineRoute and route-kit; not part of the public surface.
+ * Runs an Effect with error handling (custom onError or 500 fallback).
+ */
+export const runHandler = async <A, E>(config: {
+	effect: Effect.Effect<A, E, never>;
+	context: AnyContext;
+	onError?: (e: E, c: AnyContext) => Response;
+}): Promise<A> => {
+	const { effect, context: c, onError } = config;
+	const exit = await Effect.runPromiseExit(effect);
+
+	if (Exit.isSuccess(exit)) {
+		return exit.value;
+	}
+
+	if (onError !== undefined) {
+		const typedError = Option.getOrNull(Cause.failureOption(exit.cause));
+		if (typedError !== null) {
+			return onError(typedError as E, c) as A;
+		}
+	}
+
+	return new Response(JSON.stringify({ error: "Internal Server Error" }), {
+		status: 500,
+		headers: { "Content-Type": "application/json" },
+	}) as A;
+};

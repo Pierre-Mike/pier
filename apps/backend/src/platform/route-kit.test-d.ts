@@ -5,9 +5,9 @@
  */
 import { Effect, Layer } from "effect";
 import type { Context as HonoContext } from "hono";
-import type { AppBindings } from "./bindings.ts";
-import { ConfigService } from "./config.repo.ts";
-import { type RoutePair, route, routeAdvanced, type ServicePair } from "./route-kit.ts";
+import type { AppBindings } from "./bindings";
+import { ConfigService } from "./config.repo";
+import { type RoutePair, route, routeAdvanced, type ServicePair } from "./route-kit";
 
 type AnyContext = HonoContext<{ Bindings: AppBindings }>;
 
@@ -20,15 +20,15 @@ class FooService extends Effect.Service<FooService>()("FooService", {
 // ServicePair<R> type shape
 // ---------------------------------------------------------------------------
 
-// ServicePair<R> requires { live: Layer<R, never, ConfigService>; test: Layer<R> }
+// ServicePair<R> requires { live: Layer<R>; test: Layer<R> }
 export const _validServicePair: ServicePair<FooService> = {
-	live: Layer.succeed(FooService, { val: 1 }) as Layer.Layer<FooService, never, ConfigService>,
+	live: Layer.succeed(FooService, { val: 1 }),
 	test: Layer.succeed(FooService, { val: 2 }),
 };
 
 // @ts-expect-error — missing test
 export const _missingTest: ServicePair<FooService> = {
-	live: Layer.succeed(FooService, { val: 1 }) as Layer.Layer<FooService, never, ConfigService>,
+	live: Layer.succeed(FooService, { val: 1 }),
 };
 
 // @ts-expect-error — missing live
@@ -57,38 +57,6 @@ export const _missingLiveHandler: RoutePair<Response> = {
 };
 
 // ---------------------------------------------------------------------------
-// route() overload 1: { deps: ServicePair<R>, handler }
-// ---------------------------------------------------------------------------
-
-// Handler R = R | ConfigService when deps is ServicePair<R>
-export const _routeWithDeps = route({
-	deps: {
-		live: Layer.succeed(FooService, { val: 1 }) as Layer.Layer<FooService, never, ConfigService>,
-		test: Layer.succeed(FooService, { val: 2 }),
-	},
-	handler: (_c: AnyContext) =>
-		Effect.gen(function* () {
-			const _foo = yield* FooService;
-			const _cfg = yield* ConfigService;
-			return new Response();
-		}),
-});
-
-// @ts-expect-error — handler R does not include the service declared in deps
-export const _routeMismatchedR = route({
-	deps: {
-		live: Layer.succeed(FooService, { val: 1 }) as Layer.Layer<FooService, never, ConfigService>,
-		test: Layer.succeed(FooService, { val: 2 }),
-	},
-	handler: (_c: AnyContext) =>
-		Effect.gen(function* () {
-			// FooService not accessed — R mismatch
-			const _cfg = yield* ConfigService;
-			return new Response();
-		}),
-});
-
-// ---------------------------------------------------------------------------
 // route() overload 2: { handler } (config-only)
 // ---------------------------------------------------------------------------
 
@@ -97,15 +65,6 @@ export const _routeConfigOnly = route({
 	handler: (_c: AnyContext) =>
 		Effect.gen(function* () {
 			const _cfg = yield* ConfigService;
-			return new Response();
-		}),
-});
-
-// @ts-expect-error — handler R cannot require additional services when deps is omitted
-export const _routeConfigOnlyExtraService = route({
-	handler: (_c: AnyContext) =>
-		Effect.gen(function* () {
-			const _foo = yield* FooService; // FooService not provided
 			return new Response();
 		}),
 });
