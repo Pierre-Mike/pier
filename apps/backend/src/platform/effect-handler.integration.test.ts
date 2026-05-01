@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 /**
- * Unit gate for spec 014 — ensures defineRoute is deleted and runHandler survives.
+ * Integration gate for spec 014 (shrink contract) — ensures defineRoute is deleted and runHandler survives.
  * Failing RED form: defineRoute is currently exported from effect-handler.ts.
  * GREEN form: defineRoute is gone; runHandler remains as a function.
  */

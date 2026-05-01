@@ -41,7 +41,7 @@ Ordered checklist. Tasks are grouped by file type: trivial migrations (health, c
   - agent: main
   - depends: []
   - file_targets: [apps/backend/src/features/projects/projects.drop.routes.ts]
-  - boundary: [apps/backend/src/features/projects/projects.drop.routes.ts]
+  - boundary: [apps/backend/src/features/projects/projects.drop.routes.ts, apps/backend/src/features/projects/projects.drop.routes.test.ts]
 - [ ] 2g. [P] Migrate events.history.routes.ts to routeAdvanced + mountPair (2 routes, shared bus/stream)
   - agent: main
   - depends: []
@@ -66,6 +66,6 @@ Ordered checklist. Tasks are grouped by file type: trivial migrations (health, c
   - agent: main
   - depends: [4, 5]
   - file_targets: []
-  - boundary: [apps/backend/src/platform/effect-handler.shrink.test.ts]
+  - boundary: [apps/backend/src/platform/effect-handler.integration.test.ts]
 
 Task box ticking happens via `scripts/tasks-verify.ts`, not manually.

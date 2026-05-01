@@ -3,8 +3,8 @@ import { Effect, Layer } from "effect";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { ConfigService, ConfigTest, defaultConfigLayer } from "../../platform/config.repo.ts";
-import { type AppBindings, defineRoute } from "../../platform/effect-handler.ts";
-import type { RouteModule } from "../../platform/route-types.ts";
+import type { AppBindings } from "../../platform/effect-handler.ts";
+import { type RouteModule, routeAdvanced } from "../../platform/route-kit.ts";
 import {
 	BlobServer,
 	makeBlobServerLive,
@@ -25,21 +25,17 @@ const artifactBlobHandler = (c: Context<{ Bindings: AppBindings }>) =>
 		return response;
 	}).pipe(Effect.catchAll(() => Effect.succeed(c.text("not found", 404))));
 
-const makeDeps = () => Layer.merge(defaultConfigLayer, makeBlobServerLive());
+const r = routeAdvanced({
+	liveDeps: Layer.merge(defaultConfigLayer, makeBlobServerLive()),
+	testDeps: Layer.merge(
+		ConfigTest,
+		makeBlobServerTest(new Map([["/tmp/test-pi/artifacts/test.html", "<p>test</p>"]])),
+	),
+	handler: artifactBlobHandler,
+});
 
-const app = new Hono<{ Bindings: AppBindings }>().get(
-	"/api/artifacts/blob",
-	defineRoute({ deps: makeDeps, handler: artifactBlobHandler }),
-);
+const app = new Hono<{ Bindings: AppBindings }>().get("/api/artifacts/blob", r.live);
 
-const testDeps = Layer.merge(
-	ConfigTest,
-	makeBlobServerTest(new Map([["/tmp/test-pi/artifacts/test.html", "<p>test</p>"]])),
-);
-
-const testApp = new Hono<{ Bindings: AppBindings }>().get(
-	"/api/artifacts/blob",
-	defineRoute({ deps: testDeps, handler: artifactBlobHandler }),
-);
+const testApp = new Hono<{ Bindings: AppBindings }>().get("/api/artifacts/blob", r.test);
 
 export const artifactsBlobRoute = { app, testApp } satisfies RouteModule<typeof app>;
