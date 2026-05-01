@@ -9,7 +9,12 @@ fi
 
 found=0
 while IFS= read -r f; do
-  src="${f%.test.ts}.ts"
+  # Integration tests pair with the base module: foo.integration.test.ts → foo.ts
+  if [[ "$f" == *.integration.test.ts ]]; then
+    src="${f%.integration.test.ts}.ts"
+  else
+    src="${f%.test.ts}.ts"
+  fi
   if [ ! -f "$src" ]; then
     echo "Orphaned test: $f"
     found=1

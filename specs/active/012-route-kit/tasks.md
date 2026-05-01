@@ -1,0 +1,22 @@
+# Tasks
+
+- [ ] 1. Extract `runHandler` helper from `effect-handler.ts`
+  - agent: main
+  - depends: []
+  - file_targets: [apps/backend/src/platform/effect-handler.ts]
+  - boundary: [apps/backend/src/platform/effect-handler.ts]
+- [ ] 2. Implement `route-kit.ts` core module + co-located tests
+  - agent: main
+  - depends: [1]
+  - file_targets: [apps/backend/src/platform/route-kit.ts, apps/backend/src/platform/route-kit.test.ts, apps/backend/src/platform/route-kit.test-d.ts, apps/backend/src/platform/route-kit.integration.test.ts]
+  - boundary: [apps/backend/src/platform/route-kit.ts, apps/backend/src/platform/route-kit.test.ts, apps/backend/src/platform/route-kit.test-d.ts, apps/backend/src/platform/route-kit.integration.test.ts]
+- [ ] 3. Root-anchor `.agentic` exclude in `biome.json` (mirrors 2ab2029)
+  - agent: main
+  - depends: []
+  - file_targets: [biome.json]
+  - boundary: [biome.json]
+- [ ] 4. Extend `scripts/colocated-tests.sh` to pair `*.integration.test.ts` with the base module
+  - agent: main
+  - depends: []
+  - file_targets: [scripts/colocated-tests.sh]
+  - boundary: [scripts/colocated-tests.sh]
