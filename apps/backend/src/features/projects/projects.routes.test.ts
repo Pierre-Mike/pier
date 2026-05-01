@@ -54,3 +54,26 @@ describe("GET /api/projects/:id/github-url", () => {
 		expect(json.url).toBeNull();
 	});
 });
+
+describe("GET /api/projects/:id/refs", () => {
+	const { testApp } = projectsRoute;
+
+	test("returns branches and worktrees from fixture", async () => {
+		const res = await testApp.request("/api/projects/test-proj/refs");
+		expect(res.status).toBe(200);
+		const json = (await res.json()) as {
+			branches: Array<{ name: string; current: boolean }>;
+			worktrees: Array<{ relPath: string; isMain: boolean }>;
+		};
+		expect(json.branches.length).toBe(2);
+		expect(json.worktrees.length).toBe(1);
+		expect(json.worktrees[0].isMain).toBe(true);
+	});
+
+	test("returns empty refs for unknown project", async () => {
+		const res = await testApp.request("/api/projects/invalid/refs");
+		expect(res.status).toBe(200);
+		const json = (await res.json()) as { branches: unknown[]; worktrees: unknown[] };
+		expect(json).toEqual({ branches: [], worktrees: [] });
+	});
+});

@@ -3,6 +3,7 @@
  */
 import { api, apiBase } from "../api";
 import { refreshFiles } from "./files";
+import { refreshRefs } from "./refs";
 import { store } from "./state";
 import { focusTerminalIframe } from "./terminal-focus";
 import type { Project } from "./types";
@@ -216,7 +217,10 @@ export async function setActiveProject(id: string | null): Promise<void> {
 		await loadLogsHistory();
 	}
 
-	if (id && id !== "__default__") await refreshFiles(id);
+	if (id && id !== "__default__") {
+		await refreshFiles(id);
+		await refreshRefs(id);
+	}
 }
 
 export async function closeSession(id: string): Promise<void> {
@@ -239,6 +243,7 @@ export async function closeSession(id: string): Promise<void> {
 		localStorage.removeItem("pier:active-project");
 		store.files = [];
 		store.activeFilePath = null;
+		store.refs = { branches: [], worktrees: [] };
 		const filesTitle = document.getElementById("files-title");
 		if (filesTitle) filesTitle.textContent = "Files";
 	}

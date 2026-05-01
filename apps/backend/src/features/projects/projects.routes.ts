@@ -9,6 +9,7 @@ import {
 	makeGithubUrlServiceLive,
 	makeGithubUrlServiceTest,
 } from "./projects.github.repo.ts";
+import { makeRefsServiceLive, makeRefsServiceTest, RefsService } from "./projects.refs.repo.ts";
 import {
 	makeProjectsServiceLive,
 	makeProjectsServiceTest,
@@ -117,11 +118,59 @@ const rFiles = routeAdvanced({
 	handler: projectFilesHandler,
 });
 
+const projectRefsHandler = (c: Context<{ Bindings: AppBindings }>) =>
+	Effect.gen(function* () {
+		const id = c.req.param("id") ?? "";
+		const svc = yield* RefsService;
+		const refs = yield* svc.listRefs(id);
+		return c.json(refs, 200);
+	}).pipe(
+		Effect.catchAll(() =>
+			Effect.succeed(
+				new Response(JSON.stringify({ branches: [], worktrees: [] }), {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				}),
+			),
+		),
+	);
+
+const rRefs = routeAdvanced({
+	liveDeps: Layer.provide(makeRefsServiceLive(), defaultConfigLayer),
+	testDeps: Layer.provide(
+		makeRefsServiceTest(
+			new Map([
+				[
+					"test-proj",
+					{
+						branches: [
+							{ name: "main", current: true },
+							{ name: "feat/x", current: false },
+						],
+						worktrees: [
+							{
+								path: "/tmp/test-projects/test-proj",
+								relPath: ".",
+								branch: "main",
+								head: "abc123",
+								isMain: true,
+							},
+						],
+					},
+				],
+			]),
+		),
+		ConfigTest,
+	),
+	handler: projectRefsHandler,
+});
+
 const { app, testApp } = mountPair((a, h) =>
 	a
 		.get("/api/projects", rList[h])
 		.get("/api/projects/:id/files", rFiles[h])
-		.get("/api/projects/:id/github-url", rGithubUrl[h]),
+		.get("/api/projects/:id/github-url", rGithubUrl[h])
+		.get("/api/projects/:id/refs", rRefs[h]),
 );
 
 export const projectsRoute = { app, testApp } satisfies RouteModule<typeof app>;

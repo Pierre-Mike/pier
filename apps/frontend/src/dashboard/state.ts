@@ -15,6 +15,7 @@ export const store = createStore<DashboardState>(
 		activeFilePath: null,
 		fileFilter: "",
 		expandedDirs: new Set(),
+		refs: { branches: [], worktrees: [] },
 		projectsWithEvents: new Set(),
 		logs: [],
 		logsHistory: [],
