@@ -2,8 +2,8 @@ import { Effect, Layer } from "effect";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { ConfigTest, defaultConfigLayer } from "../../platform/config.repo.ts";
-import { type AppBindings, defineRoute } from "../../platform/effect-handler.ts";
-import type { RouteModule } from "../../platform/route-types.ts";
+import type { AppBindings } from "../../platform/effect-handler.ts";
+import { type RouteModule, routeAdvanced } from "../../platform/route-kit.ts";
 import { makeArtifactBusLive } from "../../platform/sse-bus.ts";
 import {
 	ArtifactWatcher,
@@ -25,33 +25,23 @@ const artifactsListHandler = (c: Context<{ Bindings: AppBindings }>) =>
 		return c.json({ artifacts }, 200);
 	});
 
-const makeDeps = () => {
-	const cfg = defaultConfigLayer;
-	const bus = makeArtifactBusLive();
-	const watcher = Layer.provide(makeArtifactWatcherLive(), Layer.merge(bus, cfg));
-	return Layer.merge(bus, watcher);
-};
+const r = routeAdvanced({
+	liveDeps: () => {
+		const cfg = defaultConfigLayer;
+		const bus = makeArtifactBusLive();
+		const watcher = Layer.provide(makeArtifactWatcherLive(), Layer.merge(bus, cfg));
+		return Layer.merge(bus, watcher);
+	},
+	testDeps: (() => {
+		const bus = makeArtifactBusLive();
+		const watcher = Layer.provide(ArtifactWatcherTest, Layer.merge(bus, ConfigTest));
+		return Layer.merge(bus, watcher);
+	})(),
+	handler: artifactsListHandler,
+});
 
-const app = new Hono<{ Bindings: AppBindings }>().get(
-	"/api/artifacts",
-	defineRoute({
-		deps: makeDeps,
-		handler: artifactsListHandler,
-	}),
-);
+const app = new Hono<{ Bindings: AppBindings }>().get("/api/artifacts", r.live);
 
-const testDeps = (() => {
-	const bus = makeArtifactBusLive();
-	const watcher = Layer.provide(ArtifactWatcherTest, Layer.merge(bus, ConfigTest));
-	return Layer.merge(bus, watcher);
-})();
-
-const testApp = new Hono<{ Bindings: AppBindings }>().get(
-	"/api/artifacts",
-	defineRoute({
-		deps: testDeps,
-		handler: artifactsListHandler,
-	}),
-);
+const testApp = new Hono<{ Bindings: AppBindings }>().get("/api/artifacts", r.test);
 
 export const artifactsRoute = { app, testApp } satisfies RouteModule<typeof app>;

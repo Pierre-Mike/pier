@@ -2,8 +2,8 @@ import { Effect, Layer } from "effect";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { ConfigTest, defaultConfigLayer } from "../../platform/config.repo.ts";
-import { type AppBindings, defineRoute } from "../../platform/effect-handler.ts";
-import type { RouteModule } from "../../platform/route-types.ts";
+import type { AppBindings } from "../../platform/effect-handler.ts";
+import { type RouteModule, routeAdvanced } from "../../platform/route-kit.ts";
 import {
 	makeTerminalSessionsLive,
 	TerminalSessions,
@@ -59,25 +59,20 @@ export const dropHandler = (
 		),
 	);
 
-const makeDeps = () =>
-	Layer.mergeAll(
+const r = routeAdvanced({
+	liveDeps: Layer.mergeAll(
 		Layer.provide(makeRepoServiceLive(), defaultConfigLayer),
 		Layer.provide(makeTerminalSessionsLive(), defaultConfigLayer),
-	);
+	),
+	testDeps: Layer.merge(
+		Layer.provide(makeRepoServiceTest(new Map()), ConfigTest),
+		TerminalSessionsTest,
+	),
+	handler: dropHandler,
+});
 
-const app = new Hono<{ Bindings: AppBindings }>().post(
-	"/api/projects/:id/drop",
-	defineRoute({ deps: makeDeps, handler: dropHandler }),
-);
+const app = new Hono<{ Bindings: AppBindings }>().post("/api/projects/:id/drop", r.live);
 
-const testDeps = Layer.merge(
-	Layer.provide(makeRepoServiceTest(new Map()), ConfigTest),
-	TerminalSessionsTest,
-);
-
-const testApp = new Hono<{ Bindings: AppBindings }>().post(
-	"/api/projects/:id/drop",
-	defineRoute({ deps: testDeps, handler: dropHandler }),
-);
+const testApp = new Hono<{ Bindings: AppBindings }>().post("/api/projects/:id/drop", r.test);
 
 export const projectsDropRoute = { app, testApp } satisfies RouteModule<typeof app>;

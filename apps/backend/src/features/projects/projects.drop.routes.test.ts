@@ -3,7 +3,7 @@ import { Effect, Layer } from "effect";
 import { Hono } from "hono";
 import { ConfigTest } from "../../platform/config.repo.ts";
 import type { AppBindings } from "../../platform/effect-handler.ts";
-import { defineRoute } from "../../platform/effect-handler.ts";
+import { routeAdvanced } from "../../platform/route-kit.ts";
 import { TerminalSessions } from "../sessions/sessions.repo.ts";
 import { projectsDropRoute } from "./projects.drop.routes.ts";
 import { makeRepoServiceTest } from "./projects.files.repo.ts";
@@ -61,19 +61,28 @@ const testDeps = Layer.provide(makeRepoServiceTest(new Map()), ConfigTest);
 const capturedDeps = Layer.merge(testDeps, TerminalSessionsWithWriteChars);
 
 // Dynamic import: RED until dropHandler is exported from projects-drop.ts
-type DropHandlerType = Parameters<typeof defineRoute>[0]["handler"];
-
 const { dropHandler: importedDropHandler } = await import("./projects.drop.routes.ts").then(
-	(m) => m as { dropHandler?: DropHandlerType },
+	(m) => m as { dropHandler?: typeof import("./projects.drop.routes.ts").dropHandler },
 );
 
 // If dropHandler is not yet exported, capturedApp falls back to a stub app
 // that returns 501 — the assertions below will then fail (RED).
 const capturedApp = importedDropHandler
-	? new Hono<{ Bindings: AppBindings }>().post(
-			"/api/projects/:id/drop",
-			defineRoute({ deps: capturedDeps, handler: importedDropHandler }),
-		)
+	? (() => {
+			const r = routeAdvanced({
+				liveDeps: capturedDeps,
+				testDeps: capturedDeps,
+				handler: importedDropHandler as (
+					c: import("hono").Context<{ Bindings: AppBindings }>,
+				) => Effect.Effect<
+					Response,
+					never,
+					| import("../sessions/sessions.repo.ts").TerminalSessions
+					| import("./projects.files.repo.ts").RepoService
+				>,
+			});
+			return new Hono<{ Bindings: AppBindings }>().post("/api/projects/:id/drop", r.live);
+		})()
 	: null;
 
 // Layer that stubs writeChars to return injected: false — for the explicit
@@ -108,10 +117,21 @@ const TerminalSessionsWriteCharsFalse: Layer.Layer<TerminalSessions> = Layer.suc
 
 const falseDeps = Layer.merge(testDeps, TerminalSessionsWriteCharsFalse);
 const falseApp = importedDropHandler
-	? new Hono<{ Bindings: AppBindings }>().post(
-			"/api/projects/:id/drop",
-			defineRoute({ deps: falseDeps, handler: importedDropHandler }),
-		)
+	? (() => {
+			const r = routeAdvanced({
+				liveDeps: falseDeps,
+				testDeps: falseDeps,
+				handler: importedDropHandler as (
+					c: import("hono").Context<{ Bindings: AppBindings }>,
+				) => Effect.Effect<
+					Response,
+					never,
+					| import("../sessions/sessions.repo.ts").TerminalSessions
+					| import("./projects.files.repo.ts").RepoService
+				>,
+			});
+			return new Hono<{ Bindings: AppBindings }>().post("/api/projects/:id/drop", r.live);
+		})()
 	: null;
 
 describe("POST /api/projects/:id/drop", () => {

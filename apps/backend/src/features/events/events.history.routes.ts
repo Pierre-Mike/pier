@@ -1,9 +1,8 @@
 import { Effect, Layer } from "effect";
 import type { Context } from "hono";
-import { Hono } from "hono";
 import { ConfigTest, defaultConfigLayer } from "../../platform/config.repo.ts";
-import { type AppBindings, defineRoute } from "../../platform/effect-handler.ts";
-import type { RouteModule } from "../../platform/route-types.ts";
+import type { AppBindings } from "../../platform/effect-handler.ts";
+import { mountPair, type RouteModule, routeAdvanced } from "../../platform/route-kit.ts";
 import { EventBus, makeEventBusLive } from "../../platform/sse-bus.ts";
 import {
 	ClaudeEventStream,
@@ -42,25 +41,38 @@ const logsHandler = (c: Context<{ Bindings: AppBindings }>) =>
 		return c.json({ events }, 200);
 	}).pipe(Effect.catchAll(() => Effect.succeed(c.json({ error: "read failed" }, 500))));
 
-const makeDeps = () => {
-	const cfg = defaultConfigLayer;
-	const bus = makeEventBusLive();
-	const stream = Layer.provide(makeClaudeEventStreamLive(), Layer.merge(bus, cfg));
-	return Layer.merge(bus, stream);
-};
+const rHistory = routeAdvanced({
+	liveDeps: () => {
+		const cfg = defaultConfigLayer;
+		const bus = makeEventBusLive();
+		const stream = Layer.provide(makeClaudeEventStreamLive(), Layer.merge(bus, cfg));
+		return Layer.merge(bus, stream);
+	},
+	testDeps: (() => {
+		const bus = makeEventBusLive();
+		const stream = Layer.provide(ClaudeEventStreamTest, Layer.merge(bus, ConfigTest));
+		return Layer.merge(bus, stream);
+	})(),
+	handler: eventsHistoryHandler,
+});
 
-const app = new Hono<{ Bindings: AppBindings }>()
-	.get("/api/events/history", defineRoute({ deps: makeDeps, handler: eventsHistoryHandler }))
-	.get("/api/logs", defineRoute({ deps: makeDeps, handler: logsHandler }));
+const rLogs = routeAdvanced({
+	liveDeps: () => {
+		const cfg = defaultConfigLayer;
+		const bus = makeEventBusLive();
+		const stream = Layer.provide(makeClaudeEventStreamLive(), Layer.merge(bus, cfg));
+		return Layer.merge(bus, stream);
+	},
+	testDeps: (() => {
+		const bus = makeEventBusLive();
+		const stream = Layer.provide(ClaudeEventStreamTest, Layer.merge(bus, ConfigTest));
+		return Layer.merge(bus, stream);
+	})(),
+	handler: logsHandler,
+});
 
-const testDeps = (() => {
-	const bus = makeEventBusLive();
-	const stream = Layer.provide(ClaudeEventStreamTest, Layer.merge(bus, ConfigTest));
-	return Layer.merge(bus, stream);
-})();
-
-const testApp = new Hono<{ Bindings: AppBindings }>()
-	.get("/api/events/history", defineRoute({ deps: testDeps, handler: eventsHistoryHandler }))
-	.get("/api/logs", defineRoute({ deps: testDeps, handler: logsHandler }));
+const { app, testApp } = mountPair((a, h) =>
+	a.get("/api/events/history", rHistory[h]).get("/api/logs", rLogs[h]),
+);
 
 export const eventsHistoryRoute = { app, testApp } satisfies RouteModule<typeof app>;

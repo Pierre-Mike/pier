@@ -1,9 +1,9 @@
 import { Effect } from "effect";
 import type { Context } from "hono";
 import { Hono } from "hono";
-import { ConfigService, ConfigTest, defaultConfigLayer } from "../../platform/config.repo.ts";
-import { type AppBindings, defineRoute } from "../../platform/effect-handler.ts";
-import type { RouteModule } from "../../platform/route-types.ts";
+import { ConfigService } from "../../platform/config.repo.ts";
+import type { AppBindings } from "../../platform/effect-handler.ts";
+import { type RouteModule, route } from "../../platform/route-kit.ts";
 
 const configHandler = (c: Context<{ Bindings: AppBindings }>) =>
 	Effect.gen(function* () {
@@ -22,20 +22,12 @@ const configHandler = (c: Context<{ Bindings: AppBindings }>) =>
 		);
 	});
 
-const app = new Hono<{ Bindings: AppBindings }>().get(
-	"/api/config",
-	defineRoute({
-		deps: () => defaultConfigLayer,
-		handler: configHandler,
-	}),
-);
+const r = route({
+	handler: configHandler,
+});
 
-const testApp = new Hono<{ Bindings: AppBindings }>().get(
-	"/api/config",
-	defineRoute({
-		deps: ConfigTest,
-		handler: configHandler,
-	}),
-);
+const app = new Hono<{ Bindings: AppBindings }>().get("/api/config", r.live);
+
+const testApp = new Hono<{ Bindings: AppBindings }>().get("/api/config", r.test);
 
 export const configRoute = { app, testApp } satisfies RouteModule<typeof app>;
