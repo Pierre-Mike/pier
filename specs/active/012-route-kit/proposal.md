@@ -6,6 +6,8 @@ kind: code
 gate:
   - path: apps/backend/src/platform/route-kit.test.ts
     level: unit
+  - path: apps/backend/src/platform/route-kit.integration.test.ts
+    level: integration
 created: 2026-04-30
 owner: main
 depends_on: []
