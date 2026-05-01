@@ -3,7 +3,6 @@
  *
  * Rules enforced here (deterministic, no LLM):
  *   - apps/backend/wrangler.toml requires an active spec targeting it
- *   - packages/api-contract/** is auto-derived — never edit directly
  *   - specs/archive/** is immutable
  *   - A spec's `gate:` path is frozen once `.gate-frozen` sentinel exists
  *     (prevents the spec-implementer from editing tests the spec-judge has
@@ -97,14 +96,6 @@ function enforce(event: ToolEvent): void {
 		block(
 			event,
 			`spec ${frozen.slug} gate is frozen; edits to ${frozen.gatePath} are not allowed until the spec is archived or specs/active/${frozen.slug}/.gate-frozen is manually removed.`,
-			filePath,
-		);
-	}
-
-	if (filePath.includes("/packages/api-contract/")) {
-		block(
-			event,
-			"packages/api-contract is auto-derived from backend AppType — never edit it manually. Change the backend routes instead.",
 			filePath,
 		);
 	}

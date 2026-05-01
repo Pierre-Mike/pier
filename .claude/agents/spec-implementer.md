@@ -20,7 +20,6 @@ Forbidden paths (hook-enforced, not honor-system):
 
 Other standard protected paths still apply (enforced by the same hook):
 - `apps/backend/wrangler.toml` requires an active spec targeting it.
-- `packages/api-contract/**` is auto-derived from backend AppType — never edited manually.
 - `specs/archive/**` is immutable.
 
 ## Responsibilities

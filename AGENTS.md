@@ -45,9 +45,7 @@ apps/
 │   filename suffix (.core.ts, .repo.ts, .routes.ts). Co-located tests next to
 │   the subject (`<name>.routes.test.ts` next to `<name>.routes.ts`).
 ├── frontend/         # Frontend app — imports typed API client from backend
-│   └── src/api.ts    # re-exports createBackendClient from api-contract
-packages/
-└── api-contract/     # Typed Hono RPC client derived from backend AppType
+│   └── src/api.ts    # creates hc<AppType> client from @pier/backend/types
 turbo.json            # Task pipeline + caching
 tsconfig.base.json    # Shared TS config (all apps extend this)
 biome.json            # Root-level Biome (Turborepo best practice)
@@ -81,8 +79,7 @@ The codebase is **vertically sliced** by feature, with FCIS discipline preserved
 ## Hono RPC (End-to-End Type Safety)
 
 - Backend exports `AppType` from `src/api.ts` via `"exports": { "./types" }` in package.json
-- `packages/api-contract` imports `AppType` and creates a typed `hc<AppType>` client via `createBackendClient(url)`
-- Frontend re-exports `createBackendClient` from `@template-bpe/api-contract` — fully typed params, query, body, response
+- Frontend imports `AppType` from `@pier/backend/types` and creates a typed `hc<AppType>(apiBase)` client at `apps/frontend/src/api.ts`
 - **Adding a new route only requires changing `src/api.ts`** — types propagate automatically
 - Zero codegen, zero runtime overhead — types are workspace-linked at build time
 - **Deploy target:** Cloudflare Workers (V8 isolates, not Bun — no Bun-specific APIs in backend code)
@@ -131,7 +128,6 @@ Each stage blocks the next. No `--force` merges.
 
 Pre-tool-use hook (`.claude/hooks/enforce.ts`) blocks edits to:
 
-- `packages/api-contract/**` — auto-derived from backend `AppType`. Change backend routes instead.
 - `apps/backend/wrangler.toml` — requires an active spec targeting it.
 - `specs/archive/**` — immutable. Supersede via a new spec.
 - A spec's frozen `gate:` path — once `.gate-frozen` exists, only the spec-implementer's writes elsewhere are allowed.
