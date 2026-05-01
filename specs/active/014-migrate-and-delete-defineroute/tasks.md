@@ -1,0 +1,71 @@
+# Tasks
+
+Ordered checklist. Tasks are grouped by file type: trivial migrations (health, config), routeAdvanced migrations (8 files), settings (divergent middleware), effect-handler shrink + test deletion, verify gate.
+
+- [ ] 1a. [P] Migrate health.routes.ts to route-kit (trivial: no deps)
+  - agent: main
+  - depends: []
+  - file_targets: [apps/backend/src/features/health/health.routes.ts]
+  - boundary: [apps/backend/src/features/health/health.routes.ts]
+- [ ] 1b. [P] Migrate config.routes.ts to route-kit (trivial: auto-config bundle)
+  - agent: main
+  - depends: []
+  - file_targets: [apps/backend/src/features/config/config.routes.ts]
+  - boundary: [apps/backend/src/features/config/config.routes.ts]
+- [ ] 2a. [P] Migrate version.routes.ts to routeAdvanced (per-request c.env Layer)
+  - agent: main
+  - depends: []
+  - file_targets: [apps/backend/src/features/version/version.routes.ts]
+  - boundary: [apps/backend/src/features/version/version.routes.ts]
+- [ ] 2b. [P] Migrate artifacts.routes.ts to routeAdvanced (inline Layer.merge)
+  - agent: main
+  - depends: []
+  - file_targets: [apps/backend/src/features/artifacts/artifacts.routes.ts]
+  - boundary: [apps/backend/src/features/artifacts/artifacts.routes.ts]
+- [ ] 2c. [P] Migrate artifacts.blob.routes.ts to routeAdvanced (cfg + blob)
+  - agent: main
+  - depends: []
+  - file_targets: [apps/backend/src/features/artifacts/artifacts.blob.routes.ts]
+  - boundary: [apps/backend/src/features/artifacts/artifacts.blob.routes.ts]
+- [ ] 2d. [P] Migrate projects.routes.ts to routeAdvanced + mountPair (2 routes, per-route deps)
+  - agent: main
+  - depends: []
+  - file_targets: [apps/backend/src/features/projects/projects.routes.ts]
+  - boundary: [apps/backend/src/features/projects/projects.routes.ts]
+- [ ] 2e. [P] Migrate projects.blob.routes.ts to routeAdvanced (repo over cfg + blob)
+  - agent: main
+  - depends: []
+  - file_targets: [apps/backend/src/features/projects/projects.blob.routes.ts]
+  - boundary: [apps/backend/src/features/projects/projects.blob.routes.ts]
+- [ ] 2f. [P] Migrate projects.drop.routes.ts to routeAdvanced (Layer.mergeAll)
+  - agent: main
+  - depends: []
+  - file_targets: [apps/backend/src/features/projects/projects.drop.routes.ts]
+  - boundary: [apps/backend/src/features/projects/projects.drop.routes.ts]
+- [ ] 2g. [P] Migrate events.history.routes.ts to routeAdvanced + mountPair (2 routes, shared bus/stream)
+  - agent: main
+  - depends: []
+  - file_targets: [apps/backend/src/features/events/events.history.routes.ts]
+  - boundary: [apps/backend/src/features/events/events.history.routes.ts]
+- [ ] 3. Migrate settings.routes.ts to route() (ServicePair, divergent middleware, skip mountPair)
+  - agent: main
+  - depends: []
+  - file_targets: [apps/backend/src/features/settings/settings.routes.ts]
+  - boundary: [apps/backend/src/features/settings/settings.routes.ts]
+- [ ] 4. Shrink effect-handler.ts (delete defineRoute overloads, drop Layer import)
+  - agent: main
+  - depends: [1a, 1b, 2a, 2b, 2c, 2d, 2e, 2f, 2g, 3]
+  - file_targets: [apps/backend/src/platform/effect-handler.ts]
+  - boundary: [apps/backend/src/platform/effect-handler.ts]
+- [ ] 5. Delete effect-handler test files (effect-handler.test.ts, effect-handler.test-d.ts)
+  - agent: main
+  - depends: [4]
+  - file_targets: [apps/backend/src/platform/effect-handler.test.ts, apps/backend/src/platform/effect-handler.test-d.ts]
+  - boundary: [apps/backend/src/platform/effect-handler.test.ts, apps/backend/src/platform/effect-handler.test-d.ts]
+- [ ] 6. Verify the shrink test goes green (run bun run tasks:verify)
+  - agent: main
+  - depends: [4, 5]
+  - file_targets: []
+  - boundary: [apps/backend/src/platform/effect-handler.shrink.test.ts]
+
+Task box ticking happens via `scripts/tasks-verify.ts`, not manually.
