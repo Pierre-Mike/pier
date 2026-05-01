@@ -1,10 +1,11 @@
 ---
 id: 011-backend-feature-slice-plan
 title: Plan — refactor backend from horizontal layers to feature slices (FCIS preserved)
-status: active
+status: archived
 kind: writeup
-gate: specs/active/011-backend-feature-slice-plan/design.md
+gate: specs/archive/2026-05-01-011-backend-feature-slice-plan/design.md
 created: 2026-04-30
+archived: 2026-05-01
 owner: main
 depends_on: []
 supersedes: null
