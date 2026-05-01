@@ -1,11 +1,13 @@
-/**
- * Branches + worktrees panel — single combined list rendered into #refs-list
- * inside the artifacts pane.
- */
 import { api } from "../api";
 import { store } from "./state";
 import type { Branch, Worktree } from "./types";
 import { escapeHTML, toast } from "./utils";
+
+interface RefEntry {
+	name: string;
+	branch?: Branch;
+	worktree?: Worktree;
+}
 
 export async function refreshRefs(projectId: string): Promise<void> {
 	store.refs = { branches: [], worktrees: [] };
@@ -22,6 +24,38 @@ export async function refreshRefs(projectId: string): Promise<void> {
 	}
 }
 
+export function buildRefEntries(branches: Branch[], worktrees: Worktree[]): RefEntry[] {
+	const byName = new Map<string, RefEntry>();
+	for (const br of branches) {
+		byName.set(br.name, { name: br.name, branch: br });
+	}
+	const detached: RefEntry[] = [];
+	for (const wt of worktrees) {
+		if (!wt.branch) {
+			detached.push({ name: `(detached) · ${wt.relPath || wt.path}`, worktree: wt });
+			continue;
+		}
+		const existing = byName.get(wt.branch);
+		if (existing) existing.worktree = wt;
+		else byName.set(wt.branch, { name: wt.branch, worktree: wt });
+	}
+	const entries = [...byName.values()];
+	entries.sort(compareEntries);
+	return [...entries, ...detached];
+}
+
+function entryRank(e: RefEntry): number {
+	if (e.worktree?.isMain) return 0;
+	if (e.worktree) return 1;
+	if (e.branch?.current) return 2;
+	return 3;
+}
+
+function compareEntries(a: RefEntry, b: RefEntry): number {
+	const r = entryRank(a) - entryRank(b);
+	return r !== 0 ? r : a.name.localeCompare(b.name);
+}
+
 export function renderRefs(): void {
 	const host = document.getElementById("refs-list");
 	if (!host) return;
@@ -33,32 +67,29 @@ export function renderRefs(): void {
 	}
 	host.hidden = false;
 	host.innerHTML = "";
-
-	for (const wt of worktrees) {
-		host.appendChild(renderWorktreeRow(wt));
-	}
-	for (const br of branches) {
-		host.appendChild(renderBranchRow(br));
+	for (const entry of buildRefEntries(branches, worktrees)) {
+		host.appendChild(renderRefRow(entry));
 	}
 }
 
-function renderBranchRow(br: Branch): HTMLDivElement {
+function renderRefRow(entry: RefEntry): HTMLDivElement {
 	const row = document.createElement("div");
-	row.className = "ref-row";
-	const suffix = br.current ? `<span class="ref-suffix">· current</span>` : "";
-	row.innerHTML = `<span class="ref-glyph">⎇</span><span class="ref-name">${escapeHTML(br.name)}</span>${suffix}`;
-	row.addEventListener("click", () => copyRef(br.name));
-	return row;
-}
-
-function renderWorktreeRow(wt: Worktree): HTMLDivElement {
-	const row = document.createElement("div");
-	row.className = "ref-row worktree";
-	const branch = wt.branch ?? "(detached)";
-	const label = wt.relPath && wt.relPath !== "." ? `${branch} · ${wt.relPath}` : branch;
-	const suffix = wt.isMain ? `<span class="ref-suffix">· main</span>` : "";
-	row.innerHTML = `<span class="ref-glyph">🌿</span><span class="ref-name">${escapeHTML(label)}</span>${suffix}`;
-	row.addEventListener("click", () => copyRef(wt.branch ?? wt.path));
+	const hasWorktree = !!entry.worktree;
+	row.className = hasWorktree ? "ref-row worktree" : "ref-row";
+	const glyph = hasWorktree ? "🌿" : "⎇";
+	const path = entry.worktree?.relPath;
+	const pathSuffix =
+		path && path !== "." ? `<span class="ref-path">· ${escapeHTML(path)}</span>` : "";
+	const suffixes: string[] = [];
+	if (entry.worktree?.isMain) suffixes.push("main");
+	if (entry.branch?.current) suffixes.push("current");
+	const suffix = suffixes.length
+		? `<span class="ref-suffix">· ${escapeHTML(suffixes.join(", "))}</span>`
+		: "";
+	row.innerHTML = `<span class="ref-glyph">${glyph}</span><span class="ref-name">${escapeHTML(entry.name)}</span>${pathSuffix}${suffix}`;
+	row.addEventListener("click", () =>
+		copyRef(entry.branch?.name ?? entry.worktree?.path ?? entry.name),
+	);
 	return row;
 }
 

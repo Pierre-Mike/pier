@@ -561,7 +561,7 @@ body.resizing iframe {
 
 /* refs list (branches + worktrees) — sibling of file-tree, same row look */
 .refs-list {
-	border-bottom: 1px solid var(--border);
+	border-top: 1px solid var(--border);
 	padding: 4px 0;
 	max-height: 30vh;
 	overflow-y: auto;
@@ -596,10 +596,15 @@ body.resizing iframe {
 	text-overflow: ellipsis;
 	color: var(--fg);
 }
-.ref-row .ref-suffix {
+.ref-row .ref-suffix,
+.ref-row .ref-path {
 	color: var(--fg-dim);
 	font-size: 11px;
 	flex: 0 0 auto;
+}
+.ref-row .ref-path {
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 .ref-row.worktree {
 	background: rgba(120, 217, 143, 0.04);
