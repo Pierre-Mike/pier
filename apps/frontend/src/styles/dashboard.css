@@ -1221,3 +1221,25 @@ body.resizing iframe {
 	color: var(--ok);
 	opacity: 0.7;
 }
+.ctx-menu {
+	position: fixed;
+	z-index: 300;
+	min-width: 160px;
+	background: var(--bg-elev);
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	padding: 4px;
+	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+	font-size: 12px;
+}
+.ctx-menu-item {
+	padding: 6px 10px;
+	color: var(--fg-dim);
+	cursor: pointer;
+	border-radius: 4px;
+	white-space: nowrap;
+}
+.ctx-menu-item:hover {
+	background: var(--bg-hover);
+	color: var(--fg);
+}

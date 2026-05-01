@@ -29,3 +29,28 @@ describe("GET /api/projects/:id/files", () => {
 		expect(json.files).toEqual([]);
 	});
 });
+
+describe("GET /api/projects/:id/github-url", () => {
+	const { testApp } = projectsRoute;
+
+	test("returns normalized URL for a project with a GitHub origin", async () => {
+		const res = await testApp.request("/api/projects/test-proj/github-url");
+		expect(res.status).toBe(200);
+		const json = (await res.json()) as { url: string | null };
+		expect(json.url).toBe("https://github.com/owner/repo");
+	});
+
+	test("returns 404 with null when origin is non-GitHub", async () => {
+		const res = await testApp.request("/api/projects/non-gh-proj/github-url");
+		expect(res.status).toBe(404);
+		const json = (await res.json()) as { url: string | null };
+		expect(json.url).toBeNull();
+	});
+
+	test("returns 404 with null when project has no remote", async () => {
+		const res = await testApp.request("/api/projects/missing/github-url");
+		expect(res.status).toBe(404);
+		const json = (await res.json()) as { url: string | null };
+		expect(json.url).toBeNull();
+	});
+});

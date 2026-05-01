@@ -5,6 +5,11 @@ import type { AppBindings } from "../../platform/effect-handler.ts";
 import { mountPair, type RouteModule, routeAdvanced } from "../../platform/route-kit.ts";
 import { makeRepoServiceLive, makeRepoServiceTest, RepoService } from "./projects.files.repo.ts";
 import {
+	GithubUrlService,
+	makeGithubUrlServiceLive,
+	makeGithubUrlServiceTest,
+} from "./projects.github.repo.ts";
+import {
 	makeProjectsServiceLive,
 	makeProjectsServiceTest,
 	ProjectsService,
@@ -61,6 +66,37 @@ const rList = routeAdvanced({
 	handler: projectsListHandler,
 });
 
+const projectGithubUrlHandler = (c: Context<{ Bindings: AppBindings }>) =>
+	Effect.gen(function* () {
+		const id = c.req.param("id") ?? "";
+		const svc = yield* GithubUrlService;
+		const url = yield* svc.resolve(id);
+		if (!url) {
+			return new Response(JSON.stringify({ url: null }), {
+				status: 404,
+				headers: { "Content-Type": "application/json" },
+			});
+		}
+		return new Response(JSON.stringify({ url }), {
+			status: 200,
+			headers: { "Content-Type": "application/json" },
+		});
+	});
+
+const rGithubUrl = routeAdvanced({
+	liveDeps: Layer.provide(makeGithubUrlServiceLive(), defaultConfigLayer),
+	testDeps: Layer.provide(
+		makeGithubUrlServiceTest(
+			new Map<string, string | null>([
+				["test-proj", "https://github.com/owner/repo"],
+				["non-gh-proj", null],
+			]),
+		),
+		ConfigTest,
+	),
+	handler: projectGithubUrlHandler,
+});
+
 const rFiles = routeAdvanced({
 	liveDeps: Layer.provide(makeRepoServiceLive(), defaultConfigLayer),
 	testDeps: Layer.provide(
@@ -82,7 +118,10 @@ const rFiles = routeAdvanced({
 });
 
 const { app, testApp } = mountPair((a, h) =>
-	a.get("/api/projects", rList[h]).get("/api/projects/:id/files", rFiles[h]),
+	a
+		.get("/api/projects", rList[h])
+		.get("/api/projects/:id/files", rFiles[h])
+		.get("/api/projects/:id/github-url", rGithubUrl[h]),
 );
 
 export const projectsRoute = { app, testApp } satisfies RouteModule<typeof app>;
