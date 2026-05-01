@@ -67,11 +67,11 @@ describe("parseWorktrees", () => {
 		].join("\n");
 		const out = parseWorktrees(raw, root);
 		expect(out.map((w) => w.relPath)).toEqual([".", ".wt/a", ".wt/b"]);
-		expect(out[0].isMain).toBe(true);
-		expect(out[1].isMain).toBe(false);
-		expect(out[2].isMain).toBe(false);
-		expect(out[1].branch).toBe("feat/a");
-		expect(out[2].branch).toBe("feat/b");
+		expect(out[0]?.isMain).toBe(true);
+		expect(out[1]?.isMain).toBe(false);
+		expect(out[2]?.isMain).toBe(false);
+		expect(out[1]?.branch).toBe("feat/a");
+		expect(out[2]?.branch).toBe("feat/b");
 	});
 
 	it("handles detached HEAD worktrees", () => {
@@ -110,7 +110,7 @@ describe("parseWorktrees", () => {
 			"",
 		].join("\n");
 		const out = parseWorktrees(raw, root);
-		expect(out[1].relPath).toBe("/elsewhere/wt");
+		expect(out[1]?.relPath).toBe("/elsewhere/wt");
 	});
 
 	it("handles bare repos (no branch line)", () => {

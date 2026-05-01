@@ -67,7 +67,7 @@ describe("GET /api/projects/:id/refs", () => {
 		};
 		expect(json.branches.length).toBe(2);
 		expect(json.worktrees.length).toBe(1);
-		expect(json.worktrees[0].isMain).toBe(true);
+		expect(json.worktrees[0]?.isMain).toBe(true);
 	});
 
 	test("returns empty refs for unknown project", async () => {
