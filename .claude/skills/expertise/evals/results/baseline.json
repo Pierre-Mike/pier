@@ -1,0 +1,22 @@
+{
+  "pass_rate": 0.95,
+  "timestamp": "2026-04-02T15-33-22",
+  "results": [
+    {
+      "id": "1",
+      "pass_rate": 1
+    },
+    {
+      "id": "2",
+      "pass_rate": 1
+    },
+    {
+      "id": "3",
+      "pass_rate": 1
+    },
+    {
+      "id": "4",
+      "pass_rate": 0.8
+    }
+  ]
+}

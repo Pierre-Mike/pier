@@ -1,0 +1,16 @@
+{
+  "name": "expertise",
+  "description": "Teaches agents to accumulate and retrieve domain expertise across sessions. Guides the read-before-start and write-after-complete protocol for .claude/expertise/ files.",
+  "triggers": [
+    "expertise",
+    "domain knowledge",
+    "save what I learned",
+    "write expertise",
+    "read expertise",
+    "update expertise",
+    "knowledge base",
+    "agent memory"
+  ],
+  "tags": ["memory", "knowledge", "cross-session", "agent-coordination"],
+  "version": "1.0.0"
+}

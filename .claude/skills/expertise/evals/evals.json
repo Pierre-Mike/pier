@@ -1,0 +1,135 @@
+{
+  "skill_name": "expertise",
+  "evals": [
+    {
+      "id": "write-filter",
+      "prompt": "I just finished working in src/backend/. I found three things worth noting: (1) Stripe webhook validation must happen before any body parsing middleware, otherwise the signature check always fails; (2) all currency amounts are stored in cents as integers — never use floats; (3) I used the standard repository pattern for payment queries, same as every other service.\n\nApply the expertise skill: decide what to write. This is a new domain — no expertise section exists yet in CLAUDE.md. Produce the CLAUDE.md expertise section, the correct expertise-refs/ files, and the line to add to AGENTS.md's Expertise Index.",
+      "expected_output": "Agent filters findings using the 3-question test: items 1 and 2 pass, item 3 fails. Appends an ## Expertise section to CLAUDE.md (or creates it), writes gotchas.md and conventions.md with correct entries, and produces the AGENTS.md index line.",
+      "files": [],
+      "expectations": [
+        "The output adds an ## Expertise section to src/backend/CLAUDE.md (creating it if needed)",
+        "The output does NOT contain any entry about using the repository pattern",
+        "The output contains a gotcha entry for the Stripe webhook ordering requirement with ID prefix BE-",
+        "The output contains a convention entry for storing currency as integer cents with ID prefix BE-",
+        "Entries have confidence: 0.6 (new entries) and an added date",
+        "The output includes a line to add to the Expertise Index in AGENTS.md pointing to CLAUDE.md",
+        "The expertise section has a References subsection linking to the ref files"
+      ]
+    },
+    {
+      "id": "write-reject",
+      "prompt": "I worked on a button component today inside src/frontend/components/Button/. I added a hover state using the standard Tailwind classes like all other buttons in the codebase. Nothing unusual happened.\n\nApply the expertise skill: should expertise be written? Make a decision and explain your reasoning.",
+      "expected_output": "Agent decides NOT to write expertise. Reasons through the 3-question test.",
+      "files": [],
+      "expectations": [
+        "The output explicitly decides NOT to write any expertise",
+        "The output reasons through the 3-question test before deciding",
+        "The output does not produce any EXPERTISE.md or expertise-refs/ content"
+      ]
+    },
+    {
+      "id": "update-supersede",
+      "prompt": "There is an existing src/frontend/CLAUDE.md with an expertise section:\n\n```markdown\n## Expertise\n\nReact frontend using Vite. Main entry is src/frontend/main.tsx.\n\n### References\n\n- [Conventions](expertise-refs/conventions.md) — component patterns and rules\n- [Patterns](expertise-refs/patterns.md) — colocated styles\n```\n\nAnd src/frontend/expertise-refs/conventions.md:\n\n```markdown\n---\ndomain: frontend\ntype: conventions\nupdated: \"2025-01-10\"\nupdated_by: \"worker-frontend-1\"\n---\n\n# Frontend Conventions\n\n- **FE-C001: Use class components for stateful UI**\n  confidence: 0.7 | added: 2025-01-10 | validated: 2025-01-10\n  Hooks are unstable in this codebase — always use class components for any stateful logic.\n```\n\nAnd src/frontend/expertise-refs/patterns.md:\n\n```markdown\n---\ndomain: frontend\ntype: patterns\nupdated: \"2025-01-10\"\nupdated_by: \"worker-frontend-1\"\n---\n\n# Frontend Patterns\n\n- **FE-P001: Colocate styles with components**\n  confidence: 0.8 | added: 2025-01-10 | validated: 2025-03-15\n  Each component has its own .module.css file in the same directory.\n```\n\nThe codebase has been fully migrated to React hooks — class components no longer exist anywhere. Update the expertise to reflect reality.\n\nApply the expertise skill: produce the complete updated conventions.md content.",
+      "expected_output": "Agent marks FE-C001 as superseded with strikethrough, adds new FE-C002 for hooks standard at confidence 0.6, preserves patterns.md unchanged.",
+      "files": [],
+      "expectations": [
+        "The original FE-C001 entry is marked superseded with strikethrough (~~)",
+        "A new entry (FE-C002) exists reflecting that hooks are now the standard",
+        "The new entry has confidence: 0.6 and today's added date",
+        "The superseded note on FE-C001 references the new entry (FE-C002)",
+        "The frontmatter updated and updated_by fields are changed"
+      ]
+    },
+    {
+      "id": "append-existing",
+      "prompt": "There is an existing src/backend/CLAUDE.md with an expertise section, and src/backend/expertise-refs/gotchas.md:\n\n```markdown\n---\ndomain: backend\ntype: gotchas\nupdated: \"2025-03-01\"\nupdated_by: \"worker-backend-2\"\n---\n\n# Backend Gotchas\n\n- **BE-G001: No Bun APIs in backend code**\n  confidence: 0.8 | added: 2025-01-15 | validated: 2025-03-01\n  Deploy target is Cloudflare Workers (V8 isolates), not Bun. Never use Bun.file, Bun.serve, etc.\n\n- **BE-G002: Effect.runPromise restricted to shell layer**\n  confidence: 0.7 | added: 2025-02-10 | validated: 2025-03-01\n  Only call Effect.runPromise in shell/ and main.ts — never in core/ or infra/.\n```\n\nI just discovered that the ORM uses a plugin to auto-map snake_case DB columns to camelCase TypeScript fields. Raw queries bypass this mapping silently — column names won't match model fields.\n\nApply the expertise skill: produce the updated gotchas.md content.",
+      "expected_output": "Agent appends new entry BE-G003 about ORM mapping, preserves existing entries unchanged, updates frontmatter.",
+      "files": [],
+      "expectations": [
+        "Both original entries (BE-G001 and BE-G002) are present and unchanged",
+        "A new entry about snake_case/camelCase ORM mapping is added",
+        "The new entry has ID BE-G003 (next sequential after BE-G002)",
+        "The new entry has confidence: 0.6 and today's added date",
+        "The frontmatter updated date is changed to today"
+      ]
+    },
+    {
+      "id": "migrate-yaml",
+      "prompt": "I found an old-format expertise.yaml in src/api/:\n\n```yaml\nmeta:\n  domain: api\n  scope: domain\n  updated: \"2025-06-15\"\n  updated_by: \"worker-api-1\"\n\nsummary: |\n  REST API layer using Hono. Handles auth, rate limiting, and request validation.\n\ngotchas:\n  - id: API-G001\n    title: \"Rate limiter counts by IP, not by auth token\"\n    description: \"Behind a load balancer, all requests appear from the same IP. Rate limiter must use X-Forwarded-For or auth token.\"\n\nconventions:\n  - id: API-C001\n    title: \"All endpoints return { data, error } shape\"\n    rule: \"Every endpoint wraps its response in { data: T | null, error: string | null }. Never return raw values.\"\n```\n\nApply the expertise skill: migrate this to the new format. Produce all files that need to be created and specify what to delete.",
+      "expected_output": "Agent appends ## Expertise section to CLAUDE.md (or creates it), creates gotchas.md, conventions.md in expertise-refs/, adds index entry, deletes old YAML.",
+      "files": [],
+      "expectations": [
+        "The output adds an ## Expertise section to src/api/CLAUDE.md (creating if needed) with summary and references",
+        "The output creates src/api/expertise-refs/gotchas.md with API-G001 entry",
+        "The output creates src/api/expertise-refs/conventions.md with API-C001 entry",
+        "Migrated entries have confidence: 0.7 (validated once by migration)",
+        "The output specifies deleting src/api/expertise.yaml",
+        "The output includes a line for the AGENTS.md Expertise Index pointing to CLAUDE.md",
+        "The summary from the YAML is preserved in the expertise section"
+      ]
+    },
+    {
+      "id": "confidence-bump",
+      "prompt": "I'm working in extensions/captain/ and just encountered the exact gotcha described in CAP-G001: parallel steps lose their gutter because results.findLast returns undefined for new steps. I confirmed this is still true — the specGroupMap fallback fix is correct.\n\nHere's the current extensions/captain/expertise-refs/gotchas.md:\n\n```markdown\n---\ndomain: captain\ntype: gotchas\nupdated: \"2026-04-08\"\nupdated_by: \"expertise-migration\"\n---\n\n# Captain Gotchas\n\n- **CAP-G001: Running parallel steps don't show gutter without specGroupMap fix**\n  confidence: 0.7 | added: 2026-04-03 | validated: 2026-04-03\n  In renderStepList (widget.ts), the running-step group is taken from\n  results.findLast(...)?.group. For a freshly-started parallel step that\n  has no prior result yet, this returns undefined — the gutter disappears.\n  Fix: build specGroupMap from flattenSpec(spec) and use it as fallback.\n```\n\nToday is 2026-04-15 (more than 5 days since last validation on 2026-04-03). Apply the expertise skill: should the confidence be bumped? Produce the updated entry.",
+      "expected_output": "Agent bumps confidence from 0.7 to 0.8 and updates the validated date to 2026-06-15.",
+      "files": [],
+      "expectations": [
+        "The confidence is bumped from 0.7 to 0.8",
+        "The validated date is updated to 2026-04-15 (or today's date)",
+        "The added date remains 2026-04-03 (unchanged)",
+        "The entry content is preserved unchanged",
+        "The agent mentions the 5-day rule as justification for bumping"
+      ]
+    },
+    {
+      "id": "confidence-no-bump",
+      "prompt": "I'm working in extensions/captain/ and just confirmed that CAP-G001 is still accurate.\n\nHere's the current entry:\n\n```markdown\n- **CAP-G001: Running parallel steps don't show gutter without specGroupMap fix**\n  confidence: 0.7 | added: 2026-04-03 | validated: 2026-04-05\n```\n\nToday is 2026-04-08 (only 3 days since last validation on 2026-04-05). Apply the expertise skill: should the confidence be bumped?",
+      "expected_output": "Agent decides NOT to bump confidence because <30 days since last validation.",
+      "files": [],
+      "expectations": [
+        "The agent explicitly decides NOT to bump the confidence",
+        "The agent references the 5-day anti-inflation rule",
+        "The confidence stays at 0.7",
+        "The validated date stays at 2026-04-05"
+      ]
+    },
+    {
+      "id": "consolidate",
+      "prompt": "The file src/backend/expertise-refs/gotchas.md has grown to 60 entries and ~550 lines. Here's a representative excerpt:\n\n```markdown\n- **BE-G001: No Bun APIs in backend code**\n  confidence: 0.9 | added: 2025-01-15 | validated: 2026-03-01\n  Deploy target is Cloudflare Workers, not Bun.\n\n- ~~**BE-G002: Must use node-fetch instead of native fetch**~~\n  *Superseded: Workers now support native fetch. See BE-G015.*\n\n- **BE-G015: Native fetch available in Workers**\n  confidence: 0.85 | added: 2025-09-20 | validated: 2026-02-15\n  Workers runtime supports native fetch. No polyfill needed.\n\n- **BE-G042: Check response.ok before parsing JSON**\n  confidence: 0.5 | added: 2025-04-10 | validated: 2025-04-10\n  Fetch responses with 4xx/5xx status don't throw — must check .ok first.\n\n- **BE-G043: Check response.ok before parsing**\n  confidence: 0.55 | added: 2025-06-20 | validated: 2025-06-20\n  Always verify response.ok after fetch calls to catch HTTP errors.\n```\n\nToday is 2026-04-08. Apply the expertise skill: what consolidation actions should be taken? Explain each action and its justification.",
+      "expected_output": "Agent identifies: (1) superseded chain BE-G002→BE-G015 can be cleaned since BE-G015 is ≥0.8, (2) BE-G042 and BE-G043 are duplicates — merge keeping higher confidence, (3) BE-G042/043 are also low confidence + old + unreinforced → prunable.",
+      "files": [],
+      "expectations": [
+        "The agent identifies the superseded chain (BE-G002 → BE-G015) as removable because BE-G015 confidence ≥0.8",
+        "The agent identifies BE-G042 and BE-G043 as duplicates that should be merged",
+        "The agent flags BE-G042 or BE-G043 as prunable (low confidence + old + unreinforced)",
+        "The agent preserves BE-G001 (high confidence, still valid)",
+        "The agent preserves BE-G015 (the superseding entry)"
+      ]
+    },
+    {
+      "id": "index-new-domain",
+      "prompt": "I just created expertise for a new domain: src/auth/. I added an ## Expertise section to src/auth/CLAUDE.md and created expertise-refs/gotchas.md.\n\nHere's the current Expertise Index in AGENTS.md:\n\n```markdown\n## Expertise Index\n\nDomain expertise accumulated by agents. Read relevant domains before starting work.\n\n- **exp-backend** — Node.js backend: Cloudflare Workers, Effect-TS, ORM mapping → src/backend/CLAUDE.md\n- **exp-frontend** — React frontend: hooks, state management, component patterns → src/frontend/CLAUDE.md\n```\n\nMy new expertise section in src/auth/CLAUDE.md has summary: \"Authentication and authorization layer. JWT token handling, OAuth2 flows, session management.\"\n\nApply the expertise skill: produce the updated Expertise Index section.",
+      "expected_output": "Agent adds exp-auth entry in alphabetical position, preserving existing entries.",
+      "files": [],
+      "expectations": [
+        "The new exp-auth entry is added to the index",
+        "The entry is placed alphabetically (before exp-backend)",
+        "Both existing entries (exp-backend, exp-frontend) are preserved unchanged",
+        "The new entry includes a one-line description and path to src/auth/CLAUDE.md",
+        "The entry follows the format: **exp-auth** — description → path"
+      ]
+    },
+    {
+      "id": "cross-tool-read",
+      "prompt": "I am an agent with NO skills installed. I see this in my AGENTS.md context:\n\n```markdown\n## Expertise Index\n\nDomain expertise accumulated by agents. Read relevant domains before starting work.\n\n- **exp-captain** — Pipeline orchestration: widget rendering, state, tool results → extensions/captain/CLAUDE.md\n- **exp-voice** — Voice input: handleTranscription, whisper-server, live preview → extensions/voice/CLAUDE.md\n```\n\nI've been asked to fix a bug in the captain widget where parallel steps lose their gutter indicator. What should I do before starting work?",
+      "expected_output": "Agent reads the captain CLAUDE.md from the path in the index, finds the ## Expertise section, then loads relevant refs (gotchas), even without the expertise skill.",
+      "files": [],
+      "expectations": [
+        "The agent identifies exp-captain as relevant from the index",
+        "The agent states it will read extensions/captain/CLAUDE.md",
+        "The agent follows the reference links to load gotchas (most relevant to a bug fix)",
+        "The agent does NOT need the expertise skill to perform this read — the index is self-explanatory"
+      ]
+    }
+  ]
+}
