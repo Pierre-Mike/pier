@@ -1,8 +1,6 @@
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import type { Context } from "hono";
-import { Hono } from "hono";
-import { ConfigTest, defaultConfigLayer } from "../../platform/config.repo.ts";
-import { type AppBindings, defineRoute } from "../../platform/effect-handler.ts";
+import { type AppBindings, mountPair, route } from "../../platform/route-kit.ts";
 import type { RouteModule } from "../../platform/route-types.ts";
 import {
 	makeTerminalSessionsLive,
@@ -63,28 +61,23 @@ const openDefaultSessionHandler = (c: Context<{ Bindings: AppBindings }>) =>
 		),
 	);
 
-const makeDeps = () => Layer.provide(makeTerminalSessionsLive(), defaultConfigLayer);
+const deps = { live: makeTerminalSessionsLive(), test: TerminalSessionsTest };
 
-const app = new Hono<{ Bindings: AppBindings }>()
-	.post("/api/projects/:id/terminal", defineRoute({ deps: makeDeps, handler: openSessionHandler }))
-	.post(
-		"/api/sessions/default",
-		defineRoute({ deps: makeDeps, handler: openDefaultSessionHandler }),
-	)
-	.get("/api/sessions", defineRoute({ deps: makeDeps, handler: listSessionsHandler }))
-	.get("/api/sessions/:id", defineRoute({ deps: makeDeps, handler: getSessionHandler }))
-	.delete("/api/sessions/:id", defineRoute({ deps: makeDeps, handler: deleteSessionHandler }));
+const r = {
+	open: route({ deps, handler: openSessionHandler }),
+	def: route({ deps, handler: openDefaultSessionHandler }),
+	list: route({ deps, handler: listSessionsHandler }),
+	get: route({ deps, handler: getSessionHandler }),
+	del: route({ deps, handler: deleteSessionHandler }),
+};
 
-const testDeps = Layer.provide(TerminalSessionsTest, ConfigTest);
-
-const testApp = new Hono<{ Bindings: AppBindings }>()
-	.post("/api/projects/:id/terminal", defineRoute({ deps: testDeps, handler: openSessionHandler }))
-	.post(
-		"/api/sessions/default",
-		defineRoute({ deps: testDeps, handler: openDefaultSessionHandler }),
-	)
-	.get("/api/sessions", defineRoute({ deps: testDeps, handler: listSessionsHandler }))
-	.get("/api/sessions/:id", defineRoute({ deps: testDeps, handler: getSessionHandler }))
-	.delete("/api/sessions/:id", defineRoute({ deps: testDeps, handler: deleteSessionHandler }));
+const { app, testApp } = mountPair((a, h) =>
+	a
+		.post("/api/projects/:id/terminal", r.open[h])
+		.post("/api/sessions/default", r.def[h])
+		.get("/api/sessions", r.list[h])
+		.get("/api/sessions/:id", r.get[h])
+		.delete("/api/sessions/:id", r.del[h]),
+);
 
 export const sessionsRoute = { app, testApp } satisfies RouteModule<typeof app>;

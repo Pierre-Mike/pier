@@ -1,11 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Hono } from "hono";
 import { sessionsRoute } from "./sessions.routes.ts";
 
 describe("sessionsRoute integration", () => {
 	test("implementation uses route-kit pattern structurally", () => {
-		const source = readFileSync("apps/backend/src/features/sessions/sessions.routes.ts", "utf8");
+		const __dirname = dirname(fileURLToPath(import.meta.url));
+		const source = readFileSync(resolve(__dirname, "./sessions.routes.ts"), "utf8");
 
 		// Verify route-kit imports are used (not in comments)
 		expect(source).toMatch(

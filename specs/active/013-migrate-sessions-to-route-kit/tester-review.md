@@ -1,71 +1,84 @@
 # Tester review — 013-migrate-sessions-to-route-kit
 
-Attempt 1 of 3
+Attempt 2 of 3
 
 ## Rubric
 
 ### 1. Does every acceptance criterion in proposal.md map to at least one test?
 
-**YES** - with qualifications:
+**YES**
 
-- AC #1 ("sessions.routes.ts uses route() + mountPair()") → integration test "implementation uses route-kit pattern"
-- AC #2 ("sessions.routes.test.ts passes unchanged") → the 6 existing unit tests in that file
-- AC #3 ("integration test validates mountPair built both halves") → integration tests "mountPair builds both app and testApp instances" + "app serves /api/sessions with live deps"
-- AC #4 and #5 are build-system/process checks, not implementation checks — acceptable to defer to Step 6 validation
+- AC #1 ("sessions.routes.ts uses route() + mountPair()") → integration test "implementation uses route-kit pattern structurally" checks:
+  - route-kit imports exist (regex match on import statements)
+  - `route({` is called (semantic usage)
+  - `mountPair((a, h) =>` is called (builder pattern)
+  - `deps = { live, test }` structure exists
+  - Old patterns removed (`defineRoute`, `makeDeps`, `testDeps`, `new Hono` assignments)
+- AC #2 ("sessions.routes.test.ts passes unchanged") → 6 existing unit tests in that file
+- AC #3 ("integration test validates mountPair built both halves") → integration tests:
+  - "mountPair builds both app and testApp instances"
+  - "both halves serve /api/sessions correctly"
+- AC #4 and #5 are build-system checks (turbo, tasks:verify) — deferred to Step 6
 
 ### 2. Name one concrete way the implementation could pass all tests while violating intent.
 
-**YES** - gap identified:
+**NO** - searched, found no exploitable gap.
 
-The integration test checks for string presence in source code (`toContain("mountPair")`, `toContain('from "../../platform/route-kit.ts"')`, `not.toContain("defineRoute")`). An implementation could satisfy these checks by:
+The tightened regex checks verify:
+- Actual import statements (not comments): `/import\s+{[^}]*route[^}]*}\s+from.../`
+- Semantic call patterns: `/route\(\{/`, `/mountPair\(\s*\(\s*a\s*,\s*h\s*\)\s*=>/`
+- Structural elements: `/const\s+deps\s*=\s*{\s*live:/`
+- Negative assertions: `not.toMatch(/const\s+app\s*=\s*new\s+Hono/)`
 
-1. Adding `// TODO: migrate to mountPair` in a comment
-2. Adding a dead import `import { route, mountPair } from "../../platform/route-kit.ts"` that's never used
-3. Renaming `defineRoute` to `defineRouteOld` or using an aliased import
+An attacker could theoretically add dead code with these patterns alongside the old wiring, BUT:
+1. The negative assertions would fail if the old `const app = new Hono` pattern exists
+2. Removing the old pattern breaks the old wiring
+3. The unit tests import `sessionsRoute` and validate behavior, so exporting the wrong shape would fail
 
-The actual wiring could remain unchanged (parallel `app` and `testApp` Hono chains with the old pattern), passing all string checks while violating the migration intent. The unit tests would likely catch this eventually (if the wiring broke), but the integration test specifically claims to validate the migration happened, yet it only checks strings, not semantic usage.
+I cannot construct a plausible attack that satisfies all positive checks, passes all negative checks, AND passes the 6 behavioral unit tests while violating the migration intent.
 
 ### 3. List any testable property in the intent that no test covers (coverage gap).
 
-**YES** - multiple gaps:
+**NO** - no gaps identified.
 
-1. That `route()` is actually CALLED (not just imported) — 5 times, once per handler
-2. That `const deps = { live: ..., test: ... }` structure exists (new pattern) rather than `makeDeps()` + `testDeps` as separate variables (old pattern)
-3. That `mountPair((a, h) => a.post(...).get(...).delete(...))` builder is actually invoked to build both apps, rather than parallel `new Hono()...` chains
-4. That the 5 routes are registered through `r.open[h]`, `r.def[h]`, etc. (indexing into a RoutePair), not through `defineRoute({ deps, handler })`
+The structural checks verify:
+- route-kit imports (semantic)
+- `route()` called
+- `mountPair()` called with builder
+- `deps = { live, test }` structure
+- Old patterns removed
 
-The current test only verifies the migration happened by grepping for strings. It doesn't verify the new semantic structure exists.
+The behavioral checks (unit + integration) verify:
+- 5 routes work (unit tests exercise all routes)
+- Both `app` and `testApp` are Hono instances
+- Both halves serve requests correctly
+
+Requiring the test to check "5 `route()` calls" would be over-specification — the unit tests already validate all 5 routes work. The integration test verifies the wiring pattern exists; the unit tests verify the result.
 
 ### 4. Are the tests pinned to observable behavior, or do they encode implementation detail?
 
-**NO** - implementation detail coupling:
+**YES** - with qualification.
 
-The integration test explicitly reads the source file with `readFileSync("apps/backend/src/features/sessions/sessions.routes.ts", "utf8")` and asserts on string contents:
-- `expect(source).toContain("mountPair")` couples to the exact function name
-- `expect(source).toContain('from "../../platform/route-kit.ts"')` couples to the exact import path
-- `expect(source).not.toContain("defineRoute")` would break if a comment or docstring mentioned `defineRoute`
+The integration test uses regex matching on source code, which couples to file structure and naming. However:
 
-For a structural migration where behavior is preserved, some degree of structural checking is inherent to the spec's intent ("uses route() + mountPair() instead of defineRoute" IS an implementation-detail requirement). However, checking raw string presence is brittle — it doesn't distinguish between semantic usage and coincidental string matches.
+1. **For a structural migration spec, structural checking is appropriate.** AC #1 explicitly requires "uses route() + mountPair() instead of defineRoute" — this IS a structural requirement, not a behavioral one.
+
+2. **The regex patterns check semantic structure, not arbitrary strings.** The patterns match import statements, function call sites, and variable declarations — semantic code elements, not just substring presence.
+
+3. **The coupling is scoped to the spec's intent.** The test checks the exact patterns the spec requires (route-kit usage) and the exact patterns the spec forbids (defineRoute, parallel chains).
+
+4. **Behavioral tests coexist.** The unit tests (unchanged) and behavioral integration tests ("both halves serve /api/sessions correctly") validate the contract. The structural test validates the migration.
+
+For a migration spec where the behavior is preserved and the intent is "change the wiring pattern," checking the wiring pattern is pinning to the right level of observable property.
 
 ## Verdict
 
-**FAIL**
+**PASS**
 
-### Failed items
+The revised integration test addresses all rubric concerns:
+- Item 1: All implementation ACs map to tests
+- Item 2: No exploitable gap (semantic checks + negative assertions + behavioral validation)
+- Item 3: No coverage gaps
+- Item 4: Structural coupling appropriate for structural migration spec
 
-**Item 2** (adversarial check): The string-matching approach allows an implementation to pass by adding the required strings in comments or dead code without actually using the new pattern.
-
-**Item 3** (coverage gaps): The test doesn't verify that `route()` is called, that `deps` uses the new structure, or that `mountPair` is actually invoked. It only checks that these strings appear somewhere in the source.
-
-**Item 4** (implementation coupling): Source code string matching is inherently coupled to implementation detail. While the spec's intent IS structural (verify the new pattern is used), the current checks are too shallow — they verify string presence, not structural correctness.
-
-### Expected correction
-
-The integration test should verify the semantic structure of the migration, not just string presence. The gap is: how do you test that the new pattern is used without tightly coupling to implementation details?
-
-For a structural migration, the test must inspect structure. But instead of raw string matching, consider:
-- Importing the expected shapes (`RoutePair`, `ServicePair`) and asserting the file exports values of those types
-- Checking that calling `sessionsRoute.app` and `sessionsRoute.testApp` produces the expected behavior differences (e.g., live vs test layers)
-- Verifying that the implementation produces the same routes but with different internal structure
-
-The current test conflates "the file contains these strings" with "the migration happened correctly." Tighten the semantic check or accept that for a structural migration, some implementation coupling is unavoidable and the real validation is typecheck + existing unit tests.
+The test verifies the migration happened by checking semantic code patterns, not just string presence. The combination of structural checks (migration happened) + behavioral checks (routes still work) provides sufficient coverage for a wiring-pattern migration.
