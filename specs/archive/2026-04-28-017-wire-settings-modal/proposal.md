@@ -1,5 +1,5 @@
 ---
-id: 003-wire-settings-modal
+id: 017-wire-settings-modal
 title: Wire settings modal into dashboard init
 status: archived
 kind: code

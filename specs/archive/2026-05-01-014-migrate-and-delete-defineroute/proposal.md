@@ -1,14 +1,15 @@
 ---
 id: 014-migrate-and-delete-defineroute
 title: Migrate remaining defineRoute callers to route-kit and delete defineRoute
-status: active
+status: archived
 kind: code
 gate:
-  - path: apps/backend/src/platform/effect-handler.integration.test.ts
-    level: integration
+  - path: apps/backend/src/platform/effect-handler.test.ts
+    level: unit
   - path: apps/backend/src/platform/route-kit.integration.test.ts
     level: integration
 created: 2026-04-30
+archived: 2026-05-01
 owner: main
 depends_on: []
 supersedes: null

@@ -1,5 +1,5 @@
 ---
-id: '002'
+id: 015-open-folder-vscode-insiders
 title: Open project folder in VS Code Insiders from artifact viewer
 status: archived
 kind: code

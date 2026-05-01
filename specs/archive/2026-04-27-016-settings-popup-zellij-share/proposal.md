@@ -1,5 +1,5 @@
 ---
-id: 002-settings-popup-zellij-share
+id: 016-settings-popup-zellij-share
 title: Add settings popup with zellij read-only share tab
 status: archived
 kind: code

@@ -1,7 +1,7 @@
 ---
 id: 012-route-kit
 title: Add platform/route-kit.ts paired live/test route API
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/backend/src/platform/route-kit.test.ts
@@ -9,6 +9,7 @@ gate:
   - path: apps/backend/src/platform/route-kit.integration.test.ts
     level: integration
 created: 2026-04-30
+archived: 2026-05-01
 owner: main
 depends_on: []
 supersedes: null

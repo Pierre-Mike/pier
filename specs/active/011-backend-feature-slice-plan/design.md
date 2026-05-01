@@ -1,6 +1,6 @@
 # Design — Backend feature-slice refactor
 
-## Approach
+## Intent
 
 Rotate the backend layout from **horizontal** (`core/`, `infra/`, `shell/`) to **feature-sliced** (`features/<name>/`) while keeping the FCIS discipline as filename suffixes (`<name>.core.ts`, `<name>.repo.ts`, `<name>.routes.ts`). All non-feature code (Effect adapter, security middleware, shared bindings, route types) collects under `platform/`. The `shell/api.ts` registry moves up to `src/api.ts`.
 

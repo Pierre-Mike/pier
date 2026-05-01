@@ -1,7 +1,7 @@
 ---
 id: 013-migrate-sessions-to-route-kit
 title: Pilot-migrate sessions.routes.ts to route-kit
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/backend/src/features/sessions/sessions.routes.test.ts
@@ -9,6 +9,7 @@ gate:
   - path: apps/backend/src/features/sessions/sessions.routes.integration.test.ts
     level: integration
 created: 2026-04-30
+archived: 2026-05-01
 owner: main
 depends_on: []
 supersedes: null

@@ -1,5 +1,5 @@
 ---
-id: 005-restore-terminal-keyboard-focus
+id: 018-restore-terminal-keyboard-focus
 title: Restore terminal keyboard focus
 status: archived
 kind: code
