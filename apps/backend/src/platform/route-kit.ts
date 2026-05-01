@@ -1,5 +1,6 @@
 import { Effect, Layer } from "effect";
-import type { Hono, Context as HonoContext } from "hono";
+import type { Context as HonoContext } from "hono";
+import { Hono } from "hono";
 import type { AppBindings } from "./bindings.ts";
 import { type ConfigService, ConfigTest, defaultConfigLayer } from "./config.repo.ts";
 import { runHandler } from "./effect-handler.ts";
@@ -8,85 +9,104 @@ export type { AppBindings };
 
 type AnyContext = HonoContext<{ Bindings: AppBindings }>;
 
-/** {live, test} of the same R. defaultConfigLayer is auto-provided to live (parent). */
+/**
+ * `{live, test}` of the same R. `route()` provides `defaultConfigLayer` to live and
+ * `ConfigTest` to test, so the `live` field declares its residual `ConfigService`
+ * requirement and feature files no longer call `Layer.provide(_, defaultConfigLayer)`.
+ * A Layer with `RIn = never` is still assignable here (RIn is contravariant).
+ */
 export type ServicePair<R> = {
-	readonly live: Layer.Layer<R>;
+	readonly live: Layer.Layer<R, never, ConfigService>;
 	readonly test: Layer.Layer<R>;
 };
 
-/** One call returns BOTH halves. Caller mounts .live on app, .test on testApp. */
+/** One call returns BOTH halves. Caller mounts `.live` on app, `.test` on testApp. */
 export type RoutePair<A> = {
 	readonly live: (c: AnyContext) => Promise<A>;
 	readonly test: (c: AnyContext) => Promise<A>;
 };
 
-export interface RouteFactory {
-	// Overload 1: feature service Layer + ConfigService auto-bundled
-	<R, A = Response, E = never>(config: {
-		deps: ServicePair<R>;
-		handler: (c: AnyContext) => Effect.Effect<A, E, R | ConfigService>;
-		onError?: (e: E, c: AnyContext) => Response;
-	}): RoutePair<A>;
+// `Effect.provide(layer)` collapses the `R` channel to `never`, but in the
+// implementation signature `R = unknown`, so TS cannot narrow. Cast at the
+// runHandler boundary; the runtime is sound by the public overloads above.
+type _ProvidedEffect = Effect.Effect<unknown, unknown, never>;
 
-	// Overload 2: Config-only (no deps)
-	<A = Response, E = never>(config: {
-		handler: (c: AnyContext) => Effect.Effect<A, E, ConfigService>;
-		onError?: (e: E, c: AnyContext) => Response;
-	}): RoutePair<A>;
+// ── route() — public overloads ─────────────────────────────────────────────
 
-	// Overload 3: No deps (literal sentinel forces R = never)
-	<A = Response, E = never>(config: {
-		deps: "none";
-		handler: (c: AnyContext) => Effect.Effect<A, E, never>;
-		onError?: (e: E, c: AnyContext) => Response;
-	}): RoutePair<A>;
-}
+/** Overload 1: feature service Layer + ConfigService auto-bundled. */
+export function route<R, A = Response, E = never>(config: {
+	deps: ServicePair<R>;
+	handler: (c: AnyContext) => Effect.Effect<A, E, R | ConfigService>;
+	onError?: (e: E, c: AnyContext) => Response;
+}): RoutePair<A>;
 
-export const route: RouteFactory = (config: {
-	deps?: ServicePair<never> | "none";
-	handler: (c: AnyContext) => Effect.Effect<unknown, never, never>;
-	onError?: (e: never, c: AnyContext) => Response;
-}): RoutePair<unknown> => {
+/** Overload 2: config-only (no `deps`). Handler R = ConfigService. */
+export function route<A = Response, E = never>(config: {
+	handler: (c: AnyContext) => Effect.Effect<A, E, ConfigService>;
+	onError?: (e: E, c: AnyContext) => Response;
+}): RoutePair<A>;
+
+/** Overload 3: literal sentinel `deps: "none"` forces handler R = never. */
+export function route<A = Response, E = never>(config: {
+	deps: "none";
+	handler: (c: AnyContext) => Effect.Effect<A, E, never>;
+	onError?: (e: E, c: AnyContext) => Response;
+}): RoutePair<A>;
+
+export function route(config: {
+	deps?: ServicePair<unknown> | "none";
+	handler: (c: AnyContext) => Effect.Effect<unknown, unknown, unknown>;
+	onError?: (e: unknown, c: AnyContext) => Response;
+}): RoutePair<unknown> {
+	const { handler: fn, onError } = config;
+
 	if (config.deps === "none") {
-		// Overload 3: no Layer composition
-		const fn = config.handler;
-		const onError = config.onError;
-		const handler = async (c: AnyContext) => runHandler({ effect: fn(c), context: c, onError });
+		const handler = async (c: AnyContext) =>
+			runHandler({ effect: fn(c) as _ProvidedEffect, context: c, onError });
 		return { live: handler, test: handler };
 	}
 
 	if (config.deps === undefined) {
-		// Overload 2: config-only
-		const fn = config.handler;
-		const onError = config.onError;
 		const liveHandler = async (c: AnyContext) =>
-			runHandler({ effect: fn(c).pipe(Effect.provide(defaultConfigLayer)), context: c, onError });
+			runHandler({
+				effect: fn(c).pipe(Effect.provide(defaultConfigLayer)) as _ProvidedEffect,
+				context: c,
+				onError,
+			});
 		const testHandler = async (c: AnyContext) =>
-			runHandler({ effect: fn(c).pipe(Effect.provide(ConfigTest)), context: c, onError });
+			runHandler({
+				effect: fn(c).pipe(Effect.provide(ConfigTest)) as _ProvidedEffect,
+				context: c,
+				onError,
+			});
 		return { live: liveHandler, test: testHandler };
 	}
 
-	// Overload 1: ServicePair<R>
-	const deps = config.deps as ServicePair<never>;
-	const fn = config.handler;
-	const onError = config.onError;
-
-	// Live: provide defaultConfigLayer to deps.live, then merge with defaultConfigLayer
-	// so the handler can access both R and ConfigService
-	const liveLayerBase = Layer.provide(deps.live, defaultConfigLayer);
-	const liveLayer = Layer.merge(liveLayerBase, defaultConfigLayer);
+	const deps = config.deps;
+	// Live: provide defaultConfigLayer (parent → child), then re-merge so the
+	// handler's `R | ConfigService` channel resolves both deps.live's R and
+	// ConfigService.
+	const liveLayer = Layer.merge(Layer.provide(deps.live, defaultConfigLayer), defaultConfigLayer);
 	const liveHandler = async (c: AnyContext) =>
-		runHandler({ effect: fn(c).pipe(Effect.provide(liveLayer)), context: c, onError });
-
-	// Test: merge deps.test with ConfigTest so handler can access both R and ConfigService
+		runHandler({
+			effect: fn(c).pipe(Effect.provide(liveLayer)) as _ProvidedEffect,
+			context: c,
+			onError,
+		});
+	// Test: deps.test is self-contained; merge ConfigTest so handler R resolves.
 	const testLayer = Layer.merge(deps.test, ConfigTest);
 	const testHandler = async (c: AnyContext) =>
-		runHandler({ effect: fn(c).pipe(Effect.provide(testLayer)), context: c, onError });
-
+		runHandler({
+			effect: fn(c).pipe(Effect.provide(testLayer)) as _ProvidedEffect,
+			context: c,
+			onError,
+		});
 	return { live: liveHandler, test: testHandler };
-};
+}
 
-/** Rare: arbitrary Layer<R> for both prod and test. Allowlisted. */
+// ── routeAdvanced() — explicit Layer<R> for both halves ────────────────────
+
+/** Rare: arbitrary `Layer<R>` for both prod and test. */
 export const routeAdvanced = <R, E = never, A = Response>(config: {
 	liveDeps: Layer.Layer<R> | ((c: AnyContext) => Layer.Layer<R>);
 	testDeps: Layer.Layer<R> | ((c: AnyContext) => Layer.Layer<R>);
@@ -108,15 +128,15 @@ export const routeAdvanced = <R, E = never, A = Response>(config: {
 	return { live: liveHandler, test: testHandler };
 };
 
+// ── mountPair() — twin Hono builder ────────────────────────────────────────
+
 /** Wiring helper — caller writes the route chain once; both apps emerge. */
 export const mountPair = <T extends Hono<{ Bindings: AppBindings }>>(
 	build: (app: Hono<{ Bindings: AppBindings }>, half: "live" | "test") => T,
 ): { app: T; testApp: T } => {
-	const { Hono: HonoCtor } = require("hono");
-	const app = build(new HonoCtor<{ Bindings: AppBindings }>(), "live");
-	const testApp = build(new HonoCtor<{ Bindings: AppBindings }>(), "test");
+	const app = build(new Hono<{ Bindings: AppBindings }>(), "live");
+	const testApp = build(new Hono<{ Bindings: AppBindings }>(), "test");
 	return { app, testApp };
 };
 
-/** Re-export RouteModule for convenience */
 export type { RouteModule } from "./route-types.ts";

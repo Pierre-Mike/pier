@@ -66,7 +66,7 @@ export function defineRoute(config: {
 export const runHandler = async <A, E>(config: {
 	effect: Effect.Effect<A, E, never>;
 	context: AnyContext;
-	onError?: (e: E, c: AnyContext) => Response;
+	onError?: ((e: E, c: AnyContext) => Response) | undefined;
 }): Promise<A> => {
 	const { effect, context: c, onError } = config;
 	const exit = await Effect.runPromiseExit(effect);

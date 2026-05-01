@@ -1,20 +1,46 @@
 import { describe, expect, it } from "bun:test";
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer } from "effect";
 import { Hono } from "hono";
 import type { AppBindings } from "./bindings.ts";
 import { ConfigService } from "./config.repo.ts";
 import { mountPair, route, routeAdvanced } from "./route-kit.ts";
+import type { RouteModule } from "./route-types.ts";
+
+interface TestSvc {
+	readonly value: string;
+}
+const TestSvc = Context.GenericTag<TestSvc>("@test/TestSvc");
+
+interface FooSvc {
+	readonly val: number;
+}
+const FooSvc = Context.GenericTag<FooSvc>("@test/FooSvc");
+
+interface BarSvc {
+	readonly name: string;
+}
+const BarSvc = Context.GenericTag<BarSvc>("@test/BarSvc");
+
+interface DynSvc {
+	readonly val: number;
+}
+const DynSvc = Context.GenericTag<DynSvc>("@test/DynSvc");
+
+interface BizSvc {
+	readonly tag: "biz";
+}
+const BizSvc = Context.GenericTag<BizSvc>("@test/BizSvc");
+
+interface IntegSvc {
+	readonly name: string;
+}
+const IntegSvc = Context.GenericTag<IntegSvc>("@test/IntegSvc");
 
 describe("route() with ServicePair<R>", () => {
 	it("provides ConfigService to both live and test halves", async () => {
-		// Define a minimal service Tag
-		class TestService extends Effect.Service<TestService>()("TestService", {
-			succeed: { value: "test-svc" },
-		}) {}
-
 		const deps = {
-			live: Layer.succeed(TestService, { value: "live-svc" }),
-			test: Layer.succeed(TestService, { value: "test-svc" }),
+			live: Layer.succeed(TestSvc, { value: "live-svc" }),
+			test: Layer.succeed(TestSvc, { value: "test-svc" }),
 		};
 
 		const { live, test } = route({
@@ -22,20 +48,18 @@ describe("route() with ServicePair<R>", () => {
 			handler: (c) =>
 				Effect.gen(function* () {
 					const cfg = yield* ConfigService;
-					const svc = yield* TestService;
+					const svc = yield* TestSvc;
 					const data = yield* cfg.get();
 					return c.json({ env: data.env, svc: svc.value }, 200);
 				}),
 		});
 
-		// Live handler
 		const liveApp = new Hono<{ Bindings: AppBindings }>().get("/test", live);
 		const liveRes = await liveApp.request("/test");
 		expect(liveRes.status).toBe(200);
 		const liveBody = await liveRes.json();
 		expect(liveBody).toMatchObject({ svc: "live-svc" });
 
-		// Test handler
 		const testApp = new Hono<{ Bindings: AppBindings }>().get("/test", test);
 		const testRes = await testApp.request("/test");
 		expect(testRes.status).toBe(200);
@@ -44,20 +68,16 @@ describe("route() with ServicePair<R>", () => {
 	});
 
 	it("returns symmetric live/test pair", async () => {
-		class FooService extends Effect.Service<FooService>()("FooService", {
-			succeed: { val: 42 },
-		}) {}
-
 		const deps = {
-			live: Layer.succeed(FooService, { val: 100 }),
-			test: Layer.succeed(FooService, { val: 42 }),
+			live: Layer.succeed(FooSvc, { val: 100 }),
+			test: Layer.succeed(FooSvc, { val: 42 }),
 		};
 
 		const pair = route({
 			deps,
 			handler: (c) =>
 				Effect.gen(function* () {
-					const foo = yield* FooService;
+					const foo = yield* FooSvc;
 					return c.json({ val: foo.val }, 200);
 				}),
 		});
@@ -67,13 +87,11 @@ describe("route() with ServicePair<R>", () => {
 		expect(typeof pair.live).toBe("function");
 		expect(typeof pair.test).toBe("function");
 
-		// Live returns live value
 		const liveApp = new Hono().get("/x", pair.live);
 		const liveRes = await liveApp.request("/x");
 		const liveBody = await liveRes.json();
 		expect(liveBody).toEqual({ val: 100 });
 
-		// Test returns test value
 		const testApp = new Hono().get("/x", pair.test);
 		const testRes = await testApp.request("/x");
 		const testBody = await testRes.json();
@@ -127,16 +145,12 @@ describe("route() with deps: 'none' (R = never)", () => {
 
 describe("routeAdvanced()", () => {
 	it("accepts explicit Layer<R> for both halves without auto-ConfigService", async () => {
-		class BarService extends Effect.Service<BarService>()("BarService", {
-			succeed: { name: "bar" },
-		}) {}
-
 		const { live, test } = routeAdvanced({
-			liveDeps: Layer.succeed(BarService, { name: "live-bar" }),
-			testDeps: Layer.succeed(BarService, { name: "test-bar" }),
+			liveDeps: Layer.succeed(BarSvc, { name: "live-bar" }),
+			testDeps: Layer.succeed(BarSvc, { name: "test-bar" }),
 			handler: (c) =>
 				Effect.gen(function* () {
-					const bar = yield* BarService;
+					const bar = yield* BarSvc;
 					return c.json({ name: bar.name }, 200);
 				}),
 		});
@@ -153,16 +167,12 @@ describe("routeAdvanced()", () => {
 	});
 
 	it("accepts factory form () => Layer<R>", async () => {
-		class DynService extends Effect.Service<DynService>()("DynService", {
-			succeed: { val: 0 },
-		}) {}
-
 		const { live, test } = routeAdvanced({
-			liveDeps: (_c) => Layer.succeed(DynService, { val: 999 }),
-			testDeps: () => Layer.succeed(DynService, { val: 123 }),
+			liveDeps: (_c) => Layer.succeed(DynSvc, { val: 999 }),
+			testDeps: () => Layer.succeed(DynSvc, { val: 123 }),
 			handler: (c) =>
 				Effect.gen(function* () {
-					const dyn = yield* DynService;
+					const dyn = yield* DynSvc;
 					return c.json({ val: dyn.val }, 200);
 				}),
 		});
@@ -192,7 +202,6 @@ describe("mountPair()", () => {
 
 		const { app, testApp } = mountPair((a, h) => a.get("/r1", r1[h]).post("/r2", r2[h]));
 
-		// Live app
 		const liveR1 = await app.request("/r1");
 		expect(liveR1.status).toBe(200);
 		const liveR1Body = await liveR1.json();
@@ -203,7 +212,6 @@ describe("mountPair()", () => {
 		const liveR2Body = await liveR2.json();
 		expect(liveR2Body).toEqual({ route: "r2" });
 
-		// Test app
 		const testR1 = await testApp.request("/r1");
 		expect(testR1.status).toBe(200);
 		const testR1Body = await testR1.json();
@@ -218,12 +226,11 @@ describe("mountPair()", () => {
 
 describe("onError handling", () => {
 	it("maps typed error to custom response", async () => {
-		class BizService extends Effect.Service<BizService>()("BizService", {
-			succeed: {},
-		}) {}
-
 		const { live, test } = route({
-			deps: { live: Layer.succeed(BizService, {}), test: Layer.succeed(BizService, {}) },
+			deps: {
+				live: Layer.succeed(BizSvc, { tag: "biz" }),
+				test: Layer.succeed(BizSvc, { tag: "biz" }),
+			},
 			onError: (err: Error, c) => c.json({ message: err.message }, 422),
 			handler: () => Effect.fail(new Error("custom")),
 		});
@@ -263,14 +270,9 @@ describe("onError handling", () => {
 
 describe("route-kit integration", () => {
 	it("builds a complete RouteModule<T> with mountPair", async () => {
-		// Define a test service
-		class IntegService extends Effect.Service<IntegService>()("IntegService", {
-			succeed: { name: "svc" },
-		}) {}
-
 		const deps = {
-			live: Layer.succeed(IntegService, { name: "live-svc" }),
-			test: Layer.succeed(IntegService, { name: "test-svc" }),
+			live: Layer.succeed(IntegSvc, { name: "live-svc" }),
+			test: Layer.succeed(IntegSvc, { name: "test-svc" }),
 		};
 
 		const healthRoute = route({
@@ -282,7 +284,7 @@ describe("route-kit integration", () => {
 			deps,
 			handler: (c) =>
 				Effect.gen(function* () {
-					const svc = yield* IntegService;
+					const svc = yield* IntegSvc;
 					const cfg = yield* ConfigService;
 					const data = yield* cfg.get();
 					return c.json({ svc: svc.name, env: data.env }, 200);
@@ -293,27 +295,24 @@ describe("route-kit integration", () => {
 			a.get("/health", healthRoute[h]).get("/data", dataRoute[h]),
 		);
 
-		// Type-check: satisfies RouteModule
-		const _module: RouteModule<typeof app> = { app, testApp };
+		const _module = { app, testApp } satisfies RouteModule<typeof app>;
 
-		// Live app assertions
-		const liveHealth = await app.request("/health");
+		const liveHealth = await _module.app.request("/health");
 		expect(liveHealth.status).toBe(200);
 		const liveHealthBody = await liveHealth.json();
 		expect(liveHealthBody).toEqual({ ok: true });
 
-		const liveData = await app.request("/data");
+		const liveData = await _module.app.request("/data");
 		expect(liveData.status).toBe(200);
 		const liveDataBody = await liveData.json();
 		expect(liveDataBody).toMatchObject({ svc: "live-svc" });
 
-		// Test app assertions
-		const testHealth = await testApp.request("/health");
+		const testHealth = await _module.testApp.request("/health");
 		expect(testHealth.status).toBe(200);
 		const testHealthBody = await testHealth.json();
 		expect(testHealthBody).toEqual({ ok: true });
 
-		const testData = await testApp.request("/data");
+		const testData = await _module.testApp.request("/data");
 		expect(testData.status).toBe(200);
 		const testDataBody = await testData.json();
 		expect(testDataBody).toMatchObject({ svc: "test-svc", env: "test" });
@@ -327,7 +326,6 @@ describe("route-kit integration", () => {
 
 		const { app, testApp } = mountPair((a, h) => a.get("/ping", pingRoute[h]));
 
-		// Verify the module satisfies the RouteModule contract
 		const module = { app, testApp } satisfies RouteModule<typeof app>;
 
 		const livePing = await module.app.request("/ping");

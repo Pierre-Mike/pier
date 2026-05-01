@@ -3,44 +3,42 @@
  * Verified by `bun run typecheck` (tsc --noEmit).
  * No runtime assertions — TypeScript is the test runner here.
  */
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer } from "effect";
 import type { Context as HonoContext } from "hono";
-import type { AppBindings } from "./bindings";
-import { ConfigService } from "./config.repo";
-import { type RoutePair, route, routeAdvanced, type ServicePair } from "./route-kit";
+import type { AppBindings } from "./bindings.ts";
+import { ConfigService } from "./config.repo.ts";
+import { type RoutePair, route, routeAdvanced, type ServicePair } from "./route-kit.ts";
 
 type AnyContext = HonoContext<{ Bindings: AppBindings }>;
 
-// Define a test service Tag
-class FooService extends Effect.Service<FooService>()("FooService", {
-	succeed: { val: 0 },
-}) {}
+interface FooSvc {
+	readonly val: number;
+}
+const FooSvc = Context.GenericTag<FooSvc>("@test-d/FooSvc");
 
 // ---------------------------------------------------------------------------
 // ServicePair<R> type shape
 // ---------------------------------------------------------------------------
 
-// ServicePair<R> requires { live: Layer<R>; test: Layer<R> }
-export const _validServicePair: ServicePair<FooService> = {
-	live: Layer.succeed(FooService, { val: 1 }),
-	test: Layer.succeed(FooService, { val: 2 }),
+export const _validServicePair: ServicePair<FooSvc> = {
+	live: Layer.succeed(FooSvc, { val: 1 }),
+	test: Layer.succeed(FooSvc, { val: 2 }),
 };
 
 // @ts-expect-error — missing test
-export const _missingTest: ServicePair<FooService> = {
-	live: Layer.succeed(FooService, { val: 1 }),
+export const _missingTest: ServicePair<FooSvc> = {
+	live: Layer.succeed(FooSvc, { val: 1 }),
 };
 
 // @ts-expect-error — missing live
-export const _missingLive: ServicePair<FooService> = {
-	test: Layer.succeed(FooService, { val: 2 }),
+export const _missingLive: ServicePair<FooSvc> = {
+	test: Layer.succeed(FooSvc, { val: 2 }),
 };
 
 // ---------------------------------------------------------------------------
 // RoutePair<A> type shape
 // ---------------------------------------------------------------------------
 
-// RoutePair<A> requires { live: (c) => Promise<A>; test: (c) => Promise<A> }
 export const _validRoutePair: RoutePair<Response> = {
 	live: async (_c: AnyContext) => new Response(),
 	test: async (_c: AnyContext) => new Response(),
@@ -64,7 +62,7 @@ export const _missingLiveHandler: RoutePair<Response> = {
 export const _routeConfigOnly = route({
 	handler: (_c: AnyContext) =>
 		Effect.gen(function* () {
-			const _cfg = yield* ConfigService;
+			yield* ConfigService;
 			return new Response();
 		}),
 });
@@ -84,7 +82,7 @@ export const _routeNoDepsButRequiresService = route({
 	deps: "none",
 	handler: (_c: AnyContext) =>
 		Effect.gen(function* () {
-			const _cfg = yield* ConfigService; // not provided when deps: "none"
+			yield* ConfigService; // not provided when deps: "none"
 			return new Response();
 		}),
 });
@@ -95,42 +93,42 @@ export const _routeNoDepsButRequiresService = route({
 
 // Accepts explicit Layer<R> for both halves
 export const _routeAdvancedStatic = routeAdvanced({
-	liveDeps: Layer.succeed(FooService, { val: 1 }),
-	testDeps: Layer.succeed(FooService, { val: 2 }),
+	liveDeps: Layer.succeed(FooSvc, { val: 1 }),
+	testDeps: Layer.succeed(FooSvc, { val: 2 }),
 	handler: (_c: AnyContext) =>
 		Effect.gen(function* () {
-			const _foo = yield* FooService;
+			yield* FooSvc;
 			return new Response();
 		}),
 });
 
 // Accepts factory form () => Layer<R>
 export const _routeAdvancedFactory = routeAdvanced({
-	liveDeps: (_c: AnyContext) => Layer.succeed(FooService, { val: 99 }),
-	testDeps: () => Layer.succeed(FooService, { val: 88 }),
+	liveDeps: (_c: AnyContext) => Layer.succeed(FooSvc, { val: 99 }),
+	testDeps: () => Layer.succeed(FooSvc, { val: 88 }),
 	handler: (_c: AnyContext) =>
 		Effect.gen(function* () {
-			const _foo = yield* FooService;
+			yield* FooSvc;
 			return new Response();
 		}),
 });
 
 // @ts-expect-error — missing testDeps
 export const _routeAdvancedMissingTest = routeAdvanced({
-	liveDeps: Layer.succeed(FooService, { val: 1 }),
+	liveDeps: Layer.succeed(FooSvc, { val: 1 }),
 	handler: (_c: AnyContext) =>
 		Effect.gen(function* () {
-			const _foo = yield* FooService;
+			yield* FooSvc;
 			return new Response();
 		}),
 });
 
 // @ts-expect-error — missing liveDeps
 export const _routeAdvancedMissingLive = routeAdvanced({
-	testDeps: Layer.succeed(FooService, { val: 2 }),
+	testDeps: Layer.succeed(FooSvc, { val: 2 }),
 	handler: (_c: AnyContext) =>
 		Effect.gen(function* () {
-			const _foo = yield* FooService;
+			yield* FooSvc;
 			return new Response();
 		}),
 });

@@ -94,7 +94,7 @@
 			"!**/bun.lock",
 			"!**/.astro",
 			"!**/.wrangler",
-			"!**/.agentic",
+			"!.agentic",
 			"!.claude"
 		]
 	}
