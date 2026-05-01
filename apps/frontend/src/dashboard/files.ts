@@ -5,7 +5,7 @@ import { api } from "../api";
 import { store } from "./state";
 import type { AppConfig, FileEntry } from "./types";
 import { $, escapeHTML } from "./utils";
-import { openRepoFile } from "./viewer";
+import { openRepoFile, vscodeFolderUrl } from "./viewer";
 
 export let appConfig: AppConfig | null = null;
 
@@ -27,6 +27,11 @@ export async function refreshFiles(projectId: string): Promise<void> {
 	store.expandedDirs = new Set();
 	const filesTitle = document.getElementById("files-title");
 	if (filesTitle) filesTitle.textContent = projectId;
+	const vscodeLink = document.getElementById("open-vscode-folder") as HTMLAnchorElement | null;
+	if (vscodeLink) {
+		vscodeLink.href = vscodeFolderUrl(appConfig?.projectsRoot, projectId);
+		vscodeLink.hidden = false;
+	}
 	try {
 		// biome-ignore lint/suspicious/noExplicitAny: Hono RPC client resolves fine at runtime; TS needs help in Astro client scripts
 		const res = await (api as any).api.projects[":id"].files.$get({ param: { id: projectId } });

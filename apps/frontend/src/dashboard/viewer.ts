@@ -50,16 +50,12 @@ function renderViewerHead(
 	const absPath = absoluteRepoPath(projectId, path);
 	const vscodeUrl = `vscode-insiders://file${absPath.startsWith("/") ? "" : "/"}${absPath}`;
 
-	const projectsRoot = appConfig?.projectsRoot ?? process.env["PIGUY_PROJECTS_ROOT"];
-	const folderUrl = vscodeFolderUrl(projectsRoot, projectId);
-
 	return `
     <div class="viewer-head">
       <strong>${escapeHTML(name)}</strong>
       <span>· ${escapeHTML(path)}</span>
       <span style="flex:1"></span>
       <a href="${escapeAttr(vscodeUrl)}" title="Open in VSCode Insiders">VSCode ↗</a>
-      <a href="${escapeAttr(folderUrl)}" title="Open project folder in VSCode Insiders">Folder ↗</a>
       <a href="${effectiveOpenUrl}" target="_blank" rel="noopener">open ↗</a>
       <a href="${derivedBlobUrl}" download>download</a>
       <button type="button" class="copy-path-btn" data-copy-path="${escapeAttr(absPath)}" title="Copy full file path">copy path</button>
