@@ -1,8 +1,7 @@
 /**
  * Drag-and-drop file upload
  */
-import { api } from "../api";
-import { refreshFiles } from "./files";
+import { apiBase } from "../api";
 import { store } from "./state";
 import { $, toast } from "./utils";
 
@@ -47,26 +46,34 @@ async function handleOSFileDrop(files: File[]): Promise<void> {
 	toast(`Uploading ${files.length} file${files.length > 1 ? "s" : ""}…`);
 	const fd = new FormData();
 	for (const f of files) fd.append("files", f, f.name);
+	fd.append("activeProjectId", store.activeProject);
 	try {
-		const r = await api.api.projects[":id"].drop.$post({
-			param: { id: store.activeProject },
-			form: fd,
+		const r = await fetch(`${apiBase}/api/drops`, {
+			method: "POST",
+			body: fd,
+			credentials: "include",
 		});
 		if (!r.ok) {
 			const err = await r.json().catch(() => ({ error: "Upload failed" }));
-			toast(`Upload failed: ${(err as { error?: string }).error ?? r.status}`);
+			const errMsg = (err as { error?: string }).error;
+			if (errMsg === "no active project") {
+				toast("Select a project first — dropped files need a target repo");
+			} else {
+				toast(`Upload failed: ${errMsg ?? r.status}`);
+			}
 			return;
 		}
-		const data = (await r.json()) as { files: Array<{ path: string }>; injected: boolean };
+		const data = (await r.json()) as {
+			files: Array<{ name: string; path: string; size: number; injected: boolean }>;
+		};
 		const paths = data.files.map((f) => f.path).join(" ");
-		if (data.injected) {
+		if (data.files[0]?.injected) {
 			toast(`Inserted into terminal: ${paths}`);
 		} else {
 			// injected === false: server could not reach the zellij session.
 			// Delegate to clipboard fallback so user can paste manually.
 			await handleTerminalNotReachable(paths);
 		}
-		if (store.activeProject) await refreshFiles(store.activeProject);
 	} catch (e) {
 		const msg = e instanceof Error ? e.message : "unknown error";
 		toast(`Upload error: ${msg}`);

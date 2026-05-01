@@ -20,7 +20,7 @@ module.exports = {
 			severity: "error",
 			from: { path: "^src/features/([^/]+)/" },
 			// Known couplings allow-listed (tracked for follow-up refactor):
-			//   1. projects/projects.drop.routes.ts → sessions/sessions.repo.ts
+			//   1. drops/drops.routes.ts → sessions/sessions.repo.ts
 			//      (drop writes the dropped path into the user's open terminal session)
 			//   2. projects/projects.blob.routes.ts → artifacts/artifacts.blob-server.repo.ts
 			//      (project file viewer reuses the artifact blob server)

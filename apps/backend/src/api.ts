@@ -5,12 +5,12 @@ import { artifactsBlobRoute } from "./features/artifacts/artifacts.blob.routes.t
 import { artifactsRoute } from "./features/artifacts/artifacts.routes.ts";
 import { streamArtifactsRoute } from "./features/artifacts/artifacts.stream.routes.ts";
 import { configRoute } from "./features/config/config.routes.ts";
+import { dropsRoute } from "./features/drops/drops.routes.ts";
 import { eventsHistoryRoute } from "./features/events/events.history.routes.ts";
 import { streamReloadRoute } from "./features/events/events.reload.routes.ts";
 import { streamEventsRoute } from "./features/events/events.stream.routes.ts";
 import { healthRoute } from "./features/health/health.routes.ts";
 import { projectsBlobRoute } from "./features/projects/projects.blob.routes.ts";
-import { projectsDropRoute } from "./features/projects/projects.drop.routes.ts";
 import { projectsRoute } from "./features/projects/projects.routes.ts";
 import { sessionsRoute } from "./features/sessions/sessions.routes.ts";
 import { settingsRoute } from "./features/settings/settings.routes.ts";
@@ -55,7 +55,7 @@ const routedApp = app
 	.route("/", versionRoute.app)
 	.route("/", configRoute.app)
 	.route("/", projectsRoute.app)
-	.route("/", projectsDropRoute.app)
+	.route("/", dropsRoute.app)
 	.route("/", projectsBlobRoute.app)
 	.route("/", sessionsRoute.app)
 	.route("/", zellijProxyRoute.app)
