@@ -11,3 +11,4 @@ dist/
 .agentic/
 .claude/traces/
 .claude/dashboard.html
+.pi/extensions/.tmp/

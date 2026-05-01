@@ -35,7 +35,7 @@ export function vscodeFolderUrl(projectsRoot: string | undefined, projectId: str
  * so the smoke gate can supply a known root without a running server.
  */
 // biome-ignore lint/complexity/useMaxParams: viewer head requires projectId, path, name as positional args (gate-frozen smoke calls with 3 positional); openUrl and blobUrl are optional overrides
-export function renderViewerHead(
+function renderViewerHead(
 	projectId: string,
 	path: string,
 	name: string,

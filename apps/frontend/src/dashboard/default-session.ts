@@ -5,7 +5,7 @@ import { api } from "../api";
 import { store } from "./state";
 import { $ } from "./utils";
 
-export async function selectDefaultSession(): Promise<void> {
+async function selectDefaultSession(): Promise<void> {
 	if (!store.sessions.has("__default__")) {
 		try {
 			const resp = await api.api.sessions.default.$post();

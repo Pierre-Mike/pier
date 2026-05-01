@@ -155,9 +155,3 @@ export const stopTunnel = async (): Promise<TunnelState> => {
 	setState({ status: "stopped", url: null });
 	return state;
 };
-
-export const __resetTunnelForTests = (): void => {
-	proc = null;
-	state = { status: "stopped", url: null };
-	inflight = null;
-};

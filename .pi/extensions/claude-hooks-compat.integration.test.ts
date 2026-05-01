@@ -47,7 +47,7 @@ describe("claudeHooksCompat extension", () => {
 
 		const ctx = makeContext();
 		const result = await toolCall.handler(
-			{ toolName: "write", input: { file_path: "packages/api-contract/src/index.ts" } },
+			{ toolName: "write", input: { file_path: "specs/archive/example/proposal.md" } },
 			ctx,
 		);
 

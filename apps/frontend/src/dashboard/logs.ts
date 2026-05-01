@@ -36,7 +36,7 @@ export async function loadLogsHistory(): Promise<void> {
 	}
 }
 
-export async function openLogs(): Promise<void> {
+async function openLogs(): Promise<void> {
 	store.logsOpen = true;
 	store.logsHasNew = false;
 	$("#logs-fab").classList.remove("has-new");
@@ -51,7 +51,7 @@ export async function openLogs(): Promise<void> {
 	requestAnimationFrame(scrollLogsToBottom);
 }
 
-export function closeLogs(): void {
+function closeLogs(): void {
 	store.logsOpen = false;
 	$("#logs-modal").classList.add("hidden");
 }

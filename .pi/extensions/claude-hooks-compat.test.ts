@@ -24,11 +24,8 @@ describe("decideToolCall", () => {
 		});
 	});
 
-	it("blocks protected generated and archived paths", () => {
+	it("blocks edits to archived spec paths", () => {
 		const cwd = makeRepo();
-		expect(
-			decideToolCall(cwd, { toolName: "write", filePath: "packages/api-contract/src/index.ts" }),
-		).toMatchObject({ block: true });
 		expect(
 			decideToolCall(cwd, {
 				toolName: "edit",

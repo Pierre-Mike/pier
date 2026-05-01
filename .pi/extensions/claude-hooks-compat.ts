@@ -168,17 +168,6 @@ function decidePathCall(cwd: string, filePath: string): BlockDecision {
 			reason: `spec ${frozen.slug} gate is frozen; edits to ${frozen.gatePath} are not allowed until the spec is archived or specs/active/${frozen.slug}/.gate-frozen is manually removed.`,
 		};
 	}
-	if (
-		filePath.includes("/packages/api-contract/") ||
-		filePath.startsWith("packages/api-contract/")
-	) {
-		return {
-			block: true,
-			filePath,
-			reason:
-				"packages/api-contract is auto-derived from backend AppType — never edit it manually. Change the backend routes instead.",
-		};
-	}
 	if (filePath.includes("/specs/archive/") || filePath.startsWith("specs/archive/")) {
 		return {
 			block: true,
