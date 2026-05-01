@@ -558,6 +558,65 @@ body.resizing iframe {
 .file-tree .tree-file.active > .tree-row .name {
 	color: var(--accent);
 }
+
+/* refs list (branches + worktrees) — sibling of file-tree, same row look */
+.refs-list {
+	border-top: 1px solid var(--border);
+	padding: 4px 0;
+	max-height: 30vh;
+	overflow-y: auto;
+	flex: 0 0 auto;
+}
+.refs-list[hidden] {
+	display: none;
+}
+.ref-row {
+	padding: 2px 12px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+	white-space: nowrap;
+	border-left: 2px solid transparent;
+}
+.ref-row:hover {
+	background: var(--bg-hover);
+}
+.ref-row .ref-glyph {
+	display: inline-block;
+	width: 14px;
+	flex: 0 0 14px;
+	color: var(--fg-dim);
+	font-size: 11px;
+	text-align: center;
+}
+.ref-row .ref-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	color: var(--fg);
+}
+.ref-row .ref-suffix,
+.ref-row .ref-path {
+	color: var(--fg-dim);
+	font-size: 11px;
+	flex: 0 0 auto;
+}
+.ref-row .ref-path {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.ref-row.worktree {
+	background: rgba(120, 217, 143, 0.04);
+	border-left-color: rgba(120, 217, 143, 0.35);
+}
+.ref-row.worktree:hover {
+	background: rgba(120, 217, 143, 0.12);
+}
+.ref-row.worktree .ref-glyph {
+	color: var(--ok);
+}
+
 /* viewer modal */
 .viewer-modal {
 	position: fixed;
@@ -1220,4 +1279,26 @@ body.resizing iframe {
 .palette-row.file .palette-row-caption {
 	color: var(--ok);
 	opacity: 0.7;
+}
+.ctx-menu {
+	position: fixed;
+	z-index: 300;
+	min-width: 160px;
+	background: var(--bg-elev);
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	padding: 4px;
+	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+	font-size: 12px;
+}
+.ctx-menu-item {
+	padding: 6px 10px;
+	color: var(--fg-dim);
+	cursor: pointer;
+	border-radius: 4px;
+	white-space: nowrap;
+}
+.ctx-menu-item:hover {
+	background: var(--bg-hover);
+	color: var(--fg);
 }

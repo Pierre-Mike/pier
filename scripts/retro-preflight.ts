@@ -191,9 +191,9 @@ if (import.meta.main) {
 	const dormant = await detectDormantWorktrees();
 
 	if (jsonMode) {
-		process.stdout.write(JSON.stringify(dormant) + "\n");
+		process.stdout.write(`${JSON.stringify(dormant)}\n`);
 	} else {
 		const text = renderText(dormant);
-		if (text) process.stdout.write(text + "\n");
+		if (text) process.stdout.write(`${text}\n`);
 	}
 }

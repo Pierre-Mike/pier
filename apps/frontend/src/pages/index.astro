@@ -39,6 +39,7 @@ import Base from "../layouts/Base.astro";
 	} from "../dashboard/projects";
 	import { wirePaneToggle, wireResizeHandle, wireTerminalRefit } from "../dashboard/ui";
 	import { loadConfig, renderFileTree, wireFileTreeUI } from "../dashboard/files";
+	import { renderRefs } from "../dashboard/refs";
 	import { wireViewerModal } from "../dashboard/viewer";
 	import { wireTerminalDrop } from "../dashboard/drop";
 	import { wireLogsModal, renderLogs, renderLogsCards, pushLog } from "../dashboard/logs";
@@ -75,6 +76,7 @@ import Base from "../layouts/Base.astro";
 		store.observe(() => renderSessions());
 		store.observe(() => renderTerminal());
 		store.observe(() => renderFileTree());
+		store.observe(() => renderRefs());
 		store.observe(() => {
 			if (store.logsOpen) renderLogs();
 		});

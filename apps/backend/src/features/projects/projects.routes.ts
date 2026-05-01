@@ -5,6 +5,12 @@ import type { AppBindings } from "../../platform/effect-handler.ts";
 import { mountPair, type RouteModule, routeAdvanced } from "../../platform/route-kit.ts";
 import { makeRepoServiceLive, makeRepoServiceTest, RepoService } from "./projects.files.repo.ts";
 import {
+	GithubUrlService,
+	makeGithubUrlServiceLive,
+	makeGithubUrlServiceTest,
+} from "./projects.github.repo.ts";
+import { makeRefsServiceLive, makeRefsServiceTest, RefsService } from "./projects.refs.repo.ts";
+import {
 	makeProjectsServiceLive,
 	makeProjectsServiceTest,
 	ProjectsService,
@@ -61,6 +67,37 @@ const rList = routeAdvanced({
 	handler: projectsListHandler,
 });
 
+const projectGithubUrlHandler = (c: Context<{ Bindings: AppBindings }>) =>
+	Effect.gen(function* () {
+		const id = c.req.param("id") ?? "";
+		const svc = yield* GithubUrlService;
+		const url = yield* svc.resolve(id);
+		if (!url) {
+			return new Response(JSON.stringify({ url: null }), {
+				status: 404,
+				headers: { "Content-Type": "application/json" },
+			});
+		}
+		return new Response(JSON.stringify({ url }), {
+			status: 200,
+			headers: { "Content-Type": "application/json" },
+		});
+	});
+
+const rGithubUrl = routeAdvanced({
+	liveDeps: Layer.provide(makeGithubUrlServiceLive(), defaultConfigLayer),
+	testDeps: Layer.provide(
+		makeGithubUrlServiceTest(
+			new Map<string, string | null>([
+				["test-proj", "https://github.com/owner/repo"],
+				["non-gh-proj", null],
+			]),
+		),
+		ConfigTest,
+	),
+	handler: projectGithubUrlHandler,
+});
+
 const rFiles = routeAdvanced({
 	liveDeps: Layer.provide(makeRepoServiceLive(), defaultConfigLayer),
 	testDeps: Layer.provide(
@@ -81,8 +118,59 @@ const rFiles = routeAdvanced({
 	handler: projectFilesHandler,
 });
 
+const projectRefsHandler = (c: Context<{ Bindings: AppBindings }>) =>
+	Effect.gen(function* () {
+		const id = c.req.param("id") ?? "";
+		const svc = yield* RefsService;
+		const refs = yield* svc.listRefs(id);
+		return c.json(refs, 200);
+	}).pipe(
+		Effect.catchAll(() =>
+			Effect.succeed(
+				new Response(JSON.stringify({ branches: [], worktrees: [] }), {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				}),
+			),
+		),
+	);
+
+const rRefs = routeAdvanced({
+	liveDeps: Layer.provide(makeRefsServiceLive(), defaultConfigLayer),
+	testDeps: Layer.provide(
+		makeRefsServiceTest(
+			new Map([
+				[
+					"test-proj",
+					{
+						branches: [
+							{ name: "main", current: true },
+							{ name: "feat/x", current: false },
+						],
+						worktrees: [
+							{
+								path: "/tmp/test-projects/test-proj",
+								relPath: ".",
+								branch: "main",
+								head: "abc123",
+								isMain: true,
+							},
+						],
+					},
+				],
+			]),
+		),
+		ConfigTest,
+	),
+	handler: projectRefsHandler,
+});
+
 const { app, testApp } = mountPair((a, h) =>
-	a.get("/api/projects", rList[h]).get("/api/projects/:id/files", rFiles[h]),
+	a
+		.get("/api/projects", rList[h])
+		.get("/api/projects/:id/files", rFiles[h])
+		.get("/api/projects/:id/github-url", rGithubUrl[h])
+		.get("/api/projects/:id/refs", rRefs[h]),
 );
 
 export const projectsRoute = { app, testApp } satisfies RouteModule<typeof app>;

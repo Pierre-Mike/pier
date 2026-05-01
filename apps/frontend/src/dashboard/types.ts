@@ -21,6 +21,24 @@ export interface FileEntry {
 	size?: number;
 }
 
+export interface Branch {
+	name: string;
+	current: boolean;
+}
+
+export interface Worktree {
+	path: string;
+	relPath: string;
+	branch: string | null;
+	head: string;
+	isMain: boolean;
+}
+
+export interface RefsBundle {
+	branches: Branch[];
+	worktrees: Worktree[];
+}
+
 export interface AppConfig {
 	appPort: number;
 	sandboxPort: number;
@@ -60,6 +78,7 @@ export interface DashboardState extends Record<string, unknown> {
 	activeFilePath: string | null;
 	fileFilter: string;
 	expandedDirs: Set<string>;
+	refs: RefsBundle;
 	projectsWithEvents: Set<string>;
 	logs: ClaudeEvent[];
 	logsHistory: ClaudeEvent[];

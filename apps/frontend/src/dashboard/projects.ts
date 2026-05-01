@@ -3,6 +3,7 @@
  */
 import { api, apiBase } from "../api";
 import { refreshFiles } from "./files";
+import { refreshRefs } from "./refs";
 import { store } from "./state";
 import { focusTerminalIframe } from "./terminal-focus";
 import type { Project } from "./types";
@@ -25,6 +26,86 @@ export function filteredProjects(): Project[] {
 	const f = store.projectFilter;
 	const base = store.projects.filter((p) => !store.sessions.has(p.id));
 	return f ? base.filter((p) => p.name.toLowerCase().includes(f)) : base;
+}
+
+function dismissContextMenu(): void {
+	const existing = document.getElementById("project-ctx-menu");
+	if (existing) existing.remove();
+	document.removeEventListener("mousedown", onCtxMenuOutside, true);
+	document.removeEventListener("keydown", onCtxMenuKey, true);
+	window.removeEventListener("blur", dismissContextMenu);
+}
+
+function onCtxMenuOutside(e: MouseEvent): void {
+	const menu = document.getElementById("project-ctx-menu");
+	if (menu && !menu.contains(e.target as Node)) dismissContextMenu();
+}
+
+function onCtxMenuKey(e: KeyboardEvent): void {
+	if (e.key === "Escape") dismissContextMenu();
+}
+
+type CtxMenuItem = { label: string; onClick: () => void };
+type CtxMenuArgs = { x: number; y: number; items: CtxMenuItem[] };
+
+function showContextMenu(args: CtxMenuArgs) {
+	dismissContextMenu();
+	const menu = document.createElement("div");
+	menu.id = "project-ctx-menu";
+	menu.className = "ctx-menu";
+	menu.style.left = `${args.x}px`;
+	menu.style.top = `${args.y}px`;
+	for (const item of args.items) {
+		const row = document.createElement("div");
+		row.className = "ctx-menu-item";
+		row.textContent = item.label;
+		row.addEventListener("click", () => {
+			item.onClick();
+			dismissContextMenu();
+		});
+		menu.appendChild(row);
+	}
+	document.body.appendChild(menu);
+	const rect = menu.getBoundingClientRect();
+	if (rect.right > window.innerWidth) {
+		menu.style.left = `${Math.max(0, window.innerWidth - rect.width - 4)}px`;
+	}
+	if (rect.bottom > window.innerHeight) {
+		menu.style.top = `${Math.max(0, window.innerHeight - rect.height - 4)}px`;
+	}
+	document.addEventListener("mousedown", onCtxMenuOutside, true);
+	document.addEventListener("keydown", onCtxMenuKey, true);
+	window.addEventListener("blur", dismissContextMenu);
+}
+
+async function openProjectContextMenu(args: { id: string; x: number; y: number }): Promise<void> {
+	let url: string | null = null;
+	try {
+		const res = await api.api.projects[":id"]["github-url"].$get({ param: { id: args.id } });
+		if (res.ok) {
+			const data = (await res.json()) as { url: string | null };
+			url = data.url;
+		}
+	} catch {
+		url = null;
+	}
+	if (!url) {
+		toast("No GitHub remote for this project");
+		return;
+	}
+	const target = url;
+	showContextMenu({
+		x: args.x,
+		y: args.y,
+		items: [
+			{
+				label: "Open on GitHub",
+				onClick: () => {
+					window.open(target, "_blank", "noopener,noreferrer");
+				},
+			},
+		],
+	});
 }
 
 export function renderProjects(): void {
@@ -54,6 +135,10 @@ export function renderProjects(): void {
 			if (store.projectHighlight !== i) {
 				store.projectHighlight = i;
 			}
+		});
+		li.addEventListener("contextmenu", (ev) => {
+			ev.preventDefault();
+			void openProjectContextMenu({ id: p.id, x: ev.clientX, y: ev.clientY });
 		});
 		ul.appendChild(li);
 	}
@@ -132,7 +217,10 @@ export async function setActiveProject(id: string | null): Promise<void> {
 		await loadLogsHistory();
 	}
 
-	if (id && id !== "__default__") await refreshFiles(id);
+	if (id && id !== "__default__") {
+		await refreshFiles(id);
+		await refreshRefs(id);
+	}
 }
 
 export async function closeSession(id: string): Promise<void> {
@@ -155,6 +243,7 @@ export async function closeSession(id: string): Promise<void> {
 		localStorage.removeItem("pier:active-project");
 		store.files = [];
 		store.activeFilePath = null;
+		store.refs = { branches: [], worktrees: [] };
 		const filesTitle = document.getElementById("files-title");
 		if (filesTitle) filesTitle.textContent = "Files";
 	}
