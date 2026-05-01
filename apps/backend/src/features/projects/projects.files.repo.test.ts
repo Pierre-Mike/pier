@@ -43,14 +43,12 @@ describe("RepoService — Test layer", () => {
 		expect(result).toBe("/test/alpha/src/x.ts");
 	});
 
-	it("saveDropped echoes file metadata", async () => {
-		const f = new File(["hello"], "drop.txt", { type: "text/plain" });
+	it("fileStat returns { size: 0 } in test layer", async () => {
 		const program = Effect.gen(function* () {
 			const svc = yield* RepoService;
-			return yield* svc.saveDropped({ projectId: "alpha", files: [f] });
+			return yield* svc.fileStat("/any/path.txt");
 		});
 		const result = await Effect.runPromise(Effect.provide(program, layer));
-		expect(result[0]?.name).toBe("drop.txt");
-		expect(result[0]?.size).toBe(5);
+		expect(result).toEqual({ size: 0 });
 	});
 });

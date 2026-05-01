@@ -20,6 +20,7 @@ describe("ConfigTest layer", () => {
 			piRoot: "/tmp/test-pi",
 			artifactsDir: "/tmp/test-pi/artifacts",
 			claudeProjectsRoot: "/tmp/test-claude/projects",
+			appRoot: "/tmp/test-app-root",
 		});
 	});
 
