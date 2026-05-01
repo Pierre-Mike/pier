@@ -32,13 +32,13 @@ Ordered checklist. Each task declares its `agent`, `depends`, `file_targets`, an
   - file_targets: [apps/backend/src/api.ts, apps/backend/.dependency-cruiser.cjs]
   - boundary: [apps/backend/src/api.ts, apps/backend/.dependency-cruiser.cjs]
 
-- [ ] 6. Delete per-project drop route and remove `saveDropped` from `projects.files.repo.ts`
+- [x] 6. Delete per-project drop route and remove `saveDropped` from `projects.files.repo.ts`
   - agent: main
   - depends: [5]
   - file_targets: [apps/backend/src/features/projects/projects.files.repo.ts]
   - boundary: [apps/backend/src/features/projects/**/*.ts]
 
-- [ ] 7a. [P] Rework frontend `drop.ts` to POST to `/api/drops` with `activeProjectId`
+- [x] 7a. [P] Rework frontend `drop.ts` to POST to `/api/drops` with `activeProjectId`
   - agent: main
   - depends: [5]
   - file_targets: [apps/frontend/src/dashboard/drop.ts, apps/frontend/src/dashboard/drop.test.ts]

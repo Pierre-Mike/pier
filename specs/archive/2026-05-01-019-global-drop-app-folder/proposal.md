@@ -1,19 +1,20 @@
 ---
 id: 019-global-drop-app-folder
 title: Global drag-and-drop saves files to pier app drops folder
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/backend/src/features/drops/drops.routes.test.ts
     level: unit
   - path: apps/backend/src/features/drops/drops.repo.test.ts
     level: integration
-created: 2026-05-01
+created: 2026-05-01T00:00:00.000Z
 owner: main
 depends_on:
   - 007-drop-injects-terminal-path
   - 017-wire-settings-modal
 supersedes: null
+archived: '2026-05-01'
 ---
 
 ## Intent
