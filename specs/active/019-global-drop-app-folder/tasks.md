@@ -29,8 +29,8 @@ Ordered checklist. Each task declares its `agent`, `depends`, `file_targets`, an
 - [ ] 5. Register `dropsRoute` in `api.ts`; remove `projectsDropRoute`; update `.dependency-cruiser.cjs`
   - agent: main
   - depends: [4]
-  - file_targets: [apps/backend/src/shell/api.ts, .dependency-cruiser.cjs]
-  - boundary: [apps/backend/src/shell/api.ts, .dependency-cruiser.cjs]
+  - file_targets: [apps/backend/src/api.ts, apps/backend/.dependency-cruiser.cjs]
+  - boundary: [apps/backend/src/api.ts, apps/backend/.dependency-cruiser.cjs]
 
 - [ ] 6. Delete per-project drop route and remove `saveDropped` from `projects.files.repo.ts`
   - agent: main
