@@ -1,17 +1,18 @@
 ---
 id: 020-open-github-active-project
 title: Right-click → Open on GitHub for active project
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/frontend/src/dashboard/projects.test.ts
     level: unit
   - path: scripts/smoke-020-sessions-contextmenu.ts
     level: e2e
-created: 2026-05-06
+created: 2026-05-06T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-05-06'
 ---
 
 ## Intent

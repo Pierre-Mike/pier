@@ -1,6 +1,6 @@
 # Tasks
 
-- [ ] 1. Wire contextmenu listener in renderSessions()
+- [x] 1. Wire contextmenu listener in renderSessions()
   - agent: main
   - depends: []
   - file_targets: [apps/frontend/src/dashboard/projects.ts]
