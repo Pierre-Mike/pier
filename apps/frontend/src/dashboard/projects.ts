@@ -173,6 +173,10 @@ export function renderSessions(): void {
 				selectProject(pid);
 			}
 		});
+		li.addEventListener("contextmenu", (ev) => {
+			ev.preventDefault();
+			void openProjectContextMenu({ id: pid, x: ev.clientX, y: ev.clientY });
+		});
 		ul.appendChild(li);
 	}
 }
