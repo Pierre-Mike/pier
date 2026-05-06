@@ -27,6 +27,7 @@ import {
 	type WorkerId,
 	worker_label,
 } from "./state.ts";
+import type { Store } from "./store.ts";
 import type { WorkerExit, WorkerHandle, WorkerSpawnRequest } from "./worker.ts";
 import type { WorktreeConfig, WorktreeRef } from "./worktree.ts";
 
@@ -52,8 +53,6 @@ interface Harness {
 	exit_controllers: ExitController[];
 	written_manifests: Map<string, string>;
 	commit_calls: Array<{ wt: WorktreeRef; files: ReadonlyArray<string>; message: string }>;
-	leaked_timers: Set<unknown>;
-	original_set_timeout: typeof setTimeout;
 }
 
 const harness: Harness = {
@@ -64,8 +63,6 @@ const harness: Harness = {
 	exit_controllers: [],
 	written_manifests: new Map(),
 	commit_calls: [],
-	leaked_timers: new Set(),
-	original_set_timeout: globalThis.setTimeout,
 };
 
 const SLICES_YAML_3 = `slices:
@@ -328,6 +325,7 @@ const make_issue = (args: MakeIssueArgs): StubIssue => ({
 
 interface FixtureBundle {
 	readonly engine: ReturnType<typeof make_engine>;
+	readonly store: Store;
 	readonly issues: Map<IssueId, StubIssue>;
 	readonly pr_responses: Map<string, PrStatus | null>;
 	readonly log: GhCallLog;
@@ -387,11 +385,11 @@ const setup_engine = async (initial_issues: StubIssue[]): Promise<FixtureBundle>
 		prompt_for,
 	});
 
-	return { engine, issues, pr_responses, log, worktree_cfg };
+	return { engine, store, issues, pr_responses, log, worktree_cfg };
 };
 
 const flush_async = async (ms: number = 25): Promise<void> => {
-	await new Promise((r) => harness.original_set_timeout(r, ms));
+	await new Promise((r) => setTimeout(r, ms));
 };
 
 // Resolve the most recently-spawned worker as Normal exit, then let the
@@ -404,7 +402,7 @@ const finish_last_worker_normal = async (): Promise<void> => {
 };
 
 /* -------------------------------------------------------------------------- */
-/* Lifecycle: timer-leak isolation + fresh tempdir per test                    */
+/* Lifecycle: fresh tempdir per test                                           */
 /* -------------------------------------------------------------------------- */
 
 beforeEach(() => {
@@ -416,28 +414,9 @@ beforeEach(() => {
 	harness.exit_controllers = [];
 	harness.written_manifests = new Map();
 	harness.commit_calls = [];
-	harness.leaked_timers = new Set();
-	harness.original_set_timeout = globalThis.setTimeout;
-
-	// Capture every setTimeout the engine creates so we can clear them in
-	// afterEach. The engine's terminate() does NOT clear retry timers; that's
-	// a known gap that would otherwise leak across tests.
-	const original = harness.original_set_timeout;
-	const patched = ((cb: () => void, delay?: number) => {
-		const handle = original(() => {
-			harness.leaked_timers.delete(handle);
-			cb();
-		}, delay);
-		harness.leaked_timers.add(handle);
-		return handle;
-	}) as typeof setTimeout;
-	(globalThis as { setTimeout: typeof setTimeout }).setTimeout = patched;
 });
 
 afterEach(() => {
-	for (const t of harness.leaked_timers) clearTimeout(t as NodeJS.Timeout);
-	harness.leaked_timers.clear();
-	(globalThis as { setTimeout: typeof setTimeout }).setTimeout = harness.original_set_timeout;
 	try {
 		rmSync(harness.temp_root, { recursive: true, force: true });
 	} catch {
@@ -736,5 +715,50 @@ describe("engine integration — full lifecycle", () => {
 
 		expect(fx.log.releases.length).toBe(1);
 		expect(fx.log.releases[0]?.outcome).toBe("rejected");
+	});
+
+	test("terminate clears the pending continuation timer + retry-queue entry", async () => {
+		// Regression: previously terminate() left the continuation setTimeout
+		// running and the retry_queue entry on disk. The timer would fire after
+		// release, re-enter try_dispatch against a stale claim, and trigger a
+		// second gh.claim. This test locks in the fix.
+		const issue = make_issue({ id: "600", title: "Terminate Clears Timer", slice_hint: "single" });
+		const fx = await setup_engine([issue]);
+
+		await Effect.runPromise(fx.engine.poll);
+		expect(harness.spawn_calls.length).toBe(1);
+		expect(fx.log.claims).toEqual([issue.id]);
+
+		// Worker exits Normal -> watch_exit schedules a continuation retry.
+		await finish_last_worker_normal();
+
+		// State sanity: the continuation retry is queued.
+		const before = await Effect.runPromise(fx.store.get());
+		expect(before.retry_queue.has(issue.id)).toBe(true);
+		expect(before.claimed.has(issue.id)).toBe(true);
+
+		// Terminate single-shot.
+		await Effect.runPromise(fx.engine.terminate(issue.id, "done"));
+
+		// Behavioral state: terminate cleared retry_queue + claimed.
+		const after = await Effect.runPromise(fx.store.get());
+		expect(after.retry_queue.has(issue.id)).toBe(false);
+		expect(after.claimed.has(issue.id)).toBe(false);
+		expect(fx.log.releases.length).toBe(1);
+		expect(fx.log.releases[0]?.outcome).toBe("done");
+
+		const claims_for_issue = () => fx.log.claims.filter((c) => c === issue.id).length;
+		const spawns_for_issue = () =>
+			harness.spawn_calls.filter((s) => s.req.issue.id === issue.id).length;
+		const claims_at_terminate = claims_for_issue();
+		const spawns_at_terminate = spawns_for_issue();
+
+		// Wait past the 1000ms continuation delay. If the timer was leaked it
+		// would now fire on_retry_fired -> try_dispatch -> a second claim/spawn.
+		// Filter by issue id to ignore unrelated cross-test mock callbacks.
+		await flush_async(1_200);
+
+		expect(spawns_for_issue()).toBe(spawns_at_terminate);
+		expect(claims_for_issue()).toBe(claims_at_terminate);
 	});
 });
