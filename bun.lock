@@ -36,6 +36,14 @@
         "typescript": "^5.9.3",
       },
     },
+    "apps/orchestrator": {
+      "name": "@pier/orchestrator",
+      "version": "0.0.0",
+      "dependencies": {
+        "effect": "^3.20.0",
+        "yaml": "^2.7.0",
+      },
+    },
   },
   "packages": {
     "@astrojs/check": ["@astrojs/check@0.9.8", "", { "dependencies": { "@astrojs/language-server": "^2.16.5", "chokidar": "^4.0.3", "kleur": "^4.1.5", "yargs": "^17.7.2" }, "peerDependencies": { "typescript": "^5.0.0" }, "bin": { "astro-check": "bin/astro-check.js" } }, "sha512-LDng8446QLS5ToKjRHd3bgUdirvemVVExV7nRyJfW2wV36xuv7vDxwy5NWN9zqeSEDgg0Tv84sP+T3yEq+Zlkw=="],
@@ -213,6 +221,8 @@
     "@pier/backend": ["@pier/backend@workspace:apps/backend"],
 
     "@pier/frontend": ["@pier/frontend@workspace:apps/frontend"],
+
+    "@pier/orchestrator": ["@pier/orchestrator@workspace:apps/orchestrator"],
 
     "@rollup/pluginutils": ["@rollup/pluginutils@5.3.0", "", { "dependencies": { "@types/estree": "^1.0.0", "estree-walker": "^2.0.2", "picomatch": "^4.0.2" }, "peerDependencies": { "rollup": "^1.20.0||^2.0.0||^3.0.0||^4.0.0" }, "optionalPeers": ["rollup"] }, "sha512-5EdhGZtnu3V88ces7s53hhfK5KSASnJZv8Lulpc04cWO3REESroJXg73DFsOmgbU2BhwV0E20bu2IDZb3VKW4Q=="],
 
