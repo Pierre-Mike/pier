@@ -1,13 +1,14 @@
 ---
 id: 028-fix-lefthook-prepare-force
 title: Force lefthook install in prepare to unblock fresh worktrees
-status: active
+status: archived
 kind: workflow
 gate: scripts/smoke-prepare-lefthook-with-hookspath.ts
 created: 2026-05-07T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-05-07'
 ---
 
 ## Intent
