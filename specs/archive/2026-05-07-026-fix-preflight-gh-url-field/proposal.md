@@ -1,13 +1,15 @@
 ---
 id: 026-fix-preflight-gh-url-field
 title: Fix preflight htmlUrl→url and add gh-schema contract check
-status: active
+status: archived
 kind: workflow
 gate: scripts/smoke-preflight-main-ci.ts
 created: 2026-05-07T00:00:00.000Z
 owner: main
-depends_on: ['025-preflight-main-ci-gate']
+depends_on:
+  - 025-preflight-main-ci-gate
 supersedes: null
+archived: '2026-05-07'
 ---
 
 ## Intent
