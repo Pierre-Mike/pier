@@ -1,18 +1,19 @@
 ---
 id: 022-single-list-projects
 title: Restore single-list invariant for open projects
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/frontend/src/dashboard/projects.test.ts
     level: unit
   - path: apps/backend/src/features/sessions/sessions.repo.test.ts
     level: integration
-created: 2026-05-07
+created: 2026-05-07T00:00:00.000Z
 owner: main
 depends_on:
   - 021-session-aware-sidebar
 supersedes: null
+archived: '2026-05-07'
 ---
 
 ## Intent
