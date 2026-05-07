@@ -65,9 +65,25 @@ export const dropsPostHandler = (
 				string,
 				unknown
 			>;
-		} catch {
+		} catch (e) {
+			// biome-ignore lint/suspicious/noConsole: temporary CI diagnostic
+			console.error("[drops] parseBody threw:", e);
 			return c.json({ error: "bad form body" }, 400);
 		}
+
+		// biome-ignore lint/suspicious/noConsole: temporary CI diagnostic
+		console.error(
+			"[drops] bodyRaw keys=",
+			Object.keys(bodyRaw),
+			"files type=",
+			typeof bodyRaw["files"],
+			"isArray=",
+			Array.isArray(bodyRaw["files"]),
+			"ctor=",
+			(bodyRaw["files"] as { constructor?: { name?: string } } | null)?.constructor?.name,
+			"activeProjectId=",
+			JSON.stringify(bodyRaw["activeProjectId"]),
+		);
 
 		const activeProjectId = bodyRaw["activeProjectId"];
 		if (typeof activeProjectId !== "string" || !activeProjectId) {
