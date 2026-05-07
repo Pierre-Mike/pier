@@ -9,3 +9,8 @@ pre-push:
   commands:
     check:
       run: bunx turbo check:local
+
+post-merge:
+  commands:
+    sweep-merged-worktrees:
+      run: bun scripts/worktree-close.ts
