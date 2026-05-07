@@ -9,22 +9,22 @@ and `boundary`.
   file a task actually modifies must match at least one glob here, or
   `tasks-verify.ts` will fail the spec.
 
-- [ ] 1. Extend backend close to spawn `zellij delete-session --force <id>`
+- [x] 1. Extend backend close to spawn `zellij delete-session --force <id>`
   - agent: main
   - depends: []
   - file_targets: [apps/backend/src/features/sessions/sessions.repo.ts]
   - boundary: [apps/backend/src/features/sessions/sessions.repo.ts]
-- [ ] 2a. [P] Remove session filter from filteredProjects
+- [x] 2a. [P] Remove session filter from filteredProjects
   - agent: main
   - depends: [1]
   - file_targets: [apps/frontend/src/dashboard/projects.ts]
   - boundary: [apps/frontend/src/dashboard/projects.ts]
-- [ ] 2b. [P] Add openSessionContextMenu and rewire renderSessions context menu
+- [x] 2b. [P] Add openSessionContextMenu and rewire renderSessions context menu
   - agent: main
   - depends: [1]
   - file_targets: [apps/frontend/src/dashboard/projects.ts]
   - boundary: [apps/frontend/src/dashboard/projects.ts]
-- [ ] 2c. [P] Add user-select: none to sidebar li elements
+- [x] 2c. [P] Add user-select: none to sidebar li elements
   - agent: main
   - depends: [1]
   - file_targets: [apps/frontend/src/dashboard/projects.ts]

@@ -1,17 +1,19 @@
 ---
 id: 021-session-aware-sidebar
 title: Session-aware sidebar with right-click delete
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/frontend/src/dashboard/projects.test.ts
     level: unit
   - path: apps/backend/src/features/sessions/sessions.repo.test.ts
     level: integration
-created: 2026-05-07
+created: 2026-05-07T00:00:00.000Z
 owner: main
-depends_on: [020-open-github-active-project]
+depends_on:
+  - 020-open-github-active-project
 supersedes: null
+archived: '2026-05-07'
 ---
 
 ## Intent
