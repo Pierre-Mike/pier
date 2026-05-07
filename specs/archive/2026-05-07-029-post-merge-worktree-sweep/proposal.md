@@ -1,13 +1,14 @@
 ---
 id: 029-post-merge-worktree-sweep
 title: Wire post-merge hook to auto-close merged-spec worktrees
-status: active
+status: archived
 kind: workflow
 gate: scripts/smoke-post-merge-sweep-hook.ts
 created: 2026-05-07T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-05-07'
 ---
 
 ## Intent
