@@ -46,6 +46,8 @@ const saveFilesToDisk = (files: File[], appRoot: string): Effect.Effect<SaveResu
 			}
 			return { ok: true as const, files: saved };
 		} catch (e) {
+			// biome-ignore lint/suspicious/noConsole: temporary CI diagnostic
+			console.error("[drops] saveFilesToDisk threw:", e, "appRoot=", appRoot);
 			const msg = e instanceof Error ? e.message : "save failed";
 			return { ok: false as const, error: msg };
 		}
