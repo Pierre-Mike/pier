@@ -10,12 +10,12 @@ and `boundary`.
   `tasks-verify.ts` will fail the spec. Globs are evaluated by `Bun.Glob`
   against repo-relative POSIX paths.
 
-- [ ] 1. Export `resolveProjectCwd` from `sessions.repo.ts` as a top-level function
+- [x] 1. Export `resolveProjectCwd` from `sessions.repo.ts` as a top-level function
   - agent: main
   - depends: []
   - file_targets: [apps/backend/src/features/sessions/sessions.repo.ts]
   - boundary: [apps/backend/src/features/sessions/sessions.repo.ts]
-- [ ] 2. Add four cwd-resolution tests to `sessions.repo.test.ts` and smoke script
+- [x] 2. Add four cwd-resolution tests to `sessions.repo.test.ts` and smoke script
   - agent: main
   - depends: [1]
   - file_targets: [apps/backend/src/features/sessions/sessions.repo.test.ts, scripts/smoke-023-session-cwd.ts]

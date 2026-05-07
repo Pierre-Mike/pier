@@ -1,17 +1,18 @@
 ---
 id: 023-session-cwd-project-folder
 title: Spawn project sessions in ~/Github/<projectId>
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/backend/src/features/sessions/sessions.repo.test.ts
     level: unit
   - path: scripts/smoke-023-session-cwd.ts
     level: e2e
-created: 2026-05-07
+created: 2026-05-07T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-05-07'
 ---
 
 ## Intent
