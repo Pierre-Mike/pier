@@ -95,3 +95,94 @@ describe("renderSessions contextmenu — spec 020", () => {
 		expect(projectsSource).toContain("No GitHub remote for this project");
 	});
 });
+
+// ---------------------------------------------------------------------------
+// spec 021: session-aware sidebar with right-click delete
+// ---------------------------------------------------------------------------
+
+// Extract filteredProjects function body for scoped assertions.
+const filteredProjectsMatch = projectsSource.match(
+	/export function filteredProjects\(\)[^{]*\{([\s\S]*?)(?=\nexport (?:function|async function|const))/,
+);
+const filteredProjectsBody = filteredProjectsMatch?.[1] ?? "";
+
+// Extract renderSessions body (re-extract for spec 021 assertions).
+const renderSessionsMatch021 = projectsSource.match(
+	/export function renderSessions\(\)[^{]*\{([\s\S]*?)(?=\nexport (?:function|async function|const))/,
+);
+const renderSessionsBody021 = renderSessionsMatch021?.[1] ?? "";
+
+// Extract renderProjects body for scoped assertions.
+const renderProjectsMatch = projectsSource.match(
+	/export function renderProjects\(\)[^{]*\{([\s\S]*?)(?=\nexport (?:function|async function|const))/,
+);
+const renderProjectsBody = renderProjectsMatch?.[1] ?? "";
+
+describe("filteredProjects — spec 021", () => {
+	test("filteredProjects body is extractable (sanity check)", () => {
+		expect(filteredProjectsBody.length).toBeGreaterThan(0);
+	});
+
+	test("filteredProjects does NOT filter out session-bearing projects", () => {
+		// RED: current implementation has `!store.sessions.has(p.id)` which drops
+		// projects that have an active session. The new behaviour must remove that
+		// clause so session-bearing projects appear in the bottom list.
+		expect(filteredProjectsBody).not.toContain("sessions.has");
+	});
+});
+
+describe("renderSessions context menu split — spec 021", () => {
+	test("renderSessions contextmenu handler calls openSessionContextMenu (not openProjectContextMenu)", () => {
+		// RED: current renderSessions wires openProjectContextMenu in its contextmenu
+		// handler. After the split it must call openSessionContextMenu instead.
+		expect(renderSessionsBody021).toContain("openSessionContextMenu");
+	});
+
+	test("renderSessions contextmenu handler does NOT call openProjectContextMenu", () => {
+		// RED: the GitHub-URL menu must move to the projects list only.
+		expect(renderSessionsBody021).not.toContain("openProjectContextMenu");
+	});
+});
+
+describe("openSessionContextMenu — spec 021", () => {
+	test("openSessionContextMenu function exists in source", () => {
+		// RED: this function does not exist yet.
+		expect(projectsSource).toContain("openSessionContextMenu");
+	});
+
+	test("openSessionContextMenu shows Delete session item", () => {
+		// RED: the new context menu must present "Delete session" as its sole action.
+		expect(projectsSource).toContain("Delete session");
+	});
+
+	test("openSessionContextMenu calls closeSession", () => {
+		// Extract openSessionContextMenu body to scope the assertion.
+		const sessionCtxMatch = projectsSource.match(
+			/function openSessionContextMenu\s*\([^)]*\)[^{]*\{([\s\S]*?)(?=\nfunction |\nexport function |\nexport async function |\nexport const )/,
+		);
+		const sessionCtxBody = sessionCtxMatch?.[1] ?? "";
+		// If the function exists, its body must call closeSession.
+		// If the match is empty the function doesn't exist yet — that test above catches it.
+		if (sessionCtxBody.length > 0) {
+			expect(sessionCtxBody).toContain("closeSession");
+		} else {
+			// Function absent — force failure with a clear message.
+			expect("openSessionContextMenu body").toBe("not found in source");
+		}
+	});
+});
+
+describe("renderProjects context menu — spec 021", () => {
+	test("renderProjects contextmenu handler still calls openProjectContextMenu", () => {
+		// After the split, the bottom list must keep its GitHub-URL menu.
+		expect(renderProjectsBody).toContain("openProjectContextMenu");
+	});
+});
+
+describe("sidebar li user-select — spec 021", () => {
+	test("source contains user-select: none for sidebar list items", () => {
+		// RED: sidebar <li> elements must carry user-select: none so the OS-native
+		// text-selection context menu cannot leak in.
+		expect(projectsSource).toContain("user-select");
+	});
+});

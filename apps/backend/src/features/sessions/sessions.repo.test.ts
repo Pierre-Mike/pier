@@ -78,6 +78,35 @@ describe("TerminalSessionsTest", () => {
 	});
 });
 
+// ---------------------------------------------------------------------------
+// spec 021: close Effect must spawn `zellij delete-session --force <id>`
+// ---------------------------------------------------------------------------
+describe("TerminalSessions Live close — spec 021", () => {
+	it("close spawns zellij delete-session --force <id>", async () => {
+		// This test reads the sessions.repo.ts source and asserts that the live
+		// `close` implementation contains a spawn call for
+		// `zellij delete-session --force`. We use source analysis (same pattern
+		// as projects.test.ts) so the test runs without a real zellij binary.
+		const repoSource = await Bun.file(new URL("./sessions.repo.ts", import.meta.url)).text();
+
+		// Extract the `close:` handler body from the live layer (inside
+		// makeTerminalSessionsLive). We match from `close: (id)` to the next
+		// top-level key at the same indentation (`list:`).
+		const closeBodyMatch = repoSource.match(/\bclose:\s*\(id\)[^=][\s\S]*?(?=\n\t\t\t\tlist:)/);
+		const closeBody = closeBodyMatch?.[0] ?? "";
+
+		// If the match is empty the structure changed — force a clear failure.
+		expect(closeBody.length).toBeGreaterThan(0);
+
+		// The close body must invoke zellij delete-session with --force.
+		expect(closeBody).toContain("zellij");
+		expect(closeBody).toContain("delete-session");
+		expect(closeBody).toContain("--force");
+		// The session id must be threaded into the command.
+		expect(closeBody).toContain("id");
+	});
+});
+
 describe("TerminalSessions.openDefault", () => {
 	it("opens a session named 'default'", async () => {
 		const result = await Effect.runPromise(
