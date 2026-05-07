@@ -25,10 +25,24 @@ async function sh(
 }
 
 async function main(): Promise<void> {
-	const slug = process.argv[2];
+	const args = process.argv.slice(2);
+	const force = args.includes("--force");
+	const slug = args.find((a) => !a.startsWith("-"));
 	if (!slug) {
-		console.error("usage: bun scripts/worktree-open.ts <slug>");
+		console.error("usage: bun scripts/worktree-open.ts <slug> [--force]");
 		process.exit(1);
+	}
+
+	// Preflight: abort if main CI is red (unless --force)
+	const preflightScript = join(process.cwd(), "scripts", "preflight-main-ci.ts");
+	const preflightArgs = force ? ["--force"] : [];
+	const preflightProc = Bun.spawn(["bun", preflightScript, ...preflightArgs], {
+		stdout: "inherit",
+		stderr: "inherit",
+	});
+	const preflightCode = await preflightProc.exited;
+	if (preflightCode !== 0) {
+		process.exit(preflightCode);
 	}
 
 	const repoRoot = process.cwd();

@@ -21,6 +21,7 @@
 		"spec:status": "bun scripts/spec-status.ts",
 		"spec:complete": "bun scripts/spec-complete.ts",
 		"tasks:verify": "bun scripts/tasks-verify.ts",
+		"preflight": "bun scripts/preflight-main-ci.ts",
 		"worktree:open": "bun scripts/worktree-open.ts",
 		"worktree:close": "bun scripts/worktree-close.ts",
 		"sync": "bun scripts/worktree-close.ts",
