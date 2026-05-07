@@ -26,7 +26,7 @@ interface RunEntry {
 	readonly conclusion: string;
 	readonly status: string;
 	readonly databaseId: number;
-	readonly htmlUrl: string;
+	readonly url: string;
 }
 
 async function spawnGh(): Promise<{ code: number; stdout: string; stderr: string }> {
@@ -42,7 +42,7 @@ async function spawnGh(): Promise<{ code: number; stdout: string; stderr: string
 			"--limit",
 			"1",
 			"--json",
-			"conclusion,status,databaseId,htmlUrl",
+			"conclusion,status,databaseId,url",
 		],
 		{ stdout: "pipe", stderr: "pipe" },
 	);
@@ -90,7 +90,7 @@ const latest = runs[0];
 
 if (latest.conclusion === "FAILURE") {
 	console.error(
-		`[preflight] main CI is RED — fix that before starting a new spec, or pass --force\n  run: ${latest.htmlUrl}`,
+		`[preflight] main CI is RED — fix that before starting a new spec, or pass --force\n  run: ${latest.url}`,
 	);
 	process.exit(1);
 }
