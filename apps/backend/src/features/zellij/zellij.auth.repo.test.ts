@@ -21,17 +21,20 @@ let mockReadFileImpl: (path: string, enc: string) => Promise<string> = () =>
 	Promise.reject(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
 let mockWriteFileCalls: Array<{ path: string; content: string; mode: number }> = [];
 
-type WriteFileArgs = { path: string; content: string; opts: { mode: number } };
+type WriteFileArgs = { path: string; content: string; opts: { mode?: number } };
 const mockWriteFile = ({ path, content, opts }: WriteFileArgs): Promise<void> => {
-	mockWriteFileCalls.push({ path, content, mode: opts.mode });
+	mockWriteFileCalls.push({ path, content, mode: opts.mode ?? 0 });
 	return Promise.resolve();
 };
 
 mock.module("node:fs/promises", () => ({
+	access: () => Promise.resolve(),
+	readdir: () => Promise.resolve([]),
+	stat: () => Promise.reject(Object.assign(new Error("ENOENT"), { code: "ENOENT" })),
 	readFile: (path: string, enc: string) => mockReadFileImpl(path, enc),
 	// biome-ignore lint/complexity/useMaxParams: mirrors node:fs/promises writeFile signature
-	writeFile: (path: string, content: string, opts: { mode: number }) =>
-		mockWriteFile({ path, content, opts }),
+	writeFile: (path: string, content: string, opts?: { mode?: number }) =>
+		mockWriteFile({ path, content, opts: opts ?? {} }),
 	mkdir: (_path: string, _opts: unknown) => Promise.resolve(undefined),
 }));
 

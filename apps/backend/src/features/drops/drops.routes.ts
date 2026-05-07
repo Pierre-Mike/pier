@@ -46,8 +46,6 @@ const saveFilesToDisk = (files: File[], appRoot: string): Effect.Effect<SaveResu
 			}
 			return { ok: true as const, files: saved };
 		} catch (e) {
-			// biome-ignore lint/suspicious/noConsole: temporary CI diagnostic
-			console.error("[drops] saveFilesToDisk threw:", e, "appRoot=", appRoot);
 			const msg = e instanceof Error ? e.message : "save failed";
 			return { ok: false as const, error: msg };
 		}
@@ -77,20 +75,7 @@ export const dropsPostHandler = (
 		}
 
 		const raw = bodyRaw["files"] ?? [];
-		const rawList = Array.isArray(raw) ? raw : [raw];
-		// biome-ignore lint/suspicious/noConsole: temporary CI diagnostic
-		console.error(
-			"[drops] rawList=",
-			rawList.map((x) => ({
-				ctor: (x as { constructor?: { name?: string } } | null)?.constructor?.name,
-				instanceofFile: x instanceof File,
-				instanceofBlob: x instanceof Blob,
-				name: (x as { name?: unknown })?.name,
-				type: (x as { type?: unknown })?.type,
-				size: (x as { size?: unknown })?.size,
-			})),
-		);
-		const files = rawList.filter((x): x is File => x instanceof File);
+		const files = (Array.isArray(raw) ? raw : [raw]).filter((x): x is File => x instanceof File);
 		if (files.length === 0) return c.json({ error: "no files" }, 400);
 
 		// Resolve appRoot from env override or process.cwd()
