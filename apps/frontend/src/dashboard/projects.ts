@@ -24,7 +24,7 @@ export async function refreshProjects(): Promise<void> {
 
 export function filteredProjects(): Project[] {
 	const f = store.projectFilter;
-	const base = store.projects;
+	const base = store.projects.filter((p) => !store.sessions.has(p.id));
 	return f ? base.filter((p) => p.name.toLowerCase().includes(f)) : base;
 }
 
@@ -139,7 +139,6 @@ export function renderProjects(): void {
 		const li = document.createElement("li");
 		li.dataset.id = p.id;
 		if (store.activeProject === p.id) li.classList.add("active");
-		if (store.sessions.has(p.id)) li.classList.add("open");
 		if (store.projectsWithEvents.has(p.id)) li.classList.add("has-events");
 		if (i === store.projectHighlight) li.classList.add("highlighted");
 		li.style.setProperty("--proj-color", projectColor(p.id));

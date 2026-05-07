@@ -116,7 +116,7 @@ describe("GitHub ctx menu (spec 020 → re-routed by 021)", () => {
 import { filteredProjects } from "./projects.ts";
 import { store } from "./state.ts";
 
-describe("filteredProjects — spec 021", () => {
+describe("filteredProjects — spec 022", () => {
 	beforeEach(() => {
 		store.projectFilter = "";
 		store.projects = [
@@ -146,12 +146,12 @@ describe("filteredProjects — spec 021", () => {
 		store.projectFilter = "";
 	});
 
-	test("filteredProjects includes projects that have an active session", () => {
-		// RED: current implementation filters out session-bearing projects.
-		// After the fix it must return them.
+	test("filteredProjects EXCLUDES projects that have an active session", () => {
+		// spec 022: session-bearing projects must NOT appear in the bottom list.
+		// They live exclusively in the top OPEN section (renderSessions).
 		const result = filteredProjects();
 		const ids = result.map((p) => p.id);
-		expect(ids).toContain("proj-with-session");
+		expect(ids).not.toContain("proj-with-session");
 	});
 
 	test("filteredProjects still includes projects without a session", () => {
@@ -160,29 +160,24 @@ describe("filteredProjects — spec 021", () => {
 		expect(ids).toContain("proj-without-session");
 	});
 
-	test("filteredProjects respects projectFilter when filtering by name", () => {
-		store.projectFilter = "session";
+	test("filteredProjects respects projectFilter when filtering by name (non-session match)", () => {
+		store.projectFilter = "other";
 		const result = filteredProjects();
 		const ids = result.map((p) => p.id);
-		expect(ids).toContain("proj-with-session");
-		expect(ids).not.toContain("proj-without-session");
+		expect(ids).toContain("proj-without-session");
+		expect(ids).not.toContain("proj-with-session");
 	});
 
-	// Coverage gap: renderProjects must add "open" class for session-bearing projects.
-	// Scoped to the renderProjects body — assert the open-dot CSS class is set when
-	// store.sessions.has(p.id) returns true.
-	test("renderProjects body adds 'open' class for session-bearing projects (open-dot rendering)", () => {
-		// RED: this assertion verifies that the `open` class assignment is tied to
-		// session membership inside renderProjects. A comment cannot satisfy this:
-		// the body must contain both `sessions.has` AND `"open"` together in a
-		// classList call, which is what `li.classList.add("open")` produces when
-		// sessions.has(p.id) is the guard.
-		expect(renderProjectsBody).toContain('"open"');
-		// The open class must be conditional on session membership.
+	// spec 022: the open-dot class must NOT be added inside renderProjects.
+	// Session-bearing projects no longer appear in the bottom list, so the
+	// sessions.has guard that drove classList.add("open") is dead code and
+	// must be removed.
+	test("renderProjects body does NOT add 'open' class conditional on session membership", () => {
+		// The pattern sessions.has(...).add("open") must not exist in renderProjects.
 		const openClassMatch = renderProjectsBody.match(
 			/sessions\.has\s*\([^)]+\)[^;]*\.add\s*\(\s*["']open["']\s*\)/,
 		);
-		expect(openClassMatch).not.toBeNull();
+		expect(openClassMatch).toBeNull();
 	});
 });
 
