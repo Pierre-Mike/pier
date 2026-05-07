@@ -1,11 +1,25 @@
 import { describe, expect, it } from "bun:test";
+import { GlobalWindow } from "happy-dom";
 
-// RED gate — spec 024: Show gitignored files with muted color in file tree
+// Gate — spec 024: Show gitignored files with muted color in file tree
 //
 // Integration tests asserting that:
 // 1. FileEntry type includes an `ignored` field (types.ts source check)
 // 2. files.ts renderTreeNode adds "tree-file--ignored" class for ignored entries
 // 3. Non-ignored files do NOT receive the ignored class
+
+// Inline DOM setup so the gate test runs from any cwd (repo root or app root).
+const win = new GlobalWindow();
+// biome-ignore lint/suspicious/noExplicitAny: test-only global injection
+(globalThis as any).window = win;
+// biome-ignore lint/suspicious/noExplicitAny: test-only global injection
+(globalThis as any).document = win.document;
+// biome-ignore lint/suspicious/noExplicitAny: test-only global injection
+(globalThis as any).HTMLElement = win.HTMLElement;
+// biome-ignore lint/suspicious/noExplicitAny: test-only global injection
+(globalThis as any).Element = win.Element;
+// biome-ignore lint/suspicious/noExplicitAny: test-only global injection
+(globalThis as any).Node = win.Node;
 
 const filesSource = await Bun.file(new URL("./files.ts", import.meta.url)).text();
 const typesSource = await Bun.file(new URL("./types.ts", import.meta.url)).text();
@@ -65,12 +79,13 @@ describe("renderFileTree DOM — ignored class applied correctly (spec 024 AC5+A
 
 		// Patch store and state
 		const { store } = await import("./state.ts");
+		store.sessions.set("alpha", { url: "" });
 		store.activeProject = "alpha";
 		store.fileFilter = "";
 		store.expandedDirs = new Set();
 		store.files = [
-			{ path: "src/index.ts", ignored: false },
-			{ path: "dist/bundle.js", ignored: true },
+			{ path: "index.ts", ignored: false },
+			{ path: "bundle.js", ignored: true },
 		] as Parameters<typeof store.files>[0] extends infer T ? T : never[];
 
 		// Call renderFileTree

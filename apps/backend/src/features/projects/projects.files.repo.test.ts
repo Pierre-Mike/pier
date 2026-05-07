@@ -54,7 +54,6 @@ describe("RepoService — ignored flag flows through test layer (spec 024 AC2+AC
 		new Map([
 			[
 				"alpha",
-				// @ts-expect-error ignored not yet in RepoFile — RED type error
 				[
 					{ path: "src/index.ts", size: 0, ignored: false },
 					{ path: "dist/bundle.js", size: 1024, ignored: true },

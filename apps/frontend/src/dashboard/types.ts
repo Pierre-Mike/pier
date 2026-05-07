@@ -19,6 +19,7 @@ export interface Session {
 export interface FileEntry {
 	path: string;
 	size?: number;
+	ignored?: boolean;
 }
 
 export interface Branch {

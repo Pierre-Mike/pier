@@ -1,17 +1,18 @@
 ---
 id: 024-gitignored-files-muted-color
 title: Show gitignored files with muted color in file tree
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/backend/src/features/projects/projects.files.repo.test.ts
     level: unit
   - path: apps/frontend/src/dashboard/files.test.ts
     level: integration
-created: 2026-05-07
+created: 2026-05-07T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-05-07'
 ---
 
 ## Intent
