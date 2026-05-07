@@ -1,13 +1,14 @@
 ---
 id: 027-ship-do-fast-bundle
 title: Land /do-fast skill bundle under spec governance
-status: active
+status: archived
 kind: workflow
 gate: scripts/smoke-do-fast-bundle.ts
 created: 2026-05-07T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-05-07'
 ---
 
 ## Intent
