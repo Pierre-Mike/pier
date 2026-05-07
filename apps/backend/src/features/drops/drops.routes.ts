@@ -75,7 +75,20 @@ export const dropsPostHandler = (
 		}
 
 		const raw = bodyRaw["files"] ?? [];
-		const files = (Array.isArray(raw) ? raw : [raw]).filter((x): x is File => x instanceof File);
+		const rawList = Array.isArray(raw) ? raw : [raw];
+		// biome-ignore lint/suspicious/noConsole: temporary CI diagnostic
+		console.error(
+			"[drops] rawList=",
+			rawList.map((x) => ({
+				ctor: (x as { constructor?: { name?: string } } | null)?.constructor?.name,
+				instanceofFile: x instanceof File,
+				instanceofBlob: x instanceof Blob,
+				name: (x as { name?: unknown })?.name,
+				type: (x as { type?: unknown })?.type,
+				size: (x as { size?: unknown })?.size,
+			})),
+		);
+		const files = rawList.filter((x): x is File => x instanceof File);
 		if (files.length === 0) return c.json({ error: "no files" }, 400);
 
 		// Resolve appRoot from env override or process.cwd()
