@@ -49,44 +49,41 @@ describe("terminal iframe dashboard wiring", () => {
 });
 
 // ---------------------------------------------------------------------------
-// spec 020: renderSessions() must attach contextmenu → openProjectContextMenu
-// Note: this describe block tests the PRE-SPLIT state. After 021 lands,
-// renderSessions switches to openSessionContextMenu; spec 021 block below
-// carries the post-split assertions.
+// GitHub ctx menu (spec 020 → re-routed by 021)
+// Post-021-split: the GitHub-URL context menu lives on renderProjects (bottom
+// list), NOT renderSessions. These tests are re-routed to renderProjectsBody
+// so they serve as regression coverage throughout spec 021's implementation.
 // ---------------------------------------------------------------------------
-describe("renderSessions contextmenu — spec 020", () => {
-	test("renderSessions body is extractable (sanity check)", () => {
+describe("GitHub ctx menu (spec 020 → re-routed by 021)", () => {
+	test("renderProjects body is extractable (sanity check)", () => {
 		// If this fails the extractor regex needs updating — not a spec issue.
-		expect(renderSessionsBody.length).toBeGreaterThan(0);
+		expect(renderProjectsBody.length).toBeGreaterThan(0);
 	});
 
-	test("renderSessions attaches a contextmenu listener on each session li", () => {
-		// RED: current renderSessions() has no contextmenu addEventListener call.
-		expect(renderSessionsBody).toContain('addEventListener("contextmenu"');
+	test("renderProjects attaches a contextmenu listener on each project li", () => {
+		expect(renderProjectsBody).toContain('addEventListener("contextmenu"');
 	});
 
-	test("renderSessions contextmenu handler calls ev.preventDefault()", () => {
-		// RED: no contextmenu handler exists yet.
-		expect(renderSessionsBody).toContain("ev.preventDefault()");
+	test("renderProjects contextmenu handler calls ev.preventDefault()", () => {
+		expect(renderProjectsBody).toContain("ev.preventDefault()");
 	});
 
-	test("renderSessions contextmenu handler calls openProjectContextMenu", () => {
-		// RED: openProjectContextMenu is never called inside renderSessions today.
-		expect(renderSessionsBody).toContain("openProjectContextMenu");
+	test("renderProjects contextmenu handler calls openProjectContextMenu", () => {
+		expect(renderProjectsBody).toContain("openProjectContextMenu");
 	});
 
-	test("renderSessions passes project id to openProjectContextMenu", () => {
-		// RED: the call must pass { id: pid, ... }.
-		const ctxMenuCallMatch = renderSessionsBody.match(
+	test("renderProjects passes project id to openProjectContextMenu", () => {
+		// Post-split: the loop variable in renderProjects is `p`, so the id is p.id.
+		const ctxMenuCallMatch = renderProjectsBody.match(
 			/openProjectContextMenu\s*\(\s*\{[\s\S]{0,200}?\}\s*\)/,
 		);
 		expect(ctxMenuCallMatch).not.toBeNull();
 		const callText = ctxMenuCallMatch?.[0] ?? "";
-		expect(callText).toMatch(/\bid\s*:\s*pid\b/);
+		expect(callText).toMatch(/\bid\s*:\s*p\.id\b/);
 	});
 
-	test("renderSessions passes clientX and clientY to openProjectContextMenu", () => {
-		const ctxMenuCallMatch = renderSessionsBody.match(
+	test("renderProjects passes clientX and clientY to openProjectContextMenu", () => {
+		const ctxMenuCallMatch = renderProjectsBody.match(
 			/openProjectContextMenu\s*\(\s*\{[\s\S]{0,200}?\}\s*\)/,
 		);
 		const callText = ctxMenuCallMatch?.[0] ?? "";
