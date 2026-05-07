@@ -21,10 +21,17 @@ const ensureDropsDir = async (appRoot: string): Promise<string> => {
 	return dropsDir;
 };
 
+const isFileLike = (x: unknown): x is File =>
+	x !== null &&
+	typeof x === "object" &&
+	typeof (x as { arrayBuffer?: unknown }).arrayBuffer === "function" &&
+	typeof (x as { name?: unknown }).name === "string" &&
+	typeof (x as { size?: unknown }).size === "number";
+
 const saveFilesToDropsDir = async (dropsDir: string, files: File[]): Promise<DroppedFile[]> => {
 	const saved: DroppedFile[] = [];
 	for (const f of files) {
-		if (!(f instanceof File)) continue;
+		if (!isFileLike(f)) continue;
 		if (f.size > MAX_DROP_BYTES) throw new Error(`file too large: ${f.name}`);
 		const safe = sanitizeDropName(f.name || "unnamed");
 		const target = await uniqueDropPath(dropsDir, safe);

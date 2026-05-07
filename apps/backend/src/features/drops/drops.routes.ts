@@ -75,7 +75,14 @@ export const dropsPostHandler = (
 		}
 
 		const raw = bodyRaw["files"] ?? [];
-		const files = (Array.isArray(raw) ? raw : [raw]).filter((x): x is File => x instanceof File);
+		const files = (Array.isArray(raw) ? raw : [raw]).filter(
+			(x): x is File =>
+				x !== null &&
+				typeof x === "object" &&
+				typeof (x as { arrayBuffer?: unknown }).arrayBuffer === "function" &&
+				typeof (x as { name?: unknown }).name === "string" &&
+				typeof (x as { size?: unknown }).size === "number",
+		);
 		if (files.length === 0) return c.json({ error: "no files" }, 400);
 
 		// Resolve appRoot from env override or process.cwd()
