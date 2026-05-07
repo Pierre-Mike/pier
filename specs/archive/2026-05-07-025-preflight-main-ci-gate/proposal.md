@@ -1,13 +1,14 @@
 ---
 id: 025-preflight-main-ci-gate
 title: Block /do worktree-open when main CI is red
-status: active
+status: archived
 kind: workflow
 gate: scripts/smoke-preflight-main-ci.ts
-created: 2026-05-07
+created: 2026-05-07T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-05-07'
 ---
 
 ## Intent

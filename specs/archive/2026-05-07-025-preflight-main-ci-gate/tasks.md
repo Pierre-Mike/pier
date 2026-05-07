@@ -12,17 +12,17 @@ and `boundary`.
 
 Parallel-safe siblings are marked `[P]`.
 
-- [ ] 1. Implement `scripts/preflight-main-ci.ts`
+- [x] 1. Implement `scripts/preflight-main-ci.ts`
   - agent: main
   - depends: []
   - file_targets: [scripts/preflight-main-ci.ts]
   - boundary: [scripts/preflight-main-ci.ts]
-- [ ] 2. [P] Wire preflight into `scripts/worktree-open.ts` with `--force` plumb-through
+- [x] 2. [P] Wire preflight into `scripts/worktree-open.ts` with `--force` plumb-through
   - agent: main
   - depends: [1]
   - file_targets: [scripts/worktree-open.ts]
   - boundary: [scripts/worktree-open.ts]
-- [ ] 3. [P] Wire smoke into `bun run tasks:verify` if needed (confirm `package.json` wiring)
+- [x] 3. [P] Wire smoke into `bun run tasks:verify` if needed (confirm `package.json` wiring)
   - agent: main
   - depends: [1]
   - file_targets: [package.json]
