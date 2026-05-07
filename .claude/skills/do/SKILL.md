@@ -15,10 +15,10 @@ One command per change. Main stays clean. Work happens in an isolated worktree o
 ## Preconditions
 
 - Current directory is the repo root
-- Current branch is `main`
-- Working tree is clean (`git status --porcelain` empty)
 
-Refuse with a clear message if any precondition fails.
+Local branch and working-tree state are ignored — `worktree-open.ts` fetches `origin/main` and bases the new worktree on it. Unpushed local commits on `main` are skipped by design.
+
+Refuse with a clear message only if the repo-root precondition fails.
 
 ## Workflow
 
@@ -302,7 +302,7 @@ Stop after printing the report. Do not pull, do not clean up the worktree — th
 
 ## Rules
 
-- **Main is never dirty.** Every file write goes into the worktree. Verify with `git status` from main after /do finishes.
+- **/do never writes to main.** Every file write goes into the worktree. Pre-existing local dirt on `main` is left untouched.
 - **Align is non-optional.** Skipping the interview produces misaligned specs that poison the archive.
 - **Delegate after alignment.** Once spec fields are confirmed, the main session must dispatch Steps 3–10 to a background subagent via the `Agent` tool (`run_in_background: true`). The user stays unblocked; re-engagement happens through the subagent's completion notification.
 - **Spec first, gate second.** `proposal.md` gets written before any gate artifact — the pre-tool-use write guard blocks edits to protected paths until an active spec targets them.

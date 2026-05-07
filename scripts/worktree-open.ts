@@ -1,8 +1,8 @@
 /**
  * Open a worktree for a spec: isolated branch + working directory.
  *
- *   - Refuses unless main is clean and checked out
- *   - Creates `.agentic/worktrees/<slug>` on branch `spec/<slug>` from `main`
+ *   - Fetches origin/main and creates the worktree from it (local state ignored)
+ *   - Creates `.agentic/worktrees/<slug>` on branch `spec/<slug>` from `origin/main`
  *   - Prints the worktree absolute path on success
  *
  * Usage: bun scripts/worktree-open.ts <slug>
@@ -40,18 +40,6 @@ async function main(): Promise<void> {
 		process.exit(1);
 	}
 
-	const status = await sh(["git", "status", "--porcelain"], { silent: true });
-	if (status.out.length > 0) {
-		console.error("✖ main has uncommitted changes. Commit or stash before opening a worktree.");
-		process.exit(1);
-	}
-
-	const currentBranch = await sh(["git", "branch", "--show-current"], { silent: true });
-	if (currentBranch.out !== "main") {
-		console.error(`✖ not on main (currently on '${currentBranch.out}'). Switch to main first.`);
-		process.exit(1);
-	}
-
 	const branchExists = await sh(
 		["git", "show-ref", "--verify", "--quiet", `refs/heads/${branch}`],
 		{
@@ -63,7 +51,14 @@ async function main(): Promise<void> {
 		process.exit(1);
 	}
 
-	const result = await sh(["git", "worktree", "add", worktreePath, "-b", branch, "main"]);
+	console.log("fetching origin/main…");
+	const fetch = await sh(["git", "fetch", "origin", "main"]);
+	if (!fetch.ok) {
+		console.error("✖ git fetch origin main failed");
+		process.exit(1);
+	}
+
+	const result = await sh(["git", "worktree", "add", worktreePath, "-b", branch, "origin/main"]);
 	if (!result.ok) {
 		console.error("✖ git worktree add failed");
 		process.exit(1);
