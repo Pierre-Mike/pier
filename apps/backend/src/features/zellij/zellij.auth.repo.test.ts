@@ -11,27 +11,33 @@
  *   - __resetZellijAuthForTests() is called in beforeEach to clear module
  *     state between cases.
  */
+
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import * as realFsPromises from "node:fs/promises";
 
 // --- fs/promises mock setup ------------------------------------------------
 // We intercept readFile / writeFile / mkdir at the module level so the real
-// implementation never touches disk during tests.
+// implementation never touches disk during tests. Other fs/promises functions
+// pass through to the real module so this mock doesn't contaminate unrelated
+// tests in the same Bun process (mock.module is process-global and persists
+// after this file's tests finish).
 
 let mockReadFileImpl: (path: string, enc: string) => Promise<string> = () =>
 	Promise.reject(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
 let mockWriteFileCalls: Array<{ path: string; content: string; mode: number }> = [];
 
-type WriteFileArgs = { path: string; content: string; opts: { mode: number } };
+type WriteFileArgs = { path: string; content: string; opts: { mode?: number } };
 const mockWriteFile = ({ path, content, opts }: WriteFileArgs): Promise<void> => {
-	mockWriteFileCalls.push({ path, content, mode: opts.mode });
+	mockWriteFileCalls.push({ path, content, mode: opts.mode ?? 0 });
 	return Promise.resolve();
 };
 
 mock.module("node:fs/promises", () => ({
+	...realFsPromises,
 	readFile: (path: string, enc: string) => mockReadFileImpl(path, enc),
 	// biome-ignore lint/complexity/useMaxParams: mirrors node:fs/promises writeFile signature
-	writeFile: (path: string, content: string, opts: { mode: number }) =>
-		mockWriteFile({ path, content, opts }),
+	writeFile: (path: string, content: string, opts?: { mode?: number }) =>
+		mockWriteFile({ path, content, opts: opts ?? {} }),
 	mkdir: (_path: string, _opts: unknown) => Promise.resolve(undefined),
 }));
 

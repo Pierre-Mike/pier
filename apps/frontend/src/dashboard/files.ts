@@ -45,7 +45,7 @@ export async function refreshFiles(projectId: string): Promise<void> {
 
 interface TreeNode {
 	dirs: Map<string, TreeNode>;
-	files: Array<{ name: string; path: string }>;
+	files: Array<{ name: string; path: string; ignored: boolean }>;
 }
 
 function buildTree(files: FileEntry[]): TreeNode {
@@ -62,7 +62,11 @@ function buildTree(files: FileEntry[]): TreeNode {
 			}
 			node = child;
 		}
-		node.files.push({ name: parts[parts.length - 1], path: f.path });
+		node.files.push({
+			name: parts[parts.length - 1] ?? "",
+			path: f.path,
+			ignored: f.ignored === true,
+		});
 	}
 	return root;
 }
@@ -120,7 +124,7 @@ function renderTreeNode(
 	const files = node.files.sort((a, b) => a.name.localeCompare(b.name));
 	for (const f of files) {
 		const li = document.createElement("li");
-		li.className = `tree-file${store.activeFilePath === f.path ? " active" : ""}`;
+		li.className = `tree-file${store.activeFilePath === f.path ? " active" : ""}${f.ignored ? " tree-file--ignored" : ""}`;
 		li.innerHTML = `<div class="tree-row"><span class="chev"></span><span class="name">${escapeHTML(f.name)}</span></div>`;
 		li.draggable = true;
 		li.addEventListener("click", () => openRepoFile(f.path, f.name));

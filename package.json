@@ -30,6 +30,7 @@
 		"@biomejs/biome": "^2.4.7",
 		"@types/bun": "latest",
 		"gray-matter": "^4.0.3",
+		"happy-dom": "^20.9.0",
 		"lefthook": "^2.1.4",
 		"turbo": "^2.7.0",
 		"typescript": "^5"

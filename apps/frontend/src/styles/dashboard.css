@@ -558,6 +558,16 @@ body.resizing iframe {
 .file-tree .tree-file.active > .tree-row .name {
 	color: var(--accent);
 }
+.file-tree .tree-file--ignored > .tree-row .name {
+	color: var(--fg-dim);
+	opacity: 0.55;
+	font-style: italic;
+}
+.file-tree .tree-file--ignored.active > .tree-row .name {
+	color: var(--accent-dim);
+	opacity: 1;
+	font-style: normal;
+}
 
 /* refs list (branches + worktrees) — sibling of file-tree, same row look */
 .refs-list {

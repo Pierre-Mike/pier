@@ -7,7 +7,7 @@ import { ConfigService } from "../../platform/config.repo.ts";
 
 const exec = promisify(execFile);
 
-export type RepoFile = { path: string; size: number };
+export type RepoFile = { path: string; size: number; ignored: boolean };
 
 export class RepoError extends Data.TaggedError("RepoError")<{ message: string }> {}
 
@@ -29,6 +29,37 @@ const projectRootFor = (projectsRoot: string, id: string): string => {
 	return join(projectsRoot, id);
 };
 
+const GIT_LS_BUFFER = 64 * 1024 * 1024;
+
+const splitNul = (s: string): string[] => s.split("\0").filter(Boolean);
+
+const listProjectFiles = async (projectRoot: string): Promise<RepoFile[]> => {
+	const { stdout: visibleStdout } = await exec(
+		"git",
+		["-C", projectRoot, "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+		{ maxBuffer: GIT_LS_BUFFER },
+	);
+	const { stdout: ignoredStdout } = await exec(
+		"git",
+		["-C", projectRoot, "ls-files", "-z", "-i", "--others", "--exclude-standard"],
+		{ maxBuffer: GIT_LS_BUFFER },
+	).catch(() => ({ stdout: "" }));
+
+	const seen = new Set<string>();
+	const out: RepoFile[] = [];
+	for (const p of splitNul(visibleStdout)) {
+		if (seen.has(p)) continue;
+		seen.add(p);
+		out.push({ path: p, size: 0, ignored: false });
+	}
+	for (const p of splitNul(ignoredStdout)) {
+		if (seen.has(p)) continue;
+		seen.add(p);
+		out.push({ path: p, size: 0, ignored: true });
+	}
+	return out;
+};
+
 export const makeRepoServiceLive = (): Layer.Layer<RepoService, never, ConfigService> =>
 	Layer.effect(
 		RepoService,
@@ -40,29 +71,7 @@ export const makeRepoServiceLive = (): Layer.Layer<RepoService, never, ConfigSer
 			return {
 				listFiles: (projectId) =>
 					Effect.tryPromise({
-						try: async () => {
-							const { stdout } = await exec(
-								"git",
-								[
-									"-C",
-									root(projectId),
-									"ls-files",
-									"-z",
-									"--cached",
-									"--others",
-									"--exclude-standard",
-								],
-								{ maxBuffer: 64 * 1024 * 1024 },
-							);
-							const seen = new Set<string>();
-							const out: RepoFile[] = [];
-							for (const p of stdout.split("\0")) {
-								if (!p || seen.has(p)) continue;
-								seen.add(p);
-								out.push({ path: p, size: 0 });
-							}
-							return out;
-						},
+						try: () => listProjectFiles(root(projectId)),
 						catch: () => new RepoError({ message: "git ls-files failed" }),
 					}).pipe(Effect.orElseSucceed(() => [] as RepoFile[])),
 
@@ -93,11 +102,20 @@ export const makeRepoServiceLive = (): Layer.Layer<RepoService, never, ConfigSer
 		}),
 	);
 
+type RepoFileFixture = Omit<RepoFile, "ignored"> & { ignored?: boolean };
+
 export const makeRepoServiceTest = (
-	files: ReadonlyMap<string, RepoFile[]>,
+	files: ReadonlyMap<string, RepoFileFixture[]>,
 ): Layer.Layer<RepoService> =>
 	Layer.succeed(RepoService, {
-		listFiles: (projectId) => Effect.succeed(files.get(projectId) ?? []),
+		listFiles: (projectId) => {
+			const entries = files.get(projectId) ?? [];
+			const normalised: RepoFile[] = entries.map((f) => ({
+				...f,
+				ignored: typeof f.ignored === "boolean" ? f.ignored : false,
+			}));
+			return Effect.succeed(normalised);
+		},
 		resolvePath: ({ projectId, path }) => Effect.succeed(`/test/${projectId}/${path}`),
 		fileStat: () => Effect.succeed({ size: 0 }),
 	});
