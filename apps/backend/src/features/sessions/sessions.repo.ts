@@ -6,9 +6,11 @@ import { ConfigService } from "../../platform/config.repo.ts";
 // Zellij names a unix socket `<socket_dir>/<version>/<name>`. macOS sun_path is
 // 104 bytes; default `$TMPDIR/zellij-<uid>` on macOS is ~62 chars, leaving too
 // little for the name. Pin to a short, stable dir so the budget is predictable.
+// `/var/z` is preferred over `/tmp/z` because /tmp is wiped on reboot/cleanup
+// (see zellij-org/zellij#5081), which would orphan running sessions.
 // Users who want their interactive `zellij` to share these sessions should
-// `export ZELLIJ_SOCKET_DIR=/tmp/z` in their shell rc.
-export const ZELLIJ_SOCKET_DIR = "/tmp/z";
+// `export ZELLIJ_SOCKET_DIR=/var/z` in their shell rc.
+export const ZELLIJ_SOCKET_DIR = "/var/z";
 const MAX_ZELLIJ_NAME = 60;
 
 const sessionIdFromProjectId = (projectId: string): string =>
