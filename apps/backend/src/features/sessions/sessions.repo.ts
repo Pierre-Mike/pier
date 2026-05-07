@@ -88,6 +88,20 @@ const spawnNamedSession = async (id: string, cwd: string): Promise<void> => {
 	await proc.exited.catch(() => undefined);
 };
 
+export const resolveProjectCwd = async (
+	projectsRoot: string,
+	projectId: string,
+): Promise<string> => {
+	const path = join(projectsRoot, projectId);
+	try {
+		const s = await stat(path);
+		if (s.isDirectory()) return path;
+	} catch {
+		// fall through
+	}
+	return projectsRoot;
+};
+
 export const makeTerminalSessionsLive = (): Layer.Layer<TerminalSessions, never, ConfigService> =>
 	Layer.effect(
 		TerminalSessions,
@@ -120,17 +134,6 @@ export const makeTerminalSessionsLive = (): Layer.Layer<TerminalSessions, never,
 					await writeFile(registryPath, `${JSON.stringify(sess)}\n`, { flag: "a" });
 				}).pipe(Effect.orElseSucceed(() => undefined));
 
-			const resolveProjectCwd = async (projectId: string): Promise<string> => {
-				const path = join(config.projectsRoot, projectId);
-				try {
-					const s = await stat(path);
-					if (s.isDirectory()) return path;
-				} catch {
-					// fall through
-				}
-				return config.projectsRoot;
-			};
-
 			return {
 				open: (projectId) =>
 					Effect.gen(function* () {
@@ -138,9 +141,9 @@ export const makeTerminalSessionsLive = (): Layer.Layer<TerminalSessions, never,
 						const existing = registry.get(id);
 						if (existing?.status === "live") return existing;
 
-						const cwd = yield* Effect.tryPromise(() => resolveProjectCwd(projectId)).pipe(
-							Effect.orElseSucceed(() => config.projectsRoot),
-						);
+						const cwd = yield* Effect.tryPromise(() =>
+							resolveProjectCwd(config.projectsRoot, projectId),
+						).pipe(Effect.orElseSucceed(() => config.projectsRoot));
 
 						yield* Effect.tryPromise(() => spawnNamedSession(id, cwd)).pipe(
 							Effect.tapError((err) =>
