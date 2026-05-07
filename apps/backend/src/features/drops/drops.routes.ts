@@ -65,25 +65,9 @@ export const dropsPostHandler = (
 				string,
 				unknown
 			>;
-		} catch (e) {
-			// biome-ignore lint/suspicious/noConsole: temporary CI diagnostic
-			console.error("[drops] parseBody threw:", e);
+		} catch {
 			return c.json({ error: "bad form body" }, 400);
 		}
-
-		// biome-ignore lint/suspicious/noConsole: temporary CI diagnostic
-		console.error(
-			"[drops] bodyRaw keys=",
-			Object.keys(bodyRaw),
-			"files type=",
-			typeof bodyRaw["files"],
-			"isArray=",
-			Array.isArray(bodyRaw["files"]),
-			"ctor=",
-			(bodyRaw["files"] as { constructor?: { name?: string } } | null)?.constructor?.name,
-			"activeProjectId=",
-			JSON.stringify(bodyRaw["activeProjectId"]),
-		);
 
 		const activeProjectId = bodyRaw["activeProjectId"];
 		if (typeof activeProjectId !== "string" || !activeProjectId) {
@@ -91,14 +75,7 @@ export const dropsPostHandler = (
 		}
 
 		const raw = bodyRaw["files"] ?? [];
-		const files = (Array.isArray(raw) ? raw : [raw]).filter(
-			(x): x is File =>
-				x !== null &&
-				typeof x === "object" &&
-				typeof (x as { arrayBuffer?: unknown }).arrayBuffer === "function" &&
-				typeof (x as { name?: unknown }).name === "string" &&
-				typeof (x as { size?: unknown }).size === "number",
-		);
+		const files = (Array.isArray(raw) ? raw : [raw]).filter((x): x is File => x instanceof File);
 		if (files.length === 0) return c.json({ error: "no files" }, 400);
 
 		// Resolve appRoot from env override or process.cwd()

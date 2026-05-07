@@ -142,7 +142,7 @@ describe("POST /api/drops", () => {
 		if (!capturedApp) return;
 
 		const formData = new FormData();
-		formData.append("files", new File(["data"], "file.txt"));
+		formData.append("files", new File(["data"], "file.txt"), "file.txt");
 		// No activeProjectId field — must return 400
 		const res = await capturedApp.request("/api/drops", {
 			method: "POST",
@@ -159,7 +159,7 @@ describe("POST /api/drops", () => {
 		if (!capturedApp) return;
 
 		const formData = new FormData();
-		formData.append("files", new File(["hello"], "hello.txt"));
+		formData.append("files", new File(["hello"], "hello.txt"), "hello.txt");
 		formData.append("activeProjectId", "my-project");
 		const res = await capturedApp.request("/api/drops", {
 			method: "POST",
@@ -187,7 +187,7 @@ describe("POST /api/drops", () => {
 		if (!capturedApp) return;
 
 		const formData = new FormData();
-		formData.append("files", new File(["x"], "my file.txt"));
+		formData.append("files", new File(["x"], "my file.txt"), "my file.txt");
 		formData.append("activeProjectId", "my-project");
 		const res = await capturedApp.request("/api/drops", {
 			method: "POST",
@@ -212,7 +212,7 @@ describe("POST /api/drops", () => {
 		if (!capturedApp) return;
 
 		const formData = new FormData();
-		formData.append("files", new File(["x"], "safe.txt"));
+		formData.append("files", new File(["x"], "safe.txt"), "safe.txt");
 		formData.append("activeProjectId", "my-project");
 		const res = await capturedApp.request("/api/drops", {
 			method: "POST",
@@ -236,8 +236,8 @@ describe("POST /api/drops", () => {
 		if (!capturedApp) return;
 
 		const formData = new FormData();
-		formData.append("files", new File(["a"], "a.txt"));
-		formData.append("files", new File(["b"], "b with space.txt"));
+		formData.append("files", new File(["a"], "a.txt"), "a.txt");
+		formData.append("files", new File(["b"], "b with space.txt"), "b with space.txt");
 		formData.append("activeProjectId", "my-project");
 		const res = await capturedApp.request("/api/drops", {
 			method: "POST",
@@ -265,7 +265,7 @@ describe("POST /api/drops", () => {
 		if (!falseApp) return;
 
 		const formData = new FormData();
-		formData.append("files", new File(["data"], "data.bin"));
+		formData.append("files", new File(["data"], "data.bin"), "data.bin");
 		formData.append("activeProjectId", "my-project");
 		const res = await falseApp.request("/api/drops", {
 			method: "POST",
