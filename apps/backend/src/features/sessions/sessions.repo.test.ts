@@ -1,6 +1,15 @@
-import { describe, expect, it } from "bun:test";
-import { Effect } from "effect";
-import { TerminalSessions, TerminalSessionsTest } from "./sessions.repo.ts";
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { mkdirSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Effect, Layer } from "effect";
+import { ConfigService } from "../../platform/config.repo.ts";
+import {
+	makeTerminalSessionsLive,
+	resolveProjectCwd,
+	TerminalSessions,
+	TerminalSessionsTest,
+} from "./sessions.repo.ts";
 
 describe("TerminalSessionsTest", () => {
 	it("open creates a new session", async () => {
@@ -187,5 +196,138 @@ describe("TerminalSessions.openDefault", () => {
 
 		expect(first.id).toBe(second.id);
 		expect(first.url).toBe(second.url);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// spec 023: resolveProjectCwd — exported pure helper
+// ---------------------------------------------------------------------------
+
+// AC (2) + AC (3): direct unit test on the exported helper.
+// RED: `resolveProjectCwd` is not yet exported from sessions.repo.ts — this
+// describe block will fail to compile until the export is added.
+describe("resolveProjectCwd — exported helper (spec 023)", () => {
+	let tmpRoot: string;
+	let existingProject: string;
+
+	beforeAll(() => {
+		tmpRoot = mkdtempSync(join(tmpdir(), "pier-spec-023-"));
+		existingProject = "my-project";
+		mkdirSync(join(tmpRoot, existingProject));
+	});
+
+	it("returns <projectsRoot>/<projectId> when that directory exists", async () => {
+		const result = await resolveProjectCwd(tmpRoot, existingProject);
+		expect(result).toBe(join(tmpRoot, existingProject));
+	});
+
+	it("returns <projectsRoot> when <projectId> directory does not exist", async () => {
+		const result = await resolveProjectCwd(tmpRoot, "no-such-project");
+		expect(result).toBe(tmpRoot);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// spec 023: cwd threading through the Live service
+// ---------------------------------------------------------------------------
+
+// AC (4) + AC (5): assert the cwd passed to Bun.spawn when open/openDefault
+// are called via the real Live layer backed by a controlled tmp dir.
+describe("TerminalSessions Live — cwd resolution (spec 023)", () => {
+	let tmpRoot: string;
+	let existingProject: string;
+	let capturedSpawnOptions: Array<{ args: string[]; cwd: string | undefined }>;
+	let originalSpawn: typeof Bun.spawn;
+
+	beforeAll(() => {
+		tmpRoot = mkdtempSync(join(tmpdir(), "pier-spec-023-live-"));
+		existingProject = "real-project";
+		mkdirSync(join(tmpRoot, existingProject));
+		capturedSpawnOptions = [];
+
+		// Capture Bun.spawn calls so we can assert cwd without actually launching zellij.
+		originalSpawn = Bun.spawn;
+		// @ts-expect-error — intentional mock override for test isolation
+		Bun.spawn = (args: string[], opts?: { cwd?: string; [key: string]: unknown }) => {
+			capturedSpawnOptions.push({ args: args as string[], cwd: opts?.cwd });
+			// Return a minimal fake proc so spawnNamedSession's await-loop terminates quickly.
+			return {
+				stdout: new ReadableStream({ start: (c) => c.close() }),
+				stderr: new ReadableStream({ start: (c) => c.close() }),
+				exited: Promise.resolve(0),
+				kill: () => undefined,
+			};
+		};
+	});
+
+	afterAll(() => {
+		Bun.spawn = originalSpawn;
+	});
+
+	const makeLayer = (projectsRoot: string) =>
+		makeTerminalSessionsLive().pipe(
+			Layer.provide(
+				Layer.succeed(ConfigService, {
+					get: () =>
+						Effect.succeed({
+							version: "0.0.0",
+							env: "test",
+							appPort: 5173,
+							sandboxPort: 5174,
+							zellijWebUrl: "https://test.local:8082",
+							projectsRoot,
+							piRoot: tmpRoot,
+							artifactsDir: join(tmpRoot, "artifacts"),
+							claudeProjectsRoot: join(tmpRoot, "claude-projects"),
+							appRoot: tmpRoot,
+						}),
+				}),
+			),
+		);
+
+	it("open(projectId) passes <projectsRoot>/<projectId> to spawn when directory exists", async () => {
+		capturedSpawnOptions = [];
+		await Effect.runPromise(
+			Effect.gen(function* () {
+				const sessions = yield* TerminalSessions;
+				yield* sessions.open(existingProject);
+			}).pipe(Effect.provide(makeLayer(tmpRoot))),
+		);
+		// Filter to only zellij --session spawn calls (not list-sessions calls).
+		const sessionSpawns = capturedSpawnOptions.filter(
+			(s) => s.args.includes("--session") && !s.args.includes("list-sessions"),
+		);
+		expect(sessionSpawns.length).toBeGreaterThan(0);
+		expect(sessionSpawns[0]?.cwd).toBe(join(tmpRoot, existingProject));
+	});
+
+	it("open(projectId) passes <projectsRoot> to spawn when directory does not exist", async () => {
+		capturedSpawnOptions = [];
+		await Effect.runPromise(
+			Effect.gen(function* () {
+				const sessions = yield* TerminalSessions;
+				yield* sessions.open("ghost-project");
+			}).pipe(Effect.provide(makeLayer(tmpRoot))),
+		);
+		const sessionSpawns = capturedSpawnOptions.filter(
+			(s) => s.args.includes("--session") && !s.args.includes("list-sessions"),
+		);
+		expect(sessionSpawns.length).toBeGreaterThan(0);
+		expect(sessionSpawns[0]?.cwd).toBe(tmpRoot);
+	});
+
+	it("openDefault() passes <projectsRoot> to spawn", async () => {
+		capturedSpawnOptions = [];
+		await Effect.runPromise(
+			Effect.gen(function* () {
+				const sessions = yield* TerminalSessions;
+				yield* sessions.openDefault();
+			}).pipe(Effect.provide(makeLayer(tmpRoot))),
+		);
+		const sessionSpawns = capturedSpawnOptions.filter(
+			(s) => s.args.includes("--session") && !s.args.includes("list-sessions"),
+		);
+		expect(sessionSpawns.length).toBeGreaterThan(0);
+		expect(sessionSpawns[0]?.cwd).toBe(tmpRoot);
 	});
 });
