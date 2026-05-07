@@ -191,6 +191,53 @@ Pre-commit hooks (Lefthook) run automatically on `git commit`:
 
 CI order: `type-check → biome ci → test → secret-scan → build` — each stage blocks the next.
 
+## Troubleshooting
+
+### Zellij socket directory: `/var/z`
+
+Pier pins zellij's socket directory to `/var/z` (see `apps/backend/src/features/sessions/sessions.repo.ts`). Two reasons:
+
+- macOS `sun_path` is 104 bytes; the default `$TMPDIR/zellij-<uid>` (~62 chars) leaves no room for session names.
+- `/tmp` is wiped on reboot/cleanup ([zellij-org/zellij#5081](https://github.com/zellij-org/zellij/issues/5081)), which would orphan running sessions.
+
+If you want your interactive `zellij` CLI to share sessions with the ones pier created, set the same dir in your shell rc:
+
+```sh
+export ZELLIJ_SOCKET_DIR=/var/z
+```
+
+### Duplicate characters in the embedded terminal
+
+Symptom: typing in a pier iframe produces `ddawdx` for `dawx`, the prompt repaints twice, or backspace inserts a space. The cause is **not** pier — it's a known zellij web client bug surfaced by an unset/incompatible `$TERM` and zsh-syntax-highlighting (or any TUI that reads terminfo). Reference: [zellij-org/zellij#5144](https://github.com/zellij-org/zellij/issues/5144).
+
+Permanent fix — rebuild zellij with these two PRs cherry-picked, then replace the binary at `/opt/homebrew/bin/zellij`:
+
+- [#4922 — fix Android web input handling (removes duplicate `setupInputHandlers` + refreshes vendored xterm.js)](https://github.com/zellij-org/zellij/pull/4922)
+- [#5145 — set `TERM=xterm-256color` for the web server](https://github.com/zellij-org/zellij/pull/5145)
+
+```sh
+gh repo clone zellij-org/zellij /tmp/zellij-src
+cd /tmp/zellij-src
+git fetch origin pull/4922/head:pr-4922 pull/5145/head:pr-5145
+git checkout -B patched main
+git cherry-pick pr-4922 pr-5145
+cargo build --release --locked
+TARGET=$(readlink -f $(which zellij))
+chmod u+w "$TARGET"
+cp target/release/zellij "$TARGET"
+codesign --force --sign - "$TARGET"
+chmod u-w "$TARGET"
+kill $(lsof -nP -iTCP:8082 -sTCP:LISTEN -t)   # let pier respawn the web daemon
+```
+
+After replacing the binary: hard-refresh the dashboard with DevTools cache disabled, and open a **new** session. Existing `zellij --server` processes keep their stale env until you kill them or `export TERM=xterm-256color` inside each pane.
+
+Per-pane workaround if you don't want to rebuild:
+
+```sh
+export TERM=xterm-256color
+```
+
 ## Contributing
 
 pier uses a **spec-first workflow**: every change to production code (`apps/**`, `packages/**`, `.github/**`) starts as a spec in `specs/active/`. No direct commits to `main`.
