@@ -201,6 +201,33 @@ export const makeTerminalSessionsLive = (): Layer.Layer<TerminalSessions, never,
 						sess.status = "dead";
 						registry.set(id, sess);
 						yield* persist(sess);
+						// Spawn `zellij delete-session --force <id>` after registry update.
+						// Race with a 2000 ms timeout; swallow non-zero exits / errors via console.warn.
+						yield* Effect.tryPromise({
+							try: async () => {
+								const proc = Bun.spawn(["zellij", "delete-session", "--force", id], {
+									env: { ...process.env, ZELLIJ_SOCKET_DIR },
+									stdout: "pipe",
+									stderr: "pipe",
+								});
+								const timeoutMs = 2000;
+								await Promise.race([
+									proc.exited,
+									new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
+								]);
+							},
+							catch: (err) => {
+								// biome-ignore lint/suspicious/noConsole: swallowed zellij delete-session error
+								console.warn(`[pier] zellij delete-session failed for ${id}:`, err);
+							},
+						}).pipe(
+							Effect.catchAll((err) =>
+								Effect.sync(() => {
+									// biome-ignore lint/suspicious/noConsole: swallowed zellij delete-session error
+									console.warn(`[pier] zellij delete-session error for ${id}:`, err);
+								}),
+							),
+						);
 					}),
 				list: () =>
 					Effect.succeed(Array.from(registry.values()).filter((s) => s.status === "live")),

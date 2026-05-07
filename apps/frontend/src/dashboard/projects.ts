@@ -24,7 +24,7 @@ export async function refreshProjects(): Promise<void> {
 
 export function filteredProjects(): Project[] {
 	const f = store.projectFilter;
-	const base = store.projects.filter((p) => !store.sessions.has(p.id));
+	const base = store.projects;
 	return f ? base.filter((p) => p.name.toLowerCase().includes(f)) : base;
 }
 
@@ -108,6 +108,21 @@ async function openProjectContextMenu(args: { id: string; x: number; y: number }
 	});
 }
 
+function openSessionContextMenu(args: { id: string; x: number; y: number }): void {
+	showContextMenu({
+		x: args.x,
+		y: args.y,
+		items: [
+			{
+				label: "Delete session",
+				onClick: () => {
+					void closeSession(args.id);
+				},
+			},
+		],
+	});
+}
+
 export function renderProjects(): void {
 	const ul = $("#projects");
 	ul.innerHTML = "";
@@ -128,6 +143,7 @@ export function renderProjects(): void {
 		if (store.projectsWithEvents.has(p.id)) li.classList.add("has-events");
 		if (i === store.projectHighlight) li.classList.add("highlighted");
 		li.style.setProperty("--proj-color", projectColor(p.id));
+		li.style.userSelect = "none";
 		li.title = p.name;
 		li.innerHTML = `<span class="dot"></span><span class="initial">${escapeHTML(projectInitial(p.name))}</span><span class="name">${escapeHTML(p.name)}</span>`;
 		li.addEventListener("click", () => selectProject(p.id));
@@ -162,6 +178,7 @@ export function renderSessions(): void {
 		li.dataset.id = pid;
 		if (store.activeProject === pid) li.classList.add("active");
 		li.style.setProperty("--proj-color", projectColor(pid));
+		li.style.userSelect = "none";
 		li.title = name;
 		li.innerHTML = `<span class="dot"></span><span class="initial">${escapeHTML(projectInitial(name))}</span><span class="name">${escapeHTML(name)}</span><span class="close" title="Close session" aria-label="Close session">×</span>`;
 		li.addEventListener("click", (ev) => {
@@ -175,7 +192,7 @@ export function renderSessions(): void {
 		});
 		li.addEventListener("contextmenu", (ev) => {
 			ev.preventDefault();
-			void openProjectContextMenu({ id: pid, x: ev.clientX, y: ev.clientY });
+			openSessionContextMenu({ id: pid, x: ev.clientX, y: ev.clientY });
 		});
 		ul.appendChild(li);
 	}
