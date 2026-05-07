@@ -25,7 +25,7 @@
 		"worktree:open": "bun scripts/worktree-open.ts",
 		"worktree:close": "bun scripts/worktree-close.ts",
 		"sync": "bun scripts/worktree-close.ts",
-		"prepare": "bunx lefthook install"
+		"prepare": "bunx lefthook install --force"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.7",
