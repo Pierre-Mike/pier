@@ -108,11 +108,38 @@ async function openProjectContextMenu(args: { id: string; x: number; y: number }
 	});
 }
 
-function openSessionContextMenu(args: { id: string; x: number; y: number }): void {
+async function openSessionContextMenu(args: { id: string; x: number; y: number }): Promise<void> {
+	let url: string | null = null;
+	try {
+		const res = await api.api.projects[":id"]["github-url"].$get({ param: { id: args.id } });
+		if (res.ok) {
+			const data = (await res.json()) as { url: string | null };
+			url = data.url;
+		}
+	} catch {
+		url = null;
+	}
+	const target = url;
 	showContextMenu({
 		x: args.x,
 		y: args.y,
 		items: [
+			{
+				label: "Open",
+				onClick: () => {
+					void selectProject(args.id);
+				},
+			},
+			{
+				label: "Open on GitHub",
+				onClick: () => {
+					if (!target) {
+						toast("No GitHub remote for this project");
+						return;
+					}
+					window.open(target, "_blank", "noopener,noreferrer");
+				},
+			},
 			{
 				label: "Delete session",
 				onClick: () => {
@@ -191,7 +218,7 @@ export function renderSessions(): void {
 		});
 		li.addEventListener("contextmenu", (ev) => {
 			ev.preventDefault();
-			openSessionContextMenu({ id: pid, x: ev.clientX, y: ev.clientY });
+			void openSessionContextMenu({ id: pid, x: ev.clientX, y: ev.clientY });
 		});
 		ul.appendChild(li);
 	}
