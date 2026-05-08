@@ -1,13 +1,14 @@
 ---
 id: 031-biome-autofix-unused-imports
 title: Mark biome's noUnusedImports fix as safe to auto-apply in pre-commit
-status: active
+status: archived
 kind: workflow
 gate: scripts/smoke-biome-autofix-unused-imports.ts
 created: 2026-05-08T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-05-08'
 ---
 
 ## Intent
