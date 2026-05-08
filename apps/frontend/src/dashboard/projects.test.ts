@@ -218,9 +218,14 @@ describe("openSessionContextMenu — spec 021", () => {
 		expect(sessionCtxBody.length).toBeGreaterThan(0);
 	});
 
-	test("openSessionContextMenu shows Delete session item", () => {
-		// RED: the new context menu must present "Delete session" as its sole action.
-		expect(sessionCtxBody).toContain("Delete session");
+	test("openSessionContextMenu shows Kill session item (spec 034: renamed from Delete session)", () => {
+		// spec 034: the context menu label must be "Kill session" not "Delete session".
+		expect(sessionCtxBody).toContain("Kill session");
+	});
+
+	test("openSessionContextMenu does NOT show Delete session label (spec 034: label renamed)", () => {
+		// spec 034: "Delete session" must be removed in favor of "Kill session".
+		expect(sessionCtxBody).not.toContain("Delete session");
 	});
 
 	test("openSessionContextMenu calls closeSession", () => {
@@ -286,9 +291,9 @@ describe("openSessionContextMenu — spec 033 open + github actions", () => {
 		expect(sessionCtxBody033).toContain("No GitHub remote for this project");
 	});
 
-	// AC 4 regression: Delete session item must remain
-	test("openSessionContextMenu still contains Delete session item (regression guard)", () => {
-		expect(sessionCtxBody033).toContain("Delete session");
+	// AC 4 regression: kill-session item must remain (renamed by spec 034)
+	test("openSessionContextMenu still contains Kill session item (regression guard)", () => {
+		expect(sessionCtxBody033).toContain("Kill session");
 	});
 });
 
@@ -331,5 +336,93 @@ describe("sidebar li user-select — spec 021", () => {
 			return /[{;=]/.test(surrounding.replace(/\/\/[^\n]*/g, ""));
 		});
 		expect(atLeastOneReal).toBe(true);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// spec 034: Separate close-session from kill-session
+// ---------------------------------------------------------------------------
+
+describe("spec 034 — dismissSession (close button: UI-only, no API call)", () => {
+	// AC 1 + AC 2: dismissSession must exist as a distinct function and must NOT
+	// call the sessions delete API endpoint.
+
+	test("dismissSession function exists in projects.ts source", () => {
+		// RED: this function does not exist yet.
+		expect(projectsSource).toContain("dismissSession");
+	});
+
+	test("dismissSession function body does NOT call the sessions $delete API endpoint", () => {
+		// RED: the close button path must not invoke the DELETE API.
+		// We check for the Hono RPC $delete call pattern specifically —
+		// NOT for ".sessions" which would also match store.sessions.delete().
+		const dismissBody = extractFunctionBody(projectsSource, "dismissSession");
+		expect(dismissBody.length).toBeGreaterThan(0);
+		// Must not contain the Hono RPC delete call pattern
+		expect(dismissBody).not.toContain("$delete");
+		// Must not contain the api.api.sessions chain (the RPC path to the delete endpoint)
+		expect(dismissBody).not.toContain("api.api.sessions");
+	});
+
+	test("dismissSession removes the session from store.sessions", () => {
+		// AC 1: the UI session entry must be cleared.
+		const dismissBody = extractFunctionBody(projectsSource, "dismissSession");
+		expect(dismissBody).toContain("sessions.delete");
+	});
+
+	test("renderSessions close button calls dismissSession, not closeSession", () => {
+		// AC 1: the × click handler must use dismissSession (UI-only path).
+		expect(renderSessionsBody).toContain("dismissSession");
+		// The close button click path in renderSessions must NOT call closeSession directly.
+		// We check: the close-button click handler must reference dismissSession.
+		// Strategy: look for the "close" class handler pattern and verify it calls dismissSession.
+		const closeHandlerMatch = renderSessionsBody.match(
+			/classList\.contains\s*\(\s*["']close["']\s*\)[\s\S]{0,300}/,
+		);
+		expect(closeHandlerMatch).not.toBeNull();
+		const handlerText = closeHandlerMatch?.[0] ?? "";
+		expect(handlerText).toContain("dismissSession");
+	});
+
+	test("renderSessions close button does NOT call closeSession in the close-button branch", () => {
+		// AC 1 negative: closeSession (the kill path) must not be invoked by × click.
+		const closeHandlerMatch = renderSessionsBody.match(
+			/classList\.contains\s*\(\s*["']close["']\s*\)[\s\S]{0,300}/,
+		);
+		const handlerText = closeHandlerMatch?.[0] ?? "";
+		expect(handlerText).not.toContain("closeSession");
+	});
+});
+
+describe("spec 034 — closeSession still calls DELETE API (kill path preserved)", () => {
+	// AC 5: closeSession must still call the delete endpoint — it's just not
+	// wired to the × button anymore.
+
+	const closeSessionBody = extractFunctionBody(projectsSource, "closeSession");
+
+	test("closeSession function exists and is non-empty", () => {
+		expect(closeSessionBody.length).toBeGreaterThan(0);
+	});
+
+	test("closeSession still calls api sessions delete endpoint", () => {
+		// AC 5: kill path is preserved in closeSession.
+		expect(closeSessionBody).toContain("$delete");
+	});
+});
+
+describe("spec 034 — openSessionContextMenu Kill session label", () => {
+	// AC 3 + AC 4: the context menu must say "Kill session" and call closeSession.
+
+	const sessionCtxBody = extractFunctionBody(projectsSource, "openSessionContextMenu");
+
+	test("openSessionContextMenu label is Kill session (not Delete session)", () => {
+		// AC 4: label renamed from spec 021's "Delete session".
+		expect(sessionCtxBody).toContain("Kill session");
+		expect(sessionCtxBody).not.toContain("Delete session");
+	});
+
+	test("openSessionContextMenu Kill session item calls closeSession", () => {
+		// AC 3: the kill action must invoke closeSession (which calls the delete API).
+		expect(sessionCtxBody).toContain("closeSession");
 	});
 });

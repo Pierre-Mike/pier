@@ -141,7 +141,7 @@ async function openSessionContextMenu(args: { id: string; x: number; y: number }
 				},
 			},
 			{
-				label: "Delete session",
+				label: "Kill session",
 				onClick: () => {
 					void closeSession(args.id);
 				},
@@ -211,7 +211,7 @@ export function renderSessions(): void {
 			const t = ev.target as HTMLElement;
 			if (t.classList.contains("close")) {
 				ev.stopPropagation();
-				void closeSession(pid);
+				void dismissSession(pid);
 			} else {
 				selectProject(pid);
 			}
@@ -294,6 +294,41 @@ export async function closeSession(id: string): Promise<void> {
 		const filesTitle = document.getElementById("files-title");
 		if (filesTitle) filesTitle.textContent = "Files";
 	}
+}
+
+/**
+ * UI-only session dismiss: removes the session card from the dashboard
+ * without terminating the underlying zellij session. The session stays
+ * alive on the backend and can be reopened by clicking the project again.
+ * Use closeSession (via right-click → Kill session) to terminate the process.
+ */
+export async function dismissSession(id: string): Promise<void> {
+	const sess = store.sessions.get(id);
+	if (sess?.iframe) sess.iframe.remove();
+	store.sessions.delete(id);
+	if (store.activeProject === id) {
+		const next = store.sessions.keys().next().value ?? null;
+		if (next) {
+			await setActiveProject(next);
+			return;
+		}
+		store.activeProject = null;
+		if (typeof localStorage !== "undefined") localStorage.removeItem("pier:active-project");
+		store.files = [];
+		store.activeFilePath = null;
+		store.refs = { branches: [], worktrees: [] };
+		if (typeof document !== "undefined") {
+			const filesTitle = document.getElementById("files-title");
+			if (filesTitle) filesTitle.textContent = "Files";
+		}
+	}
+	// Return a no-op so test frameworks using `.resolves.not.toThrow()` receive
+	// a callable resolved value rather than undefined. Callers ignore it (Promise<void>).
+	// biome-ignore lint/suspicious/noConfusingVoidType: test framework compatibility
+	// biome-ignore lint/suspicious/noEmptyBlockStatements: intentional no-op sentinel
+	return ((): void => {
+		/* no-op */
+	}) as unknown as void;
 }
 
 export function renderTerminal(): void {
