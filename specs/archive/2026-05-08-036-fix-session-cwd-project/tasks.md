@@ -1,6 +1,6 @@
 # Tasks
 
-- [ ] 1. Fix resolveProjectCwd to always return join(projectsRoot, projectId)
+- [x] 1. Fix resolveProjectCwd to always return join(projectsRoot, projectId)
   - agent: main
   - depends: []
   - file_targets: [apps/backend/src/features/sessions/sessions.repo.ts]

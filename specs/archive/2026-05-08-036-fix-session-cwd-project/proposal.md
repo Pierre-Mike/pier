@@ -1,7 +1,7 @@
 ---
 id: 036-fix-session-cwd-project
 title: Fix new-session cwd to project folder
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/backend/src/features/sessions/sessions.repo.test.ts
@@ -10,8 +10,10 @@ gate:
     level: e2e
 created: 2026-05-08T00:00:00.000Z
 owner: main
-depends_on: ["023-session-cwd-project-folder"]
+depends_on:
+  - 023-session-cwd-project-folder
 supersedes: null
+archived: '2026-05-08'
 ---
 
 ## Intent
