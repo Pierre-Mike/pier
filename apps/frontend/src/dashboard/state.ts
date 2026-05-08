@@ -17,6 +17,7 @@ export const store = createStore<DashboardState>(
 		expandedDirs: new Set(),
 		refs: { branches: [], worktrees: [] },
 		projectsWithEvents: new Set(),
+		aliveSessions: new Set(),
 		logs: [],
 		logsHistory: [],
 		logsHistoryScope: null,

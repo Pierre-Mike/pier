@@ -470,11 +470,22 @@ describe("spec 035 — session-alive dot in renderSessions", () => {
 		expect(Math.abs(dotIdx - sidIdx)).toBeLessThan(400);
 	});
 
-	// AC 3: renderProjects must NOT render a session-alive-dot element.
-	// The dot is exclusive to the sessions section.
-	test("renderProjects body does NOT contain session-alive-dot", () => {
-		// If this fails, the implementer accidentally added the dot to the projects list.
-		expect(renderProjectsBody).not.toContain("session-alive-dot");
+	// AC 3 (spec 035): renderProjects must NOT render a session-alive-dot element
+	// unconditionally. This assertion is updated by spec 037 which intentionally adds
+	// a conditional session-alive-dot to renderProjects for projects with alive backend
+	// sessions. The exclusivity constraint is now replaced by the conditional check:
+	// renderSessions shows dot based on sessionId, renderProjects shows dot based on
+	// store.aliveSessions. The dot may appear in BOTH sections but for different projects.
+	//
+	// This test now asserts that the renderSessions dot is still gated on sessionId
+	// (spec 035 intent preserved) rather than asserting renderProjects never has it.
+	test("renderSessions session-alive-dot is still gated on sessionId (spec 035 AC 3 updated by 037)", () => {
+		// Spec 035 AC 3 intent: the dot must be conditional, not shown for every row.
+		// Spec 037 extends this: renderProjects also shows the dot, but conditionally
+		// on store.aliveSessions. Both are conditional — the exclusivity was too strict.
+		const renderSessionsBody = extractFunctionBody(projectsSource, "renderSessions");
+		expect(renderSessionsBody).toContain("session-alive-dot");
+		expect(renderSessionsBody).toContain("sessionId");
 	});
 
 	// AC 5 regression guard: dismissSession must still NOT call the delete API.

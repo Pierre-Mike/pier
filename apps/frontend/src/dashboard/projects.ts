@@ -20,6 +20,20 @@ export async function refreshProjects(): Promise<void> {
 		console.error("Failed to fetch projects:", e);
 		toast("Failed to load projects");
 	}
+	try {
+		const sessRes = await api.api.sessions.$get();
+		if (sessRes.ok) {
+			const sessData = (await sessRes.json()) as {
+				sessions: Array<{ projectId: string; status: string }>;
+			};
+			const alive = new Set(
+				sessData.sessions.filter((s) => s.status === "live").map((s) => s.projectId),
+			);
+			store.aliveSessions = alive;
+		}
+	} catch {
+		// Non-fatal: aliveSessions stays as-is on error
+	}
 }
 
 export function filteredProjects(): Project[] {
@@ -171,7 +185,10 @@ export function renderProjects(): void {
 		li.style.setProperty("--proj-color", projectColor(p.id));
 		li.style.userSelect = "none";
 		li.title = p.name;
-		li.innerHTML = `<span class="dot"></span><span class="initial">${escapeHTML(projectInitial(p.name))}</span><span class="name">${escapeHTML(p.name)}</span>`;
+		const aliveSessionDot = store.aliveSessions.has(p.id)
+			? `<span class="session-alive-dot" title="Zellij session is alive"></span>`
+			: "";
+		li.innerHTML = `<span class="dot"></span><span class="initial">${escapeHTML(projectInitial(p.name))}</span><span class="name">${escapeHTML(p.name)}</span>${aliveSessionDot}`;
 		li.addEventListener("click", () => selectProject(p.id));
 		li.addEventListener("mouseenter", () => {
 			if (store.projectHighlight !== i) {
