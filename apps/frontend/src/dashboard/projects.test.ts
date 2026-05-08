@@ -352,13 +352,16 @@ describe("spec 034 — dismissSession (close button: UI-only, no API call)", () 
 		expect(projectsSource).toContain("dismissSession");
 	});
 
-	test("dismissSession function body does NOT call api.api.sessions delete endpoint", () => {
+	test("dismissSession function body does NOT call the sessions $delete API endpoint", () => {
 		// RED: the close button path must not invoke the DELETE API.
+		// We check for the Hono RPC $delete call pattern specifically —
+		// NOT for ".sessions" which would also match store.sessions.delete().
 		const dismissBody = extractFunctionBody(projectsSource, "dismissSession");
 		expect(dismissBody.length).toBeGreaterThan(0);
-		// Must not contain the delete call pattern
+		// Must not contain the Hono RPC delete call pattern
 		expect(dismissBody).not.toContain("$delete");
-		expect(dismissBody).not.toContain(".sessions");
+		// Must not contain the api.api.sessions chain (the RPC path to the delete endpoint)
+		expect(dismissBody).not.toContain("api.api.sessions");
 	});
 
 	test("dismissSession removes the session from store.sessions", () => {
