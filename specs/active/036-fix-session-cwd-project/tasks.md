@@ -5,7 +5,7 @@
   - depends: []
   - file_targets: [apps/backend/src/features/sessions/sessions.repo.ts]
   - boundary: [apps/backend/src/features/sessions/sessions.repo.ts]
-- [ ] 2. Update spec-023 fallback test to assert new contract
+- [x] 2. Update spec-023 fallback test to assert new contract
   - agent: main
   - depends: [1]
   - file_targets: [apps/backend/src/features/sessions/sessions.repo.test.ts]

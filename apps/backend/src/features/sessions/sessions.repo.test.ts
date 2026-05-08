@@ -221,9 +221,10 @@ describe("resolveProjectCwd — exported helper (spec 023)", () => {
 		expect(result).toBe(join(tmpRoot, existingProject));
 	});
 
-	it("returns <projectsRoot> when <projectId> directory does not exist", async () => {
+	it("returns join(<projectsRoot>, <projectId>) when <projectId> directory does not exist", async () => {
+		// spec 036: contract changed — always return projectsRoot/projectId, no fallback.
 		const result = await resolveProjectCwd(tmpRoot, "no-such-project");
-		expect(result).toBe(tmpRoot);
+		expect(result).toBe(join(tmpRoot, "no-such-project"));
 	});
 });
 
@@ -301,7 +302,8 @@ describe("TerminalSessions Live — cwd resolution (spec 023)", () => {
 		expect(sessionSpawns[0]?.cwd).toBe(join(tmpRoot, existingProject));
 	});
 
-	it("open(projectId) passes <projectsRoot> to spawn when directory does not exist", async () => {
+	it("open(projectId) passes join(<projectsRoot>, <projectId>) to spawn when directory does not exist", async () => {
+		// spec 036: contract changed — cwd is always projectsRoot/projectId.
 		capturedSpawnOptions = [];
 		await Effect.runPromise(
 			Effect.gen(function* () {
@@ -313,7 +315,7 @@ describe("TerminalSessions Live — cwd resolution (spec 023)", () => {
 			(s) => s.args.includes("--session") && !s.args.includes("list-sessions"),
 		);
 		expect(sessionSpawns.length).toBeGreaterThan(0);
-		expect(sessionSpawns[0]?.cwd).toBe(tmpRoot);
+		expect(sessionSpawns[0]?.cwd).toBe(join(tmpRoot, "ghost-project"));
 	});
 
 	it("openDefault() passes <projectsRoot> to spawn", async () => {

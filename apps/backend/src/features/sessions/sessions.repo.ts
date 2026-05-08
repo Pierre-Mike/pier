@@ -1,4 +1,4 @@
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Context, Data, Effect, Layer } from "effect";
 import { ConfigService } from "../../platform/config.repo.ts";
@@ -92,14 +92,10 @@ export const resolveProjectCwd = async (
 	projectsRoot: string,
 	projectId: string,
 ): Promise<string> => {
-	const path = join(projectsRoot, projectId);
-	try {
-		const s = await stat(path);
-		if (s.isDirectory()) return path;
-	} catch {
-		// fall through
-	}
-	return projectsRoot;
+	// Always use projectsRoot/projectId as the cwd, regardless of whether the
+	// directory exists on disk. The user expects a new session to open directly
+	// in their project folder (e.g. ~/Github/pier), not in the parent ~/Github.
+	return join(projectsRoot, projectId);
 };
 
 export const makeTerminalSessionsLive = (): Layer.Layer<TerminalSessions, never, ConfigService> =>
