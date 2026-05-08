@@ -228,18 +228,9 @@ describe("openSessionContextMenu — spec 021", () => {
 		expect(sessionCtxBody).toContain("closeSession");
 	});
 
-	// AC 3 exclusivity: the session context menu must NOT contain Open on GitHub.
-	test("openSessionContextMenu does NOT contain Open on GitHub label", () => {
-		// RED: exclusivity check. If an implementer adds both Delete session AND
-		// Open on GitHub, this test catches it.
-		expect(sessionCtxBody).not.toContain("Open on GitHub");
-	});
-
-	test("openSessionContextMenu does NOT contain github-url fetch", () => {
-		// Dual exclusivity check: the GitHub URL endpoint must not be called
-		// from the session context menu.
-		expect(sessionCtxBody).not.toContain("github-url");
-	});
+	// NOTE: spec 021 had exclusivity tests asserting "Open on GitHub" must NOT
+	// appear in openSessionContextMenu. Those tests are removed by spec 033,
+	// which adds "Open" and "Open on GitHub" to the session context menu.
 });
 
 // AC 4 — bottom projects list context menu
@@ -247,6 +238,57 @@ describe("renderProjects context menu — spec 021", () => {
 	test("renderProjects contextmenu handler still calls openProjectContextMenu", () => {
 		// After the split, the bottom list must keep its GitHub-URL menu.
 		expect(renderProjectsBody).toContain("openProjectContextMenu");
+	});
+});
+
+// ---------------------------------------------------------------------------
+// spec 033: Add Open and Open on GitHub actions to session context menu
+// ---------------------------------------------------------------------------
+describe("openSessionContextMenu — spec 033 open + github actions", () => {
+	// Re-extract body here so the describe block is self-contained.
+	const sessionCtxBody033 = extractFunctionBody(projectsSource, "openSessionContextMenu");
+
+	// AC 1: "Open" item that calls selectProject
+	test("openSessionContextMenu contains an 'Open' menu item label", () => {
+		// RED: openSessionContextMenu currently only has "Delete session".
+		expect(sessionCtxBody033).toContain("Open");
+	});
+
+	test("openSessionContextMenu 'Open' action calls selectProject", () => {
+		// RED: selectProject is not called in the session context menu yet.
+		expect(sessionCtxBody033).toContain("selectProject");
+	});
+
+	// AC 2: "Open on GitHub" item that fetches github-url endpoint
+	test("openSessionContextMenu contains an 'Open on GitHub' menu item label", () => {
+		// RED: this label is absent from the current session context menu.
+		expect(sessionCtxBody033).toContain("Open on GitHub");
+	});
+
+	test("openSessionContextMenu fetches the github-url endpoint for the session", () => {
+		// RED: github-url fetch is absent from the session context menu function.
+		expect(sessionCtxBody033).toContain("github-url");
+	});
+
+	test("openSessionContextMenu opens GitHub URL with _blank and noopener,noreferrer", () => {
+		// The window.open call may be in the shared function body or an inner
+		// callback — assert on the full source scoped via a surrounding check.
+		// This is intentionally a whole-source assertion because the onClick
+		// handler is an inline arrow inside openSessionContextMenu.
+		expect(projectsSource).toContain('"_blank"');
+		expect(projectsSource).toContain('"noopener,noreferrer"');
+	});
+
+	// AC 3: toast on missing GitHub remote
+	test("openSessionContextMenu calls toast when GitHub URL is null", () => {
+		// RED: no null-URL guard in the session context menu yet.
+		// The toast message must match the project context menu exactly.
+		expect(sessionCtxBody033).toContain("No GitHub remote for this project");
+	});
+
+	// AC 4 regression: Delete session item must remain
+	test("openSessionContextMenu still contains Delete session item (regression guard)", () => {
+		expect(sessionCtxBody033).toContain("Delete session");
 	});
 });
 
