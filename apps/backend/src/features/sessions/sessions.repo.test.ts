@@ -331,3 +331,109 @@ describe("TerminalSessions Live — cwd resolution (spec 023)", () => {
 		expect(sessionSpawns[0]?.cwd).toBe(tmpRoot);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// spec 036: resolveProjectCwd always returns <projectsRoot>/<projectId>
+// ---------------------------------------------------------------------------
+// RED: current resolveProjectCwd falls back to projectsRoot when the project
+// directory does not exist. The new contract is to always return
+// join(projectsRoot, projectId) unconditionally.
+
+describe("resolveProjectCwd — spec 036: unconditional project path", () => {
+	let tmpRoot: string;
+
+	beforeAll(() => {
+		tmpRoot = mkdtempSync(join(tmpdir(), "pier-spec-036-"));
+		// Intentionally do NOT create any subdirectory — tests must pass even
+		// for projects with no on-disk directory.
+	});
+
+	// AC 1 (unchanged): existing-dir path still works.
+	it("returns join(root, projectId) when that directory exists", async () => {
+		mkdirSync(join(tmpRoot, "existing-project"));
+		const result = await resolveProjectCwd(tmpRoot, "existing-project");
+		expect(result).toBe(join(tmpRoot, "existing-project"));
+	});
+
+	// AC 2 (changed): missing-dir path now returns join(root, projectId), not root.
+	// RED: currently returns tmpRoot — will fail until resolveProjectCwd is fixed.
+	it("returns join(root, projectId) even when that directory does not exist", async () => {
+		const result = await resolveProjectCwd(tmpRoot, "brand-new-project");
+		// New contract: always projectsRoot/projectId regardless of disk state.
+		expect(result).toBe(join(tmpRoot, "brand-new-project"));
+	});
+});
+
+// ---------------------------------------------------------------------------
+// spec 036: cwd threading for non-existent project via Live service
+// ---------------------------------------------------------------------------
+// AC 3: sessions.open(projectId) must pass join(projectsRoot, projectId) to
+// spawn even when the project directory does not exist on disk.
+// RED: currently passes projectsRoot — will fail until resolveProjectCwd is fixed.
+
+describe("TerminalSessions Live — spec 036: non-existent project cwd", () => {
+	let tmpRoot: string;
+	let capturedSpawnOptions: Array<{ args: string[]; cwd: string | undefined }>;
+	let originalSpawn: typeof Bun.spawn;
+
+	beforeAll(() => {
+		tmpRoot = mkdtempSync(join(tmpdir(), "pier-spec-036-live-"));
+		// No subdirectories created — the ghost project directory does NOT exist.
+		capturedSpawnOptions = [];
+
+		originalSpawn = Bun.spawn;
+		// @ts-expect-error — intentional mock override for test isolation
+		Bun.spawn = (args: string[], opts?: { cwd?: string; [key: string]: unknown }) => {
+			capturedSpawnOptions.push({ args: args as string[], cwd: opts?.cwd });
+			return {
+				stdout: new ReadableStream({ start: (c) => c.close() }),
+				stderr: new ReadableStream({ start: (c) => c.close() }),
+				exited: Promise.resolve(0),
+				kill: () => undefined,
+			};
+		};
+	});
+
+	afterAll(() => {
+		Bun.spawn = originalSpawn;
+	});
+
+	const makeLayer = (projectsRoot: string) =>
+		makeTerminalSessionsLive().pipe(
+			Layer.provide(
+				Layer.succeed(ConfigService, {
+					get: () =>
+						Effect.succeed({
+							version: "0.0.0",
+							env: "test",
+							appPort: 5173,
+							sandboxPort: 5174,
+							zellijWebUrl: "https://test.local:8082",
+							projectsRoot,
+							piRoot: tmpRoot,
+							artifactsDir: join(tmpRoot, "artifacts"),
+							claudeProjectsRoot: join(tmpRoot, "claude-projects"),
+							appRoot: tmpRoot,
+						}),
+				}),
+			),
+		);
+
+	// AC 3: open passes join(projectsRoot, projectId) to spawn even for missing dirs.
+	// RED: currently passes projectsRoot (the fallback) — fails until fix lands.
+	it("open(projectId) passes join(projectsRoot, projectId) to spawn when directory does not exist", async () => {
+		capturedSpawnOptions = [];
+		await Effect.runPromise(
+			Effect.gen(function* () {
+				const sessions = yield* TerminalSessions;
+				yield* sessions.open("ghost-project-036");
+			}).pipe(Effect.provide(makeLayer(tmpRoot))),
+		);
+		const sessionSpawns = capturedSpawnOptions.filter(
+			(s) => s.args.includes("--session") && !s.args.includes("list-sessions"),
+		);
+		expect(sessionSpawns.length).toBeGreaterThan(0);
+		// Must be the project subfolder, NOT the bare projectsRoot.
+		expect(sessionSpawns[0]?.cwd).toBe(join(tmpRoot, "ghost-project-036"));
+	});
+});
