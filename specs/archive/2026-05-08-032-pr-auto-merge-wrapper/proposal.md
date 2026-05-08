@@ -1,13 +1,14 @@
 ---
 id: 032-pr-auto-merge-wrapper
 title: Wrap gh pr merge --auto with clear visibility on silent rejection
-status: active
+status: archived
 kind: workflow
 gate: scripts/smoke-pr-merge-auto.ts
 created: 2026-05-08T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-05-08'
 ---
 
 ## Intent
