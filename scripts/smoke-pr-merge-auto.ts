@@ -55,7 +55,12 @@ async function runWrapper(
 	stubPath: string,
 ): Promise<{ code: number; stdout: string; stderr: string }> {
 	const proc = Bun.spawn(["bun", WRAPPER, "12345"], {
-		env: { ...process.env, PIER_PR_MERGE_GH_BIN: stubPath },
+		env: {
+			...process.env,
+			PIER_PR_MERGE_GH_BIN: stubPath,
+			// Shrink the 10s poll window so the smoke runs fast.
+			PIER_PR_MERGE_TIMEOUT_MS: "500",
+		},
 		stdout: "pipe",
 		stderr: "pipe",
 	});
