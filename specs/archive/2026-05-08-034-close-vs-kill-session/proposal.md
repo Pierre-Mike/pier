@@ -1,17 +1,18 @@
 ---
 id: 034-close-vs-kill-session
 title: Separate close-session from kill-session
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/frontend/src/dashboard/projects.test.ts
     level: unit
   - path: apps/frontend/src/dashboard/projects.integration.test.ts
     level: integration
-created: 2026-05-08
+created: 2026-05-08T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-05-08'
 ---
 
 ## Intent
