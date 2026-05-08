@@ -44,16 +44,20 @@ assertFileContains(e2ePkg, [
 assertFileContains(e2eCfg, [
 	{ rx: /defineConfig/, reason: "must export defineConfig(...)" },
 	{ rx: /webServer/, reason: "must declare webServer entries" },
-	{ rx: /BE_PORT\s*=\s*5273/, reason: "must declare BE_PORT = 5273" },
-	{ rx: /FE_PORT\s*=\s*5274/, reason: "must declare FE_PORT = 5274" },
-	{ rx: /reuseExistingServer/, reason: "must guard reuseExistingServer (CI/E2E_FRESH)" },
+	{ rx: /5273/, reason: "must reference local-reuse backend port 5273" },
+	{ rx: /5274/, reason: "must reference local-reuse frontend port 5274" },
+	{ rx: /5283/, reason: "must reference fresh-mode backend port 5283" },
+	{ rx: /5284/, reason: "must reference fresh-mode frontend port 5284" },
+	{ rx: /reuseExistingServer/, reason: "must guard reuseExistingServer" },
 	{ rx: /E2E_FRESH/, reason: "must honor E2E_FRESH env to force fresh boot" },
+	{ rx: /PUBLIC_API_URL/, reason: "must inject PUBLIC_API_URL into frontend env" },
 ]);
 
 assertFileContains(e2eSmoke, [
 	{ rx: /from\s+["']@playwright\/test["']/, reason: "must import @playwright/test" },
 	{ rx: /\/health/, reason: "must assert backend /health endpoint" },
 	{ rx: /toHaveTitle\(["']pier["']\)/, reason: "must assert frontend title 'pier'" },
+	{ rx: /E2E_BACKEND_URL/, reason: "must read backend URL from env (port-shift safe)" },
 ]);
 
 if (!existsSync(e2eTsconfig)) fail(`${e2eTsconfig} not found`);
