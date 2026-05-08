@@ -1,17 +1,19 @@
 ---
 id: 035-session-dot-close-project
 title: Show session-alive dot on Close Project button
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/frontend/src/dashboard/projects.test.ts
     level: unit
   - path: apps/frontend/src/dashboard/projects.integration.test.ts
     level: integration
-created: 2026-05-08
+created: 2026-05-08T00:00:00.000Z
 owner: main
-depends_on: ["034-close-vs-kill-session"]
+depends_on:
+  - 034-close-vs-kill-session
 supersedes: null
+archived: '2026-05-08'
 ---
 
 ## Intent
