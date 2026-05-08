@@ -1,17 +1,18 @@
 ---
 id: 033-session-ctx-open-github
 title: Add open and GitHub actions to session context menu
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/frontend/src/dashboard/projects.test.ts
     level: unit
   - path: scripts/smoke-033-session-ctx-open-github.ts
     level: e2e
-created: 2026-05-08
+created: 2026-05-08T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-05-08'
 ---
 
 ## Intent
