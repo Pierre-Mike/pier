@@ -20,3 +20,8 @@
   - depends: [3]
   - file_targets: [.github/workflows/ci.yml, lefthook.yml]
   - boundary: [.github/workflows/ci.yml, lefthook.yml]
+- [ ] 5. Replace template Cucumber-only ban with Playwright-aware rule in colocated-tests.sh
+  - agent: main
+  - depends: [2]
+  - file_targets: [scripts/colocated-tests.sh]
+  - boundary: [scripts/colocated-tests.sh]
