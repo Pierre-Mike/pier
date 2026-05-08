@@ -259,6 +259,14 @@ body.collapsed-right {
 #sessions li .close:hover {
 	color: var(--danger);
 }
+#sessions li .session-alive-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--ok);
+	flex: 0 0 auto;
+	opacity: 0.7;
+}
 /* collapsed sidebar: project icons */
 #projects li .initial,
 #sessions li .initial {

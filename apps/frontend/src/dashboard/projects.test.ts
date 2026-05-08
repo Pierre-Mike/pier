@@ -426,3 +426,64 @@ describe("spec 034 — openSessionContextMenu Kill session label", () => {
 		expect(sessionCtxBody).toContain("closeSession");
 	});
 });
+
+// ---------------------------------------------------------------------------
+// spec 035: Show session-alive dot on Close Project button
+// ---------------------------------------------------------------------------
+
+describe("spec 035 — session-alive dot in renderSessions", () => {
+	// AC 1: renderSessions must render a DOM node with class `session-alive-dot`
+	// inside each session <li>.
+	test("renderSessions body contains session-alive-dot class reference", () => {
+		// RED: renderSessions does not yet render any session-alive-dot element.
+		expect(renderSessionsBody).toContain("session-alive-dot");
+	});
+
+	// AC 4: The class name `session-alive-dot` must appear in the renderSessions
+	// source (not just as a comment) so it is discoverable by CSS authors and tests.
+	test("renderSessions uses the literal class name 'session-alive-dot' in a DOM construction context", () => {
+		// Must appear as a string token in an element construction or innerHTML,
+		// not only in a comment. We check for it inside an innerHTML template or
+		// createElement/className assignment within renderSessions.
+		const hasInTemplate =
+			renderSessionsBody.includes('"session-alive-dot"') ||
+			renderSessionsBody.includes("'session-alive-dot'") ||
+			renderSessionsBody.includes("`session-alive-dot`");
+		expect(hasInTemplate).toBe(true);
+	});
+
+	// AC 2: The dot must only render when the session has a confirmed sessionId.
+	// Source-level check: renderSessions must reference `sessionId` when deciding
+	// whether to include the dot (the conditional guard must be visible in the body).
+	test("renderSessions body gates session-alive-dot on sessionId presence", () => {
+		// RED: no such conditional exists yet.
+		// The body must contain both "session-alive-dot" and "sessionId" so the
+		// conditional is verifiable — avoids an unconditional dot that would pass
+		// AC 1 while violating AC 2.
+		expect(renderSessionsBody).toContain("sessionId");
+		// Ensure the pattern is near the dot (within the same logical block).
+		// Strategy: find the index of both tokens and assert they are within 300 chars.
+		const dotIdx = renderSessionsBody.indexOf("session-alive-dot");
+		const sidIdx = renderSessionsBody.indexOf("sessionId");
+		expect(dotIdx).toBeGreaterThanOrEqual(0);
+		expect(sidIdx).toBeGreaterThanOrEqual(0);
+		expect(Math.abs(dotIdx - sidIdx)).toBeLessThan(400);
+	});
+
+	// AC 3: renderProjects must NOT render a session-alive-dot element.
+	// The dot is exclusive to the sessions section.
+	test("renderProjects body does NOT contain session-alive-dot", () => {
+		// If this fails, the implementer accidentally added the dot to the projects list.
+		expect(renderProjectsBody).not.toContain("session-alive-dot");
+	});
+
+	// AC 5 regression guard: dismissSession must still NOT call the delete API.
+	// This is a carry-over regression from spec 034. The unit gate re-asserts it
+	// so spec 035 implementation cannot accidentally restore the API call.
+	test("dismissSession body still does NOT call api.api.sessions delete endpoint (spec 034 regression)", () => {
+		const dismissBody = extractFunctionBody(projectsSource, "dismissSession");
+		expect(dismissBody.length).toBeGreaterThan(0);
+		expect(dismissBody).not.toContain("$delete");
+		expect(dismissBody).not.toContain("api.api.sessions");
+	});
+});

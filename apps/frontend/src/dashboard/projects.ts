@@ -197,7 +197,9 @@ export function renderSessions(): void {
 		return;
 	}
 	section.classList.remove("hidden");
-	for (const [pid] of Array.from(store.sessions.entries()).filter(([id]) => id !== "__default__")) {
+	for (const [pid, sess] of Array.from(store.sessions.entries()).filter(
+		([id]) => id !== "__default__",
+	)) {
 		const proj = store.projects.find((p) => p.id === pid);
 		const name = proj?.name ?? pid;
 		const li = document.createElement("li");
@@ -206,7 +208,10 @@ export function renderSessions(): void {
 		li.style.setProperty("--proj-color", projectColor(pid));
 		li.style.userSelect = "none";
 		li.title = name;
-		li.innerHTML = `<span class="dot"></span><span class="initial">${escapeHTML(projectInitial(name))}</span><span class="name">${escapeHTML(name)}</span><span class="close" title="Close session" aria-label="Close session">×</span>`;
+		const sessionAliveDot = sess.sessionId
+			? `<span class="session-alive-dot" title="Zellij session is alive"></span>`
+			: "";
+		li.innerHTML = `<span class="dot"></span><span class="initial">${escapeHTML(projectInitial(name))}</span><span class="name">${escapeHTML(name)}</span>${sessionAliveDot}<span class="close" title="Close session" aria-label="Close session">×</span>`;
 		li.addEventListener("click", (ev) => {
 			const t = ev.target as HTMLElement;
 			if (t.classList.contains("close")) {
