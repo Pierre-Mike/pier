@@ -81,6 +81,7 @@ export interface DashboardState extends Record<string, unknown> {
 	expandedDirs: Set<string>;
 	refs: RefsBundle;
 	projectsWithEvents: Set<string>;
+	aliveSessions: Set<string>;
 	logs: ClaudeEvent[];
 	logsHistory: ClaudeEvent[];
 	logsHistoryScope: { project: string; session: string } | null;
