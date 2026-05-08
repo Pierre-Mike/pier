@@ -2,7 +2,7 @@ pre-commit:
   commands:
     biome:
       glob: "*.{ts,js,json,astro}"
-      run: bunx biome check --write --no-errors-on-unmatched {staged_files}
+      run: bunx biome check --write --no-errors-on-unmatched {staged_files} || (echo "✖ COMMIT REJECTED — biome lint failed; see log above and re-stage after fixing" >&2; exit 1)
       stage_fixed: true
 
 pre-push:
