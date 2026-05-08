@@ -291,9 +291,9 @@ describe("openSessionContextMenu — spec 033 open + github actions", () => {
 		expect(sessionCtxBody033).toContain("No GitHub remote for this project");
 	});
 
-	// AC 4 regression: Delete session item must remain
-	test("openSessionContextMenu still contains Delete session item (regression guard)", () => {
-		expect(sessionCtxBody033).toContain("Delete session");
+	// AC 4 regression: kill-session item must remain (renamed by spec 034)
+	test("openSessionContextMenu still contains Kill session item (regression guard)", () => {
+		expect(sessionCtxBody033).toContain("Kill session");
 	});
 });
 
