@@ -1,18 +1,19 @@
 ---
 id: 037-session-dot-closed-rows
 title: Show session-alive dot on closed project rows
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/frontend/src/components/projects.test.ts
     level: unit
   - path: apps/frontend/src/components/projects.integration.test.ts
     level: integration
-created: 2026-05-08
+created: 2026-05-08T00:00:00.000Z
 owner: main
 depends_on:
   - 035-session-dot-close-project
 supersedes: null
+archived: '2026-05-08'
 ---
 
 ## Intent
