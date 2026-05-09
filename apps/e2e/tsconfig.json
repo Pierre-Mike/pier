@@ -1,7 +1,7 @@
 {
 	"extends": "../../tsconfig.base.json",
 	"compilerOptions": {
-		"types": ["node"],
+		"types": ["bun"],
 		"allowImportingTsExtensions": false
 	},
 	"include": ["tests/**/*.ts", "playwright.config.ts"]
