@@ -1,0 +1,27 @@
+# Tasks
+
+- [x] 1. Author the gate (RED): contract-check smoke script asserting harness wiring
+  - agent: main
+  - depends: []
+  - file_targets: [scripts/smoke-e2e-harness.ts]
+  - boundary: [scripts/smoke-e2e-harness.ts]
+- [x] 2. Scaffold the e2e workspace and Playwright smoke spec
+  - agent: main
+  - depends: [1]
+  - file_targets: [apps/e2e/package.json, apps/e2e/tsconfig.json, apps/e2e/playwright.config.ts, apps/e2e/tests/smoke.spec.ts, apps/e2e/.gitignore]
+  - boundary: [apps/e2e/**]
+- [x] 3. Wire root scripts and lockfile
+  - agent: main
+  - depends: [2]
+  - file_targets: [package.json, bun.lock]
+  - boundary: [package.json, bun.lock]
+- [x] 4. Wire CI job and pre-push hook
+  - agent: main
+  - depends: [3]
+  - file_targets: [.github/workflows/ci.yml, lefthook.yml]
+  - boundary: [.github/workflows/ci.yml, lefthook.yml]
+- [x] 5. Replace template Cucumber-only ban with Playwright-aware rule in colocated-tests.sh
+  - agent: main
+  - depends: [2]
+  - file_targets: [scripts/colocated-tests.sh]
+  - boundary: [scripts/colocated-tests.sh]

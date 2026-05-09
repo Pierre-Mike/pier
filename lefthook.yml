@@ -9,6 +9,8 @@ pre-push:
   commands:
     check:
       run: bunx turbo check:local
+    e2e:
+      run: bun run e2e:fresh
 
 post-merge:
   commands:
