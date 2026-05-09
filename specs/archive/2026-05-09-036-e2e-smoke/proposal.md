@@ -1,13 +1,14 @@
 ---
 id: 036-e2e-smoke
 title: Add Playwright e2e smoke suite with CI job and pre-push hook
-status: active
+status: archived
 kind: workflow
 gate: scripts/smoke-e2e-harness.ts
 created: 2026-05-08T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-05-09'
 ---
 
 ## Intent
