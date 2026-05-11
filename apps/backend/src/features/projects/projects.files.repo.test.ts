@@ -132,3 +132,171 @@ describe("RepoService — ignored flag flows through test layer (spec 024 AC2+AC
 		expect(result).toEqual({ size: 0 });
 	});
 });
+
+// ===========================================================================
+// spec 040: Lazy-load file tree — listFilesInPrefix integration tests
+// ===========================================================================
+//
+// RED gate — these tests import `ChildEntry` and reference
+// `listFilesInPrefix` on RepoService, neither of which exists yet.
+// They will fail at import/type-check time until the implementation lands.
+//
+// AC1: RepoService.listFilesInPrefix(projectId, prefix) returns ChildEntry[].
+// AC2: empty/undefined prefix → only root-level children.
+// AC3: non-empty prefix → only immediate children of that directory.
+// AC4: result distinguishes files (isDir: false) from directories (isDir: true).
+
+// ChildEntry is the shape produced by listFilesInPrefix.
+// RED: this type does not exist in projects.files.repo.ts yet — defined here
+// locally so the tests can compile and fail at runtime on the missing method.
+type ChildEntry = { path: string; isDir: boolean; ignored: boolean };
+
+// Helper: assert every entry conforms to ChildEntry shape.
+function assertChildEntries(entries: readonly unknown[]): asserts entries is ChildEntry[] {
+	for (const e of entries) {
+		const entry = e as Record<string, unknown>;
+		if (typeof entry["path"] !== "string") {
+			throw new Error(`ChildEntry missing path: ${JSON.stringify(e)}`);
+		}
+		if (typeof entry["isDir"] !== "boolean") {
+			throw new Error(`ChildEntry missing isDir: boolean at path=${entry["path"]}`);
+		}
+		if (typeof entry["ignored"] !== "boolean") {
+			throw new Error(`ChildEntry missing ignored: boolean at path=${entry["path"]}`);
+		}
+	}
+}
+
+// Test fixture: a project with a multi-level tree.
+//   src/
+//     index.ts
+//     utils.ts
+//     core/
+//       engine.ts
+//   dist/
+//     bundle.js   (ignored)
+//   README.md
+//
+// Flat list as provided to makeRepoServiceTest (listFilesInPrefix derives
+// the prefix view from these paths):
+const treeFiles: ReadonlyMap<
+	string,
+	Array<{ path: string; size: number; ignored: boolean }>
+> = new Map([
+	[
+		"myproject",
+		[
+			{ path: "src/index.ts", size: 100, ignored: false },
+			{ path: "src/utils.ts", size: 80, ignored: false },
+			{ path: "src/core/engine.ts", size: 200, ignored: false },
+			{ path: "dist/bundle.js", size: 5000, ignored: true },
+			{ path: "README.md", size: 512, ignored: false },
+		],
+	],
+]);
+
+describe("spec 040 AC1+AC2: listFilesInPrefix — root level (empty prefix)", () => {
+	it("returns root-level children when prefix is empty string", async () => {
+		// RED: listFilesInPrefix does not exist on RepoService yet.
+		const layer = makeRepoServiceTest(treeFiles);
+		const program = Effect.gen(function* () {
+			const svc = yield* RepoService;
+			// @ts-expect-error — listFilesInPrefix not yet on RepoService (RED)
+			return yield* svc.listFilesInPrefix("myproject", "");
+		});
+		const result = await Effect.runPromise(Effect.provide(program, layer));
+		assertChildEntries(result);
+		// Root children: src/ (dir), dist/ (dir), README.md (file)
+		expect(result).toHaveLength(3);
+	});
+
+	it("root children include directory entries with isDir: true", async () => {
+		const layer = makeRepoServiceTest(treeFiles);
+		const program = Effect.gen(function* () {
+			const svc = yield* RepoService;
+			// @ts-expect-error — listFilesInPrefix not yet on RepoService (RED)
+			return yield* svc.listFilesInPrefix("myproject", "");
+		});
+		const result = await Effect.runPromise(Effect.provide(program, layer));
+		const dirs = result.filter((e: ChildEntry) => e.isDir);
+		const paths = dirs.map((e: ChildEntry) => e.path).sort();
+		expect(paths).toEqual(["dist", "src"]);
+	});
+
+	it("root children include file entries with isDir: false", async () => {
+		const layer = makeRepoServiceTest(treeFiles);
+		const program = Effect.gen(function* () {
+			const svc = yield* RepoService;
+			// @ts-expect-error — listFilesInPrefix not yet on RepoService (RED)
+			return yield* svc.listFilesInPrefix("myproject", "");
+		});
+		const result = await Effect.runPromise(Effect.provide(program, layer));
+		const files = result.filter((e: ChildEntry) => !e.isDir);
+		expect(files).toHaveLength(1);
+		expect(files[0]?.path).toBe("README.md");
+	});
+});
+
+describe("spec 040 AC3+AC4: listFilesInPrefix — non-empty prefix (immediate children only)", () => {
+	it("returns immediate children of src/ — two files and one sub-directory", async () => {
+		const layer = makeRepoServiceTest(treeFiles);
+		const program = Effect.gen(function* () {
+			const svc = yield* RepoService;
+			// @ts-expect-error — listFilesInPrefix not yet on RepoService (RED)
+			return yield* svc.listFilesInPrefix("myproject", "src");
+		});
+		const result = await Effect.runPromise(Effect.provide(program, layer));
+		assertChildEntries(result);
+		// src/ immediate children: index.ts, utils.ts (files), core/ (dir)
+		expect(result).toHaveLength(3);
+	});
+
+	it("src/ children include core/ directory entry with isDir: true", async () => {
+		const layer = makeRepoServiceTest(treeFiles);
+		const program = Effect.gen(function* () {
+			const svc = yield* RepoService;
+			// @ts-expect-error — listFilesInPrefix not yet on RepoService (RED)
+			return yield* svc.listFilesInPrefix("myproject", "src");
+		});
+		const result = await Effect.runPromise(Effect.provide(program, layer));
+		const core = result.find((e: ChildEntry) => e.path === "src/core");
+		expect(core).toBeDefined();
+		expect(core?.isDir).toBe(true);
+	});
+
+	it("src/ children do NOT include grandchild src/core/engine.ts (AC3)", async () => {
+		const layer = makeRepoServiceTest(treeFiles);
+		const program = Effect.gen(function* () {
+			const svc = yield* RepoService;
+			// @ts-expect-error — listFilesInPrefix not yet on RepoService (RED)
+			return yield* svc.listFilesInPrefix("myproject", "src");
+		});
+		const result = await Effect.runPromise(Effect.provide(program, layer));
+		const grandchild = result.find((e: ChildEntry) => e.path === "src/core/engine.ts");
+		expect(grandchild).toBeUndefined();
+	});
+
+	it("ignored dist/ directory entry propagates ignored: true (AC4)", async () => {
+		const layer = makeRepoServiceTest(treeFiles);
+		const program = Effect.gen(function* () {
+			const svc = yield* RepoService;
+			// @ts-expect-error — listFilesInPrefix not yet on RepoService (RED)
+			return yield* svc.listFilesInPrefix("myproject", "");
+		});
+		const result = await Effect.runPromise(Effect.provide(program, layer));
+		const dist = result.find((e: ChildEntry) => e.path === "dist");
+		// dist/ contains only ignored files → the dir entry itself is ignored
+		expect(dist?.ignored).toBe(true);
+	});
+
+	it("returns empty array for unknown project", async () => {
+		const layer = makeRepoServiceTest(treeFiles);
+		const program = Effect.gen(function* () {
+			const svc = yield* RepoService;
+			// @ts-expect-error — listFilesInPrefix not yet on RepoService (RED)
+			return yield* svc.listFilesInPrefix("no-such-project", "");
+		});
+		const result = await Effect.runPromise(Effect.provide(program, layer));
+		expect(result).toEqual([]);
+	});
+});

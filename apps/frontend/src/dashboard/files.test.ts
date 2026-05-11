@@ -101,3 +101,72 @@ describe("renderFileTree DOM — ignored class applied correctly (spec 024 AC5+A
 		document.body.removeChild(host);
 	});
 });
+
+// ===========================================================================
+// spec 040: Lazy-load file tree on expand and search
+// ===========================================================================
+//
+// RED gate — these tests reference `fetchFolderChildren` and `lazyRefreshFiles`
+// which do NOT exist in files.ts yet. They will fail until the implementation
+// is written.
+//
+// AC5: on folder expand, fetchFolderChildren(projectId, folderPath) is called
+//      and its results are stored in folderChildrenCache (not store.files).
+// AC6: when store.fileFilter is non-empty, refreshFiles fetches the full flat
+//      list (existing behaviour) — NOT the lazy prefix path.
+// AC7: the rendered tree uses folderChildrenCache data for expanded folders.
+
+describe("spec 040: files.ts exports lazy-load API (source-level AC5)", () => {
+	it("files.ts exports fetchFolderChildren function", () => {
+		// RED: fetchFolderChildren does not exist in files.ts yet.
+		// This source-level check is intentionally simple: if the export exists,
+		// the implementation is present.
+		expect(filesSource).toContain("fetchFolderChildren");
+	});
+
+	it("files.ts exports folderChildrenCache", () => {
+		// RED: folderChildrenCache is the per-folder store, separate from store.files.
+		expect(filesSource).toContain("folderChildrenCache");
+	});
+
+	it("files.ts references prefix-based API fetch", () => {
+		// RED: the lazy path must use a prefix/folder query param or tree endpoint.
+		const hasPrefixFetch =
+			filesSource.includes("prefix") ||
+			filesSource.includes("tree/") ||
+			filesSource.includes("?prefix");
+		expect(hasPrefixFetch).toBe(true);
+	});
+});
+
+describe("spec 040: search triggers full-file fetch, not lazy (AC6)", () => {
+	it("files.ts refreshFiles references fileFilter to decide fetch strategy", () => {
+		// RED: the current refreshFiles does not branch on fileFilter.
+		// After implementation it must check store.fileFilter before choosing
+		// between the full-list fetch and the lazy prefix fetch.
+		const hasFilterBranch =
+			filesSource.includes("fileFilter") &&
+			(filesSource.includes("refreshFiles") || filesSource.includes("lazyRefreshFiles"));
+		expect(hasFilterBranch).toBe(true);
+	});
+});
+
+describe("spec 040: DOM — folder expand triggers children fetch (AC5)", () => {
+	it("fetchFolderChildren is exported from files.ts module", async () => {
+		// RED: import will succeed but the named export won't exist, causing a
+		// runtime undefined — the typeof check will fail.
+		const mod = await import("./files.ts");
+		// biome-ignore lint/suspicious/noExplicitAny: test-only runtime shape check
+		expect(typeof (mod as unknown as Record<string, unknown>)["fetchFolderChildren"]).toBe(
+			"function",
+		);
+	});
+
+	it("folderChildrenCache is exported from files.ts module", async () => {
+		// RED: folderChildrenCache doesn't exist yet.
+		const mod = await import("./files.ts");
+		// biome-ignore lint/suspicious/noExplicitAny: test-only runtime shape check
+		const cache = (mod as unknown as Record<string, unknown>)["folderChildrenCache"];
+		expect(cache).toBeDefined();
+	});
+});
