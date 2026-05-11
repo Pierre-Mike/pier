@@ -1,17 +1,18 @@
 ---
 id: 040-lazy-load-file-tree
 title: Lazy-load file tree on expand and search
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/frontend/src/dashboard/files.test.ts
     level: unit
   - path: apps/backend/src/features/projects/projects.files.repo.test.ts
     level: integration
-created: 2026-05-11
+created: 2026-05-11T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-05-11'
 ---
 
 ## Intent
