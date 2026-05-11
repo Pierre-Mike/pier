@@ -137,9 +137,7 @@ describe("RepoService — ignored flag flows through test layer (spec 024 AC2+AC
 // spec 040: Lazy-load file tree — listFilesInPrefix integration tests
 // ===========================================================================
 //
-// RED gate — these tests import `ChildEntry` and reference
-// `listFilesInPrefix` on RepoService, neither of which exists yet.
-// They will fail at import/type-check time until the implementation lands.
+// Gate tests for spec 040: listFilesInPrefix on RepoService.
 //
 // AC1: RepoService.listFilesInPrefix(projectId, prefix) returns ChildEntry[].
 // AC2: empty/undefined prefix → only root-level children.
@@ -197,11 +195,10 @@ const treeFiles: ReadonlyMap<
 
 describe("spec 040 AC1+AC2: listFilesInPrefix — root level (empty prefix)", () => {
 	it("returns root-level children when prefix is empty string", async () => {
-		// RED: listFilesInPrefix does not exist on RepoService yet.
 		const layer = makeRepoServiceTest(treeFiles);
 		const program = Effect.gen(function* () {
 			const svc = yield* RepoService;
-			// @ts-expect-error — listFilesInPrefix not yet on RepoService (RED)
+
 			return yield* svc.listFilesInPrefix("myproject", "");
 		});
 		const result = await Effect.runPromise(Effect.provide(program, layer));
@@ -214,7 +211,7 @@ describe("spec 040 AC1+AC2: listFilesInPrefix — root level (empty prefix)", ()
 		const layer = makeRepoServiceTest(treeFiles);
 		const program = Effect.gen(function* () {
 			const svc = yield* RepoService;
-			// @ts-expect-error — listFilesInPrefix not yet on RepoService (RED)
+
 			return yield* svc.listFilesInPrefix("myproject", "");
 		});
 		const result = await Effect.runPromise(Effect.provide(program, layer));
@@ -227,7 +224,7 @@ describe("spec 040 AC1+AC2: listFilesInPrefix — root level (empty prefix)", ()
 		const layer = makeRepoServiceTest(treeFiles);
 		const program = Effect.gen(function* () {
 			const svc = yield* RepoService;
-			// @ts-expect-error — listFilesInPrefix not yet on RepoService (RED)
+
 			return yield* svc.listFilesInPrefix("myproject", "");
 		});
 		const result = await Effect.runPromise(Effect.provide(program, layer));
@@ -242,7 +239,7 @@ describe("spec 040 AC3+AC4: listFilesInPrefix — non-empty prefix (immediate ch
 		const layer = makeRepoServiceTest(treeFiles);
 		const program = Effect.gen(function* () {
 			const svc = yield* RepoService;
-			// @ts-expect-error — listFilesInPrefix not yet on RepoService (RED)
+
 			return yield* svc.listFilesInPrefix("myproject", "src");
 		});
 		const result = await Effect.runPromise(Effect.provide(program, layer));
@@ -255,7 +252,7 @@ describe("spec 040 AC3+AC4: listFilesInPrefix — non-empty prefix (immediate ch
 		const layer = makeRepoServiceTest(treeFiles);
 		const program = Effect.gen(function* () {
 			const svc = yield* RepoService;
-			// @ts-expect-error — listFilesInPrefix not yet on RepoService (RED)
+
 			return yield* svc.listFilesInPrefix("myproject", "src");
 		});
 		const result = await Effect.runPromise(Effect.provide(program, layer));
@@ -268,7 +265,7 @@ describe("spec 040 AC3+AC4: listFilesInPrefix — non-empty prefix (immediate ch
 		const layer = makeRepoServiceTest(treeFiles);
 		const program = Effect.gen(function* () {
 			const svc = yield* RepoService;
-			// @ts-expect-error — listFilesInPrefix not yet on RepoService (RED)
+
 			return yield* svc.listFilesInPrefix("myproject", "src");
 		});
 		const result = await Effect.runPromise(Effect.provide(program, layer));
@@ -280,7 +277,7 @@ describe("spec 040 AC3+AC4: listFilesInPrefix — non-empty prefix (immediate ch
 		const layer = makeRepoServiceTest(treeFiles);
 		const program = Effect.gen(function* () {
 			const svc = yield* RepoService;
-			// @ts-expect-error — listFilesInPrefix not yet on RepoService (RED)
+
 			return yield* svc.listFilesInPrefix("myproject", "");
 		});
 		const result = await Effect.runPromise(Effect.provide(program, layer));
@@ -293,7 +290,7 @@ describe("spec 040 AC3+AC4: listFilesInPrefix — non-empty prefix (immediate ch
 		const layer = makeRepoServiceTest(treeFiles);
 		const program = Effect.gen(function* () {
 			const svc = yield* RepoService;
-			// @ts-expect-error — listFilesInPrefix not yet on RepoService (RED)
+
 			return yield* svc.listFilesInPrefix("no-such-project", "");
 		});
 		const result = await Effect.runPromise(Effect.provide(program, layer));
