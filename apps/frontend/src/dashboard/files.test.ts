@@ -119,8 +119,6 @@ describe("renderFileTree DOM — ignored class applied correctly (spec 024 AC5+A
 describe("spec 040: files.ts exports lazy-load API (source-level AC5)", () => {
 	it("files.ts exports fetchFolderChildren function", () => {
 		// RED: fetchFolderChildren does not exist in files.ts yet.
-		// This source-level check is intentionally simple: if the export exists,
-		// the implementation is present.
 		expect(filesSource).toContain("fetchFolderChildren");
 	});
 
@@ -129,29 +127,36 @@ describe("spec 040: files.ts exports lazy-load API (source-level AC5)", () => {
 		expect(filesSource).toContain("folderChildrenCache");
 	});
 
-	it("files.ts references prefix-based API fetch", () => {
-		// RED: the lazy path must use a prefix/folder query param or tree endpoint.
-		const hasPrefixFetch =
-			filesSource.includes("prefix") ||
-			filesSource.includes("tree/") ||
-			filesSource.includes("?prefix");
-		expect(hasPrefixFetch).toBe(true);
+	it("files.ts fetches from a prefix/folder endpoint (not just the flat files endpoint)", () => {
+		// RED: the lazy path must use a ?prefix or /tree/ query — specifically
+		// a call that includes a folder-specific parameter distinct from the
+		// plain /files fetch. We check for the string "folderChildrenCache" as a
+		// proxy: only lazy-load code would define this.
+		expect(filesSource).toContain("folderChildrenCache");
+		// Also verify the lazy fetch uses a prefix parameter in its API call.
+		// The existing code uses ".files.$get" for the flat fetch; the lazy fetch
+		// must pass an additional argument (prefix/folder).
+		const hasLazyFetch =
+			filesSource.includes("fetchFolderChildren") &&
+			(filesSource.includes("?prefix") ||
+				filesSource.includes("prefix=") ||
+				filesSource.includes("folderPath"));
+		expect(hasLazyFetch).toBe(true);
 	});
 });
 
 describe("spec 040: search triggers full-file fetch, not lazy (AC6)", () => {
-	it("files.ts refreshFiles references fileFilter to decide fetch strategy", () => {
-		// RED: the current refreshFiles does not branch on fileFilter.
-		// After implementation it must check store.fileFilter before choosing
-		// between the full-list fetch and the lazy prefix fetch.
-		const hasFilterBranch =
-			filesSource.includes("fileFilter") &&
-			(filesSource.includes("refreshFiles") || filesSource.includes("lazyRefreshFiles"));
-		expect(hasFilterBranch).toBe(true);
+	it("files.ts refreshFiles branches on fileFilter to choose fetch strategy", () => {
+		// RED: the current refreshFiles does not call fetchFolderChildren — it
+		// always does a full flat fetch. After implementation, refreshFiles must
+		// check fileFilter and call fetchFolderChildren when filter is empty.
+		const hasLazyBranch =
+			filesSource.includes("fetchFolderChildren") && filesSource.includes("fileFilter");
+		expect(hasLazyBranch).toBe(true);
 	});
 });
 
-describe("spec 040: DOM — folder expand triggers children fetch (AC5)", () => {
+describe("spec 040: DOM — fetchFolderChildren and folderChildrenCache runtime presence (AC5)", () => {
 	it("fetchFolderChildren is exported from files.ts module", async () => {
 		// RED: import will succeed but the named export won't exist, causing a
 		// runtime undefined — the typeof check will fail.
@@ -167,6 +172,67 @@ describe("spec 040: DOM — folder expand triggers children fetch (AC5)", () => 
 		const mod = await import("./files.ts");
 		// biome-ignore lint/suspicious/noExplicitAny: test-only runtime shape check
 		const cache = (mod as unknown as Record<string, unknown>)["folderChildrenCache"];
+		// Must be a Map (the per-folder cache container)
 		expect(cache).toBeDefined();
+		expect(cache).toBeInstanceOf(Map);
+	});
+});
+
+describe("spec 040: DOM — renderFileTree reads from folderChildrenCache (AC7)", () => {
+	it("when folderChildrenCache has root entries, renderFileTree renders them without relying on store.files", async () => {
+		// RED: renderFileTree currently renders from store.files, not folderChildrenCache.
+		// After implementation, renderFileTree must render from cache when filter is empty.
+		const mod = await import("./files.ts");
+		// biome-ignore lint/suspicious/noExplicitAny: test-only runtime shape check
+		const cache = (mod as unknown as Record<string, unknown>)["folderChildrenCache"] as
+			| Map<string, unknown[]>
+			| undefined;
+
+		if (!cache) {
+			// folderChildrenCache not exported — test fails here (RED)
+			expect(cache).toBeDefined();
+			return;
+		}
+
+		// Set up DOM
+		const host2 = document.createElement("div");
+		host2.id = "file-tree-ac7";
+		// Temporarily replace the #file-tree element used by renderFileTree
+		const existingHost = document.getElementById("file-tree");
+		if (existingHost) existingHost.id = "file-tree-bak";
+		host2.id = "file-tree";
+		document.body.appendChild(host2);
+
+		const { store } = await import("./state.ts");
+		store.sessions.set("beta", { url: "" });
+		store.activeProject = "beta";
+		store.fileFilter = "";
+		// Intentionally empty store.files — cache should be the data source
+		store.files = [];
+
+		// Populate folderChildrenCache with root-level entries for "beta"
+		// The cache key for root is "" (empty string) or the projectId — tester
+		// uses the shape defined in design.md: keyed by folder path (empty = root).
+		cache.set("", [
+			{ path: "README.md", isDir: false, ignored: false },
+			{ path: "src", isDir: true, ignored: false },
+		]);
+
+		// Call renderFileTree — must render from cache, not store.files
+		mod.renderFileTree();
+
+		// If AC7 is implemented, there should be rendered items from the cache.
+		// If AC7 is NOT implemented (RED), store.files is empty so renderFileTree
+		// renders the "no tracked files" placeholder.
+		const placeholder = host2.querySelector(".placeholder");
+		// RED: placeholder will appear (store.files is empty, cache is ignored)
+		// GREEN: no placeholder, actual tree items rendered from cache
+		expect(placeholder).toBeNull();
+
+		// Restore
+		host2.id = "file-tree-ac7";
+		if (existingHost) existingHost.id = "file-tree";
+		document.body.removeChild(host2);
+		cache.clear();
 	});
 });
