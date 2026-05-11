@@ -29,6 +29,15 @@ export interface RepoService {
 		projectId: string,
 		prefix: string,
 	) => Effect.Effect<ChildEntry[], RepoError, never>;
+	/**
+	 * Returns files whose path contains `query` (case-insensitive substring).
+	 * Empty `query` returns []. Results are capped at `limit` (default 50, max 200).
+	 */
+	readonly searchFiles: (
+		projectId: string,
+		query: string,
+		limit: number,
+	) => Effect.Effect<RepoFile[], RepoError, never>;
 	readonly resolvePath: (args: {
 		projectId: string;
 		path: string;
@@ -132,6 +141,24 @@ export const deriveChildren = (files: readonly RepoFile[], prefix: string): Chil
 	return result;
 };
 
+// biome-ignore lint/complexity/useMaxParams: 3 params needed for search filter (files, query, limit)
+const searchProjectFiles = (
+	files: readonly RepoFile[],
+	query: string,
+	limit: number,
+): RepoFile[] => {
+	if (!query) return [];
+	const q = query.toLowerCase();
+	const results: RepoFile[] = [];
+	for (const f of files) {
+		if (f.path.toLowerCase().includes(q)) {
+			results.push(f);
+			if (results.length >= limit) break;
+		}
+	}
+	return results;
+};
+
 export const makeRepoServiceLive = (): Layer.Layer<RepoService, never, ConfigService> =>
 	Layer.effect(
 		RepoService,
@@ -155,6 +182,17 @@ export const makeRepoServiceLive = (): Layer.Layer<RepoService, never, ConfigSer
 						},
 						catch: () => new RepoError({ message: "git ls-files failed" }),
 					}).pipe(Effect.orElseSucceed(() => [] as ChildEntry[])),
+
+				// biome-ignore lint/complexity/useMaxParams: 3 params required by RepoService interface
+				searchFiles: (projectId, query, limit) =>
+					Effect.tryPromise({
+						try: async () => {
+							if (!query) return [] as RepoFile[];
+							const allFiles = await listProjectFiles(root(projectId));
+							return searchProjectFiles(allFiles, query, limit);
+						},
+						catch: () => new RepoError({ message: "git ls-files failed" }),
+					}).pipe(Effect.orElseSucceed(() => [] as RepoFile[])),
 
 				resolvePath: ({ projectId, path }) =>
 					Effect.try({
@@ -204,6 +242,16 @@ export const makeRepoServiceTest = (
 				ignored: typeof f.ignored === "boolean" ? f.ignored : false,
 			}));
 			return Effect.succeed(deriveChildren(normalised, prefix));
+		},
+		// biome-ignore lint/complexity/useMaxParams: 3 params required by RepoService interface
+		searchFiles: (projectId, query, limit) => {
+			if (!query) return Effect.succeed([] as RepoFile[]);
+			const entries = files.get(projectId) ?? [];
+			const normalised: RepoFile[] = entries.map((f) => ({
+				...f,
+				ignored: typeof f.ignored === "boolean" ? f.ignored : false,
+			}));
+			return Effect.succeed(searchProjectFiles(normalised, query, limit));
 		},
 		resolvePath: ({ projectId, path }) => Effect.succeed(`/test/${projectId}/${path}`),
 		fileStat: () => Effect.succeed({ size: 0 }),

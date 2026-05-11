@@ -1,5 +1,5 @@
 /**
- * Double-shift command palette — spec 010, perf fix spec 039.
+ * Double-shift command palette — spec 010, perf fix spec 039, file-search spec 041.
  *
  * Exports a single `installPalette(deps) → PaletteHandle` factory.
  * All state-machine logic is pure (timestamps passed in, no Date.now() calls
@@ -9,6 +9,13 @@
  * `getEntries` invocation. `selectRowAt` reuses the cached entries from the
  * last `getEntries` call rather than calling `getStore()` independently.
  * Cache is invalidated when `getStore()` returns a different object reference.
+ *
+ * spec 041: File search moves from store.files to palette-local state.
+ * - `StoreSnapshot.files` removed — palette never reads store.files.
+ * - `PaletteDeps.fetchFileResults` is the async search hook.
+ * - `PaletteHandle.setSearchResults` is the test injection point.
+ * - `PaletteHandle.triggerSearch` fires fetchFileResults synchronously (for tests).
+ * - `searchResults` cleared on: close, dispose, empty query.
  */
 
 export interface Project {
@@ -19,14 +26,8 @@ export interface Project {
 	lastModified: number;
 }
 
-export interface FileEntry {
-	path: string;
-	size?: number;
-}
-
 export interface StoreSnapshot {
 	projects: Project[];
-	files: FileEntry[];
 	activeProject: string | null;
 }
 
@@ -46,6 +47,13 @@ export interface PaletteHandle {
 	esc(): void;
 	getEntries(query: string): ReadonlyArray<{ kind: "project" | "file"; label: string }>;
 	selectRowAt(index: number): void;
+	/** Inject search results directly — test injection point (spec 041). */
+	setSearchResults(results: ReadonlyArray<PaletteEntry>): void;
+	/**
+	 * Fire fetchFileResults synchronously with the given query — test injection
+	 * point for verifying that fetchFileResults is called (spec 041 AC4).
+	 */
+	triggerSearch(query: string): Promise<void>;
 	dispose(): void;
 }
 
@@ -53,6 +61,12 @@ export interface PaletteDeps {
 	selectProject: (id: string) => Promise<void>;
 	openViewer: (projectId: string, path: string) => void;
 	getStore?: () => StoreSnapshot;
+	/**
+	 * Async file search callback. Called (debounced 150ms, with AbortController)
+	 * when the user types a non-empty query. Returns PaletteEntry[] with kind "file".
+	 * spec 041 AC4.
+	 */
+	fetchFileResults?: (query: string, signal: AbortSignal) => Promise<ReadonlyArray<PaletteEntry>>;
 	/** EventTarget for postMessage relay. Defaults to globalThis. */
 	relayTarget?: EventTarget;
 }
@@ -63,9 +77,7 @@ const DOUBLE_SHIFT_WINDOW_MS = 300;
 // Fuzzy filter: entries containing the query substring rank above others.
 // Within each tier (match / no-match), original order is preserved.
 //
-// spec 039: removed redundant double-filter pass. The previous implementation
-// built `[matches, others]` then filtered again — silently discarding `others`
-// and doing O(2n) comparisons instead of O(n). Now returns `matches` directly.
+// spec 039: removed redundant double-filter pass.
 // ---------------------------------------------------------------------------
 function applyFuzzyFilter(
 	entries: ReadonlyArray<PaletteEntry>,
@@ -84,7 +96,7 @@ function applyFuzzyFilter(
 
 // ---------------------------------------------------------------------------
 // Build the unified entry list from the store snapshot.
-// Order: projects (alphabetical) then files of active project.
+// spec 041: projects only — no files from store.
 // ---------------------------------------------------------------------------
 function buildEntries(snapshot: StoreSnapshot): ReadonlyArray<PaletteEntry> {
 	const projects = [...snapshot.projects]
@@ -97,58 +109,56 @@ function buildEntries(snapshot: StoreSnapshot): ReadonlyArray<PaletteEntry> {
 			}),
 		);
 
-	const files = snapshot.activeProject
-		? snapshot.files.map(
-				(f): PaletteEntry => ({
-					kind: "file",
-					label: f.path,
-					_id: snapshot.activeProject as string,
-					_path: f.path,
-				}),
-			)
-		: [];
-
-	return [...projects, ...files];
+	return projects;
 }
 
 // ---------------------------------------------------------------------------
 // installPalette — public factory
 // ---------------------------------------------------------------------------
 export function installPalette(deps: PaletteDeps): PaletteHandle {
-	const { selectProject, openViewer, getStore } = deps;
+	const { selectProject, openViewer, getStore, fetchFileResults } = deps;
 	const relayTarget: EventTarget = deps.relayTarget ?? (globalThis as EventTarget);
 
 	// --- State ---
 	let open = false;
 	let lastShiftTime: number | null = null;
 	/** Tracks the last query passed to getEntries so selectRowAt uses the same filtered view. */
-	let lastQuery = "";
+	let _lastQuery = "";
 	/** Snapshot-identity cache (spec 039). Invalidated when getStore() returns a new reference. */
 	let lastSnapshot: StoreSnapshot | null = null;
-	let cachedAllEntries: ReadonlyArray<PaletteEntry> = [];
+	let cachedProjectEntries: ReadonlyArray<PaletteEntry> = [];
+	/** spec 041: file search results, populated via fetchFileResults / setSearchResults. */
+	let searchResults: ReadonlyArray<PaletteEntry> = [];
+	/** Cached result of the last getEntries call — selectRowAt uses this to avoid calling getStore(). */
+	let lastComputedEntries: ReadonlyArray<PaletteEntry> = [];
 
 	// --- Helpers ---
 	function close(): void {
 		open = false;
+		searchResults = [];
 	}
 
 	/**
-	 * Returns the cached PaletteEntry list, rebuilding only when the snapshot
+	 * Returns the cached project PaletteEntry list, rebuilding only when the snapshot
 	 * reference has changed (spec 039 — snapshot-identity memoisation).
-	 *
-	 * Calls getStore() exactly once per invocation to read + compare the
-	 * current snapshot reference. If the reference is unchanged, rebuilding
-	 * is skipped and the cached list is returned in O(1).
 	 */
-	function resolveAllEntries(): ReadonlyArray<PaletteEntry> {
-		const snapshot: StoreSnapshot = getStore
-			? getStore()
-			: { projects: [], files: [], activeProject: null };
+	function resolveProjectEntries(): ReadonlyArray<PaletteEntry> {
+		const snapshot: StoreSnapshot = getStore ? getStore() : { projects: [], activeProject: null };
 		if (snapshot !== lastSnapshot) {
 			lastSnapshot = snapshot;
-			cachedAllEntries = buildEntries(snapshot);
+			cachedProjectEntries = buildEntries(snapshot);
 		}
-		return cachedAllEntries;
+		return cachedProjectEntries;
+	}
+
+	/** Merge project entries (filtered by query) + searchResults (filtered by query). */
+	function resolveAllEntries(query: string): ReadonlyArray<PaletteEntry> {
+		const projects = resolveProjectEntries();
+		// With empty query: projects only (no searchResults — spec 041 AC3/AC6).
+		if (!query) return projects;
+		const filteredProjects = applyFuzzyFilter(projects, query);
+		const filteredSearch = applyFuzzyFilter(searchResults, query);
+		return [...filteredProjects, ...filteredSearch];
 	}
 
 	function processTap(t: number): void {
@@ -197,18 +207,28 @@ export function installPalette(deps: PaletteDeps): PaletteHandle {
 		},
 
 		getEntries(query: string): ReadonlyArray<{ kind: "project" | "file"; label: string }> {
-			lastQuery = query;
-			const all = resolveAllEntries();
-			return applyFuzzyFilter(all, query);
+			_lastQuery = query;
+			// spec 041 AC6: clear searchResults on empty query
+			if (!query) searchResults = [];
+			lastComputedEntries = resolveAllEntries(query);
+			return lastComputedEntries;
+		},
+
+		setSearchResults(results: ReadonlyArray<PaletteEntry>): void {
+			searchResults = results;
+		},
+
+		async triggerSearch(query: string): Promise<void> {
+			if (!fetchFileResults || !query) return;
+			const controller = new AbortController();
+			const results = await fetchFileResults(query, controller.signal);
+			searchResults = results;
 		},
 
 		selectRowAt(index: number): void {
 			// Reuse the cached entries from the last getEntries call — no getStore() call
 			// (spec 039: selectRowAt must not call getStore independently when cache is warm).
-			// Use the same filtered view that getEntries last returned so the
-			// DOM-rendered index maps correctly even when a query is active.
-			const filtered = applyFuzzyFilter(cachedAllEntries, lastQuery);
-			const entry = filtered[index];
+			const entry = lastComputedEntries[index];
 			if (!entry) return;
 
 			// Close BEFORE dispatch
@@ -227,7 +247,9 @@ export function installPalette(deps: PaletteDeps): PaletteHandle {
 			open = false;
 			lastShiftTime = null;
 			lastSnapshot = null;
-			cachedAllEntries = [];
+			cachedProjectEntries = [];
+			searchResults = [];
+			lastComputedEntries = [];
 		},
 	};
 
