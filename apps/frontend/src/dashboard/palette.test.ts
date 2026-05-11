@@ -946,9 +946,9 @@ describe("spec 041 AC6: searchResults cleared on close and empty query", () => {
 const typesSource = await Bun.file(new URL("../dashboard/types.ts", import.meta.url)).text();
 const stateSource = await Bun.file(new URL("../dashboard/state.ts", import.meta.url)).text();
 const filesSource = await Bun.file(new URL("../dashboard/files.ts", import.meta.url)).text();
-// ArtifactsPane.astro is in src/components/ — two levels up from dashboard/
+// ArtifactsPane.astro is in src/components/ — one level up from dashboard/
 const artifactsPaneSource = await Bun.file(
-	new URL("../../components/ArtifactsPane.astro", import.meta.url),
+	new URL("../components/ArtifactsPane.astro", import.meta.url),
 )
 	.text()
 	.catch(() => "");
