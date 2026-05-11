@@ -11,13 +11,11 @@
 
 import { join } from "node:path";
 import { loadSpec } from "../_lib";
-// validateFrontendE2eGate is not yet implemented — this import will fail at runtime,
-// keeping this gate in RED state until the implementer adds the export.
 import { validateFrontendE2eGate } from "../spec-lint";
 
 const FIXTURES = join(import.meta.dir, "fixtures", "frontend-e2e-gate-required");
-const PASS_DIR = join(FIXTURES, "pass");
-const FAIL_DIR = join(FIXTURES, "fail");
+const PASS_DIR = join(FIXTURES, "999-pass");
+const FAIL_DIR = join(FIXTURES, "999-fail");
 
 const passSpec = loadSpec(PASS_DIR);
 const failSpec = loadSpec(FAIL_DIR);
