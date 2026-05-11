@@ -33,7 +33,7 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         if: steps.dedup.outputs.skip != 'true'
 
       - name: Ensure labels exist
@@ -201,13 +201,13 @@ jobs:
           PRD_TITLE=$(gh issue view "$PRD_NUMBER" --repo "$REPO" --json title -q .title)
           echo "prd_title=$PRD_TITLE" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         if: steps.plan.outputs.skip != 'true'
         with:
           fetch-depth: 0
           token: ${{ secrets.PAT }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         if: steps.plan.outputs.skip != 'true'
         with:
           node-version: "22"
@@ -215,7 +215,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         if: steps.plan.outputs.skip != 'true'
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         if: steps.plan.outputs.skip != 'true'
         with:
           path: ~/.bun/install/cache
