@@ -161,7 +161,6 @@ describe("spec 040: DOM — fetchFolderChildren and folderChildrenCache runtime 
 		// RED: import will succeed but the named export won't exist, causing a
 		// runtime undefined — the typeof check will fail.
 		const mod = await import("./files.ts");
-		// biome-ignore lint/suspicious/noExplicitAny: test-only runtime shape check
 		expect(typeof (mod as unknown as Record<string, unknown>)["fetchFolderChildren"]).toBe(
 			"function",
 		);
@@ -170,7 +169,6 @@ describe("spec 040: DOM — fetchFolderChildren and folderChildrenCache runtime 
 	it("folderChildrenCache is exported from files.ts module", async () => {
 		// RED: folderChildrenCache doesn't exist yet.
 		const mod = await import("./files.ts");
-		// biome-ignore lint/suspicious/noExplicitAny: test-only runtime shape check
 		const cache = (mod as unknown as Record<string, unknown>)["folderChildrenCache"];
 		// Must be a Map (the per-folder cache container)
 		expect(cache).toBeDefined();
@@ -183,7 +181,6 @@ describe("spec 040: DOM — renderFileTree reads from folderChildrenCache (AC7)"
 		// RED: renderFileTree currently renders from store.files, not folderChildrenCache.
 		// After implementation, renderFileTree must render from cache when filter is empty.
 		const mod = await import("./files.ts");
-		// biome-ignore lint/suspicious/noExplicitAny: test-only runtime shape check
 		const cache = (mod as unknown as Record<string, unknown>)["folderChildrenCache"] as
 			| Map<string, unknown[]>
 			| undefined;
