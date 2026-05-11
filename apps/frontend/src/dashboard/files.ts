@@ -77,6 +77,7 @@ export async function refreshFiles(projectId: string): Promise<void> {
 	}
 	// Lazy path: pre-fetch root-level children so the tree renders immediately.
 	await fetchFolderChildren(projectId, "");
+	renderFileTree();
 }
 
 export function renderFileTree(): void {

@@ -183,3 +183,54 @@ describe("spec 040: DOM — renderFileTree reads from folderChildrenCache (AC7)"
 		cache.clear();
 	});
 });
+
+// ===========================================================================
+// spec 042: Wire palette-sidebar page composition
+// ===========================================================================
+//
+// DOM-level: refreshFiles → renderFileTree wiring
+// Asserts that after calling refreshFiles, the sidebar renders real tree
+// entries (not just the empty placeholder div).
+
+describe("spec 042: refreshFiles → renderFileTree wiring (DOM-level)", () => {
+	it("calling refreshFiles populates #file-tree with real entries", async () => {
+		const mod = await import("./files.ts");
+		const { store } = await import("./state.ts");
+
+		// Set up DOM
+		const existingHost = document.getElementById("file-tree");
+		if (existingHost) existingHost.id = "file-tree-bak-042";
+		const host = document.createElement("div");
+		host.id = "file-tree";
+		document.body.appendChild(host);
+
+		store.sessions.set("test-project-042", { url: "" });
+		store.activeProject = "test-project-042";
+		store.expandedDirs = new Set();
+
+		// Patch globalThis.fetch so fetchFolderChildren returns real entries
+		// biome-ignore lint/suspicious/noExplicitAny: test-only global patching
+		const originalFetch = (globalThis as any).fetch;
+		// biome-ignore lint/suspicious/noExplicitAny: test-only global patching
+		(globalThis as any).fetch = async (_url: unknown) => ({
+			ok: true,
+			json: async () => ({
+				files: [
+					{ path: "README.md", isDir: false, ignored: false },
+					{ path: "src", isDir: true, ignored: false },
+				],
+			}),
+		});
+
+		try {
+			await mod.refreshFiles("test-project-042");
+			const treeFiles = host.querySelectorAll(".tree-file");
+			expect(treeFiles.length).toBeGreaterThan(0);
+		} finally {
+			// biome-ignore lint/suspicious/noExplicitAny: test-only global patching
+			(globalThis as any).fetch = originalFetch;
+			document.body.removeChild(host);
+			if (existingHost) existingHost.id = "file-tree";
+		}
+	});
+});
