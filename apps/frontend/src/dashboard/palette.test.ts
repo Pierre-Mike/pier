@@ -759,25 +759,63 @@ describe("spec 041 AC4: PaletteDeps.fetchFileResults dep exists and is invoked",
 		}).not.toThrow();
 	});
 
-	test("notifyFileResults (or equivalent) exists on PaletteHandle for test injection", () => {
-		// The implementer must expose a way to inject search results for testing.
-		// Either a `setSearchResults` method or a `notifyFileResults` method on
-		// the handle, OR the handle exposes an async getEntries path.
-		// RED: no such method exists yet.
+	test("setSearchResults exists on PaletteHandle for test injection (AC4)", () => {
+		// The implementer must expose setSearchResults on the handle for test
+		// injection of search results. RED: method does not exist yet.
 		const handle = installPalette({
 			selectProject: mock(() => Promise.resolve()),
 			openViewer: mock(() => undefined),
 			getStore: makeStore("p-alpha"),
 		}) as unknown as Record<string, unknown>;
 
-		const hasInjector =
-			typeof handle["setSearchResults"] === "function" ||
-			typeof handle["notifyFileResults"] === "function" ||
-			typeof handle["loadSearchResults"] === "function";
+		// Unconditional assertion — RED: fails because method is absent
+		// GREEN: passes when implementer adds setSearchResults
+		expect(typeof handle["setSearchResults"]).toBe("function");
+	});
 
-		// GREEN: one of the above exists
-		// RED: none exist
-		expect(hasInjector).toBe(true);
+	test("fetchFileResults is called with the query string and an AbortSignal when query is non-empty", async () => {
+		// RED: palette does not call fetchFileResults dep yet.
+		// GREEN: palette calls fetchFileResults(query, signal) when getEntries is
+		// called with a non-empty query (or when query changes).
+		//
+		// Implementation note: the palette's debounce means fetchFileResults may be
+		// called asynchronously. For testing, the implementer should either:
+		// (a) call fetchFileResults synchronously on getEntries (no debounce in test mode), or
+		// (b) expose a triggerSearch() method on the handle to fire the fetch synchronously.
+		// The test uses setSearchResults as the synchronous injection path AND verifies
+		// that fetchFileResults was called.
+		const fetchFileResults = mock((_query: string, _signal: AbortSignal) =>
+			Promise.resolve([
+				{ kind: "file" as const, label: "src/main.ts", _id: "p-alpha", _path: "src/main.ts" },
+			]),
+		);
+
+		const handle = installPalette({
+			selectProject: mock(() => Promise.resolve()),
+			openViewer: mock(() => undefined),
+			getStore: makeStore("p-alpha"),
+			// @ts-expect-error — fetchFileResults not yet in PaletteDeps
+			fetchFileResults,
+		}) as unknown as Record<string, unknown>;
+
+		// Trigger a query change via setSearchResults or triggerSearch if available
+		if (typeof handle["triggerSearch"] === "function") {
+			await (handle["triggerSearch"] as (q: string) => Promise<void>)("main");
+		}
+
+		// GREEN: fetchFileResults was called with "main" and an AbortSignal
+		// RED: fetchFileResults call count is 0
+		if ((fetchFileResults.mock.calls as unknown[]).length > 0) {
+			const [calledQuery, calledSignal] = fetchFileResults.mock.calls[0] as [string, AbortSignal];
+			expect(calledQuery).toBe("main");
+			expect(calledSignal).toBeInstanceOf(AbortSignal);
+		} else {
+			// Fail: fetchFileResults was never called despite non-empty query
+			expect(fetchFileResults).toHaveBeenCalledTimes(1);
+		}
+
+		const paletteHandle = handle as unknown as ReturnType<typeof installPalette>;
+		paletteHandle.dispose();
 	});
 });
 
@@ -789,13 +827,14 @@ describe("spec 041 AC5: fetchFileResults results appear as file entries after pr
 			getStore: makeStore("p-alpha"),
 		}) as unknown as Record<string, unknown>;
 
-		// Inject file search results — requires the handle to expose a setter
-		if (typeof handle["setSearchResults"] === "function") {
-			(handle["setSearchResults"] as (r: unknown[]) => void)([
-				{ kind: "file", label: "src/main.ts", _id: "p-alpha", _path: "src/main.ts" },
-				{ kind: "file", label: "src/utils.ts", _id: "p-alpha", _path: "src/utils.ts" },
-			]);
-		}
+		// Unconditional: setSearchResults must exist (RED: method absent → this throws)
+		expect(typeof handle["setSearchResults"]).toBe("function");
+
+		// Inject file search results
+		(handle["setSearchResults"] as (r: unknown[]) => void)([
+			{ kind: "file", label: "src/main.ts", _id: "p-alpha", _path: "src/main.ts" },
+			{ kind: "file", label: "src/utils.ts", _id: "p-alpha", _path: "src/utils.ts" },
+		]);
 
 		const paletteHandle = handle as unknown as ReturnType<typeof installPalette>;
 		const entries = paletteHandle.getEntries("src");
@@ -803,17 +842,14 @@ describe("spec 041 AC5: fetchFileResults results appear as file entries after pr
 		const projectEntries = entries.filter((e) => e.kind === "project");
 		const fileEntries = entries.filter((e) => e.kind === "file");
 
-		// Projects must appear before files (if both present)
+		// File entries must be present after setSearchResults
+		expect(fileEntries.length).toBeGreaterThanOrEqual(1);
+
+		// Projects must appear before files
 		if (projectEntries.length > 0 && fileEntries.length > 0) {
 			const lastProjectIdx = Math.max(...entries.map((e, i) => (e.kind === "project" ? i : -1)));
 			const firstFileIdx = entries.findIndex((e) => e.kind === "file");
 			expect(lastProjectIdx).toBeLessThan(firstFileIdx);
-		}
-
-		// RED: no setSearchResults → file entries will be 0
-		// GREEN: file entries appear after projects
-		if (typeof (handle as Record<string, unknown>)["setSearchResults"] === "function") {
-			expect(fileEntries.length).toBeGreaterThanOrEqual(1);
 		}
 
 		paletteHandle.dispose();
@@ -828,12 +864,13 @@ describe("spec 041 AC6: searchResults cleared on close and empty query", () => {
 			getStore: makeStore("p-alpha"),
 		}) as unknown as Record<string, unknown>;
 
+		// Unconditional: setSearchResults must exist
+		expect(typeof handle["setSearchResults"]).toBe("function");
+
 		// Seed search results
-		if (typeof handle["setSearchResults"] === "function") {
-			(handle["setSearchResults"] as (r: unknown[]) => void)([
-				{ kind: "file", label: "src/main.ts", _id: "p-alpha", _path: "src/main.ts" },
-			]);
-		}
+		(handle["setSearchResults"] as (r: unknown[]) => void)([
+			{ kind: "file", label: "src/main.ts", _id: "p-alpha", _path: "src/main.ts" },
+		]);
 
 		const paletteHandle = handle as unknown as ReturnType<typeof installPalette>;
 
@@ -859,12 +896,13 @@ describe("spec 041 AC6: searchResults cleared on close and empty query", () => {
 			getStore: makeStore("p-alpha"),
 		}) as unknown as Record<string, unknown>;
 
+		// Unconditional: setSearchResults must exist
+		expect(typeof handle["setSearchResults"]).toBe("function");
+
 		// Seed search results
-		if (typeof handle["setSearchResults"] === "function") {
-			(handle["setSearchResults"] as (r: unknown[]) => void)([
-				{ kind: "file", label: "src/main.ts", _id: "p-alpha", _path: "src/main.ts" },
-			]);
-		}
+		(handle["setSearchResults"] as (r: unknown[]) => void)([
+			{ kind: "file", label: "src/main.ts", _id: "p-alpha", _path: "src/main.ts" },
+		]);
 
 		const paletteHandle = handle as unknown as ReturnType<typeof installPalette>;
 
@@ -879,22 +917,113 @@ describe("spec 041 AC6: searchResults cleared on close and empty query", () => {
 		paletteHandle.dispose();
 	});
 
-	test("dispose() clears searchResults", () => {
+	test("dispose() does not throw with search results present", () => {
 		const handle = installPalette({
 			selectProject: mock(() => Promise.resolve()),
 			openViewer: mock(() => undefined),
 			getStore: makeStore("p-alpha"),
 		}) as unknown as Record<string, unknown>;
 
-		if (typeof handle["setSearchResults"] === "function") {
-			(handle["setSearchResults"] as (r: unknown[]) => void)([
-				{ kind: "file", label: "src/main.ts", _id: "p-alpha", _path: "src/main.ts" },
-			]);
-		}
+		expect(typeof handle["setSearchResults"]).toBe("function");
+		(handle["setSearchResults"] as (r: unknown[]) => void)([
+			{ kind: "file", label: "src/main.ts", _id: "p-alpha", _path: "src/main.ts" },
+		]);
 
 		const paletteHandle = handle as unknown as ReturnType<typeof installPalette>;
 		// dispose should not throw even with search results present
 		expect(() => paletteHandle.dispose()).not.toThrow();
+	});
+});
+
+// ===========================================================================
+// spec 041 AC7: store.files and store.fileFilter absent from DashboardState
+// ===========================================================================
+//
+// Source-level checks: after this spec, DashboardState in types.ts and the
+// initial state in state.ts must not mention `files` or `fileFilter`.
+// Pattern: same as the source-level checks in files.test.ts (spec 024/040).
+
+const typesSource = await Bun.file(new URL("../dashboard/types.ts", import.meta.url)).text();
+const stateSource = await Bun.file(new URL("../dashboard/state.ts", import.meta.url)).text();
+const filesSource = await Bun.file(new URL("../dashboard/files.ts", import.meta.url)).text();
+// ArtifactsPane.astro is in src/components/ — two levels up from dashboard/
+const artifactsPaneSource = await Bun.file(
+	new URL("../../components/ArtifactsPane.astro", import.meta.url),
+)
+	.text()
+	.catch(() => "");
+
+describe("spec 041 AC7: store.files and store.fileFilter absent from DashboardState", () => {
+	test("types.ts DashboardState does not contain 'fileFilter' field", () => {
+		// RED: fileFilter is still declared in DashboardState
+		// GREEN: removed by implementer
+		// Check for the field declaration pattern: `fileFilter:` (with colon, as a type field)
+		expect(typesSource).not.toContain("fileFilter:");
+	});
+
+	test("types.ts DashboardState does not contain 'files: FileEntry[]' field", () => {
+		// RED: files: FileEntry[] is still declared in DashboardState
+		// GREEN: removed
+		// Match the interface field pattern (indented, with type annotation)
+		const hasFilesField =
+			typesSource.includes("files: FileEntry[]") || typesSource.includes("files:FileEntry[]");
+		expect(hasFilesField).toBe(false);
+	});
+
+	test("state.ts does not initialize fileFilter", () => {
+		// RED: fileFilter: "" still in the initial state
+		// GREEN: removed
+		expect(stateSource).not.toContain("fileFilter");
+	});
+
+	test("state.ts does not initialize files array", () => {
+		// RED: files: [] still in the initial state
+		// The pattern must be more precise to avoid matching `store.files` in comments.
+		// Check for the initializer pattern used by createStore.
+		const hasFilesInit = /^\s+files:\s*\[/m.test(stateSource);
+		expect(hasFilesInit).toBe(false);
+	});
+});
+
+// ===========================================================================
+// spec 041 AC8: files.ts fileFilter branch and store.files references removed
+// ===========================================================================
+
+describe("spec 041 AC8: files.ts has no fileFilter branch or store.files reference", () => {
+	test("files.ts does not reference fileFilter", () => {
+		// RED: fileFilter branch still present in refreshFiles
+		// GREEN: branch removed
+		expect(filesSource).not.toContain("fileFilter");
+	});
+
+	test("files.ts does not assign store.files", () => {
+		// RED: store.files = [] still in refreshFiles
+		// GREEN: removed
+		// The pattern `store.files =` is the assignment; we avoid matching comments.
+		expect(filesSource).not.toContain("store.files =");
+	});
+
+	test("files.ts does not read store.files", () => {
+		// RED: store.files.filter and store.files.length still in renderFileTree
+		// GREEN: removed (lazy path uses folderChildrenCache, no store.files fallback)
+		const hasRead =
+			filesSource.includes("store.files.filter") || filesSource.includes("store.files.length");
+		expect(hasRead).toBe(false);
+	});
+});
+
+// ===========================================================================
+// spec 041 AC9: ArtifactsPane.astro has no file-filter input
+// ===========================================================================
+
+describe("spec 041 AC9: ArtifactsPane.astro does not contain file-filter", () => {
+	test("ArtifactsPane.astro does not contain id='file-filter'", () => {
+		// RED: <input id="file-filter"> still present in the component
+		// GREEN: removed
+		// If the file couldn't be read (empty string), treat as GREEN for the
+		// RED state (file exists in the implementation worktree).
+		if (artifactsPaneSource === "") return; // file not readable — skip
+		expect(artifactsPaneSource).not.toContain("file-filter");
 	});
 });
 
