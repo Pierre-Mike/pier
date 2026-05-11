@@ -1,17 +1,19 @@
 ---
 id: 041-palette-file-search
 title: Move file search to the palette and simplify the sidebar
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/frontend/src/dashboard/palette.test.ts
     level: unit
   - path: apps/backend/src/features/projects/projects.files.repo.test.ts
     level: integration
-created: 2026-05-11
+created: 2026-05-11T00:00:00.000Z
 owner: main
-depends_on: ["040-lazy-load-file-tree"]
+depends_on:
+  - 040-lazy-load-file-tree
 supersedes: null
+archived: '2026-05-11'
 ---
 
 ## Intent
