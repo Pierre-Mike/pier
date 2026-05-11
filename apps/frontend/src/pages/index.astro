@@ -29,6 +29,7 @@ import Base from "../layouts/Base.astro";
 
 <script>
 	import { store } from "../dashboard/state";
+	import { api } from "../api";
 	import {
 		refreshProjects,
 		renderProjects,
@@ -119,9 +120,24 @@ import Base from "../layouts/Base.astro";
 			},
 			getStore: () => ({
 				projects: store.projects,
-				files: store.files,
 				activeProject: store.activeProject,
 			}),
+			fetchFileResults: async (query: string, signal: AbortSignal) => {
+				if (!store.activeProject) return [];
+				// biome-ignore lint/suspicious/noExplicitAny: Hono RPC client resolves fine at runtime; TS needs help in Astro client scripts
+				const res = await (api as any).api.projects[":id"].files.search.$get(
+					{ param: { id: store.activeProject }, query: { q: query, limit: "50" } },
+					{ init: { signal } },
+				);
+				if (!res.ok) return [];
+				const data = (await res.json()) as { files: Array<{ path: string }> };
+				return data.files.map((f) => ({
+					kind: "file" as const,
+					label: f.path,
+					_id: f.path,
+					_path: f.path,
+				}));
+			},
 		});
 
 		let highlighted = 0;
