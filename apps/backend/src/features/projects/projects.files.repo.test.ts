@@ -297,3 +297,147 @@ describe("spec 040 AC3+AC4: listFilesInPrefix — non-empty prefix (immediate ch
 		expect(result).toEqual([]);
 	});
 });
+
+// ===========================================================================
+// spec 041: Move file search to palette — searchFiles integration tests
+// ===========================================================================
+//
+// Gate tests for spec 041: RepoService.searchFiles(projectId, query, limit).
+//
+// AC1: searchFiles returns files whose path contains query (case-insensitive substring).
+//      Empty query returns [].
+// AC2: searchFiles respects limit — returns at most limit results; default 50, max 200.
+
+// Fixture: a project with several files at various paths.
+//   src/index.ts
+//   src/utils.ts
+//   src/core/engine.ts
+//   dist/bundle.js
+//   README.md
+//   docs/guide/intro.md
+//   docs/guide/api.md
+const searchFiles: ReadonlyMap<
+	string,
+	Array<{ path: string; size: number; ignored: boolean }>
+> = new Map([
+	[
+		"searchproj",
+		[
+			{ path: "src/index.ts", size: 100, ignored: false },
+			{ path: "src/utils.ts", size: 80, ignored: false },
+			{ path: "src/core/engine.ts", size: 200, ignored: false },
+			{ path: "dist/bundle.js", size: 5000, ignored: true },
+			{ path: "README.md", size: 512, ignored: false },
+			{ path: "docs/guide/intro.md", size: 300, ignored: false },
+			{ path: "docs/guide/api.md", size: 250, ignored: false },
+		],
+	],
+]);
+
+describe("spec 041 AC1: searchFiles — basic substring match", () => {
+	it("searchFiles exists as a method on RepoService (RED: method not yet defined)", async () => {
+		const layer = makeRepoServiceTest(searchFiles);
+		const program = Effect.gen(function* () {
+			const svc = yield* RepoService;
+			// RED: svc.searchFiles does not exist yet — will throw at runtime
+			const search = (svc as unknown as Record<string, unknown>)["searchFiles"];
+			return typeof search;
+		});
+		const result = await Effect.runPromise(Effect.provide(program, layer));
+		// GREEN: "function"; RED: "undefined"
+		expect(result).toBe("function");
+	});
+
+	it("returns files whose path contains the query substring (case-insensitive)", async () => {
+		const layer = makeRepoServiceTest(searchFiles);
+		const program = Effect.gen(function* () {
+			const svc = yield* RepoService;
+			return yield* svc.searchFiles("searchproj", "index", 50);
+		});
+		const result = await Effect.runPromise(Effect.provide(program, layer));
+		expect(result).toHaveLength(1);
+		expect((result as Array<{ path: string }>)[0]?.path).toBe("src/index.ts");
+	});
+
+	it("match is case-insensitive: 'INDEX' matches 'src/index.ts'", async () => {
+		const layer = makeRepoServiceTest(searchFiles);
+		const program = Effect.gen(function* () {
+			const svc = yield* RepoService;
+			return yield* svc.searchFiles("searchproj", "INDEX", 50);
+		});
+		const result = await Effect.runPromise(Effect.provide(program, layer));
+		expect(result).toHaveLength(1);
+		expect((result as Array<{ path: string }>)[0]?.path).toBe("src/index.ts");
+	});
+
+	it("returns multiple matches: 'src' matches all files under src/", async () => {
+		const layer = makeRepoServiceTest(searchFiles);
+		const program = Effect.gen(function* () {
+			const svc = yield* RepoService;
+			return yield* svc.searchFiles("searchproj", "src", 50);
+		});
+		const result = await Effect.runPromise(Effect.provide(program, layer));
+		// src/index.ts, src/utils.ts, src/core/engine.ts
+		expect((result as unknown[]).length).toBeGreaterThanOrEqual(3);
+		for (const f of result as Array<{ path: string }>) {
+			expect(f.path.toLowerCase()).toContain("src");
+		}
+	});
+
+	it("returns empty array when query is empty string (AC1)", async () => {
+		const layer = makeRepoServiceTest(searchFiles);
+		const program = Effect.gen(function* () {
+			const svc = yield* RepoService;
+			return yield* svc.searchFiles("searchproj", "", 50);
+		});
+		const result = await Effect.runPromise(Effect.provide(program, layer));
+		expect(result).toEqual([]);
+	});
+
+	it("returns empty array for unknown project", async () => {
+		const layer = makeRepoServiceTest(searchFiles);
+		const program = Effect.gen(function* () {
+			const svc = yield* RepoService;
+			return yield* svc.searchFiles("no-such-project", "index", 50);
+		});
+		const result = await Effect.runPromise(Effect.provide(program, layer));
+		expect(result).toEqual([]);
+	});
+
+	it("returned entries have path and ignored fields (FileEntry shape)", async () => {
+		const layer = makeRepoServiceTest(searchFiles);
+		const program = Effect.gen(function* () {
+			const svc = yield* RepoService;
+			return yield* svc.searchFiles("searchproj", ".ts", 50);
+		});
+		const result = await Effect.runPromise(Effect.provide(program, layer));
+		for (const f of result as Array<Record<string, unknown>>) {
+			expect(typeof f["path"]).toBe("string");
+			expect(typeof f["ignored"]).toBe("boolean");
+		}
+	});
+});
+
+describe("spec 041 AC2: searchFiles — limit enforcement", () => {
+	it("respects limit: returns at most limit results", async () => {
+		// searchFiles fixture has 7 files total; search for 'a' matches many.
+		// Set limit=2 — must return exactly 2.
+		const layer = makeRepoServiceTest(searchFiles);
+		const program = Effect.gen(function* () {
+			const svc = yield* RepoService;
+			return yield* svc.searchFiles("searchproj", "a", 2);
+		});
+		const result = await Effect.runPromise(Effect.provide(program, layer));
+		expect((result as unknown[]).length).toBeLessThanOrEqual(2);
+	});
+
+	it("limit=1 returns exactly one result when matches exist", async () => {
+		const layer = makeRepoServiceTest(searchFiles);
+		const program = Effect.gen(function* () {
+			const svc = yield* RepoService;
+			return yield* svc.searchFiles("searchproj", ".ts", 1);
+		});
+		const result = await Effect.runPromise(Effect.provide(program, layer));
+		expect((result as unknown[]).length).toBe(1);
+	});
+});

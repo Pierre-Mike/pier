@@ -75,9 +75,7 @@ export interface DashboardState extends Record<string, unknown> {
 	projectFilter: string;
 	projectHighlight: number;
 	sessions: Map<string, Session>;
-	files: FileEntry[];
 	activeFilePath: string | null;
-	fileFilter: string;
 	expandedDirs: Set<string>;
 	refs: RefsBundle;
 	projectsWithEvents: Set<string>;

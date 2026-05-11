@@ -124,6 +124,48 @@ const rFiles = routeAdvanced({
 	handler: projectFilesHandler,
 });
 
+const projectFilesSearchHandler = (c: Context<{ Bindings: AppBindings }>) =>
+	Effect.gen(function* () {
+		const id = c.req.param("id") ?? "";
+		const q = c.req.query("q") ?? "";
+		const limitRaw = Number(c.req.query("limit") ?? "50");
+		const limit = Math.min(Number.isNaN(limitRaw) || limitRaw < 1 ? 50 : limitRaw, 200);
+		if (!q) {
+			return c.json({ files: [] }, 200);
+		}
+		const repo = yield* RepoService;
+		const result = yield* repo.searchFiles(id, q, limit);
+		return c.json({ files: result }, 200);
+	}).pipe(
+		Effect.catchAll(() =>
+			Effect.succeed(
+				new Response(JSON.stringify({ files: [] }), {
+					status: 400,
+					headers: { "Content-Type": "application/json" },
+				}),
+			),
+		),
+	);
+
+const rFilesSearch = routeAdvanced({
+	liveDeps: Layer.provide(makeRepoServiceLive(), defaultConfigLayer),
+	testDeps: Layer.provide(
+		makeRepoServiceTest(
+			new Map([
+				[
+					"test-proj",
+					[
+						{ path: "README.md", size: 100 },
+						{ path: "src/index.ts", size: 200 },
+					],
+				],
+			]),
+		),
+		ConfigTest,
+	),
+	handler: projectFilesSearchHandler,
+});
+
 const projectRefsHandler = (c: Context<{ Bindings: AppBindings }>) =>
 	Effect.gen(function* () {
 		const id = c.req.param("id") ?? "";
@@ -175,6 +217,7 @@ const { app, testApp } = mountPair((a, h) =>
 	a
 		.get("/api/projects", rList[h])
 		.get("/api/projects/:id/files", rFiles[h])
+		.get("/api/projects/:id/files/search", rFilesSearch[h])
 		.get("/api/projects/:id/github-url", rGithubUrl[h])
 		.get("/api/projects/:id/refs", rRefs[h]),
 );
