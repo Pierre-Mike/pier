@@ -1,13 +1,14 @@
 ---
 id: 038-bump-gh-actions
 title: Bump GitHub Actions to Node 24-capable majors
-status: active
+status: archived
 kind: workflow
 gate: scripts/smoke-bump-gh-actions.ts
 created: 2026-05-11T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-05-11'
 ---
 
 ## Intent
