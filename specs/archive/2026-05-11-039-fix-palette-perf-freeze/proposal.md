@@ -1,17 +1,19 @@
 ---
-id: "039"
+id: 039
 title: Fix double-shift palette performance freeze
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/frontend/src/dashboard/palette.test.ts
     level: unit
   - path: scripts/smoke-039-palette-perf.ts
     level: e2e
-created: 2026-05-11
+created: 2026-05-11T00:00:00.000Z
 owner: main
-depends_on: ["010-double-shift-palette"]
+depends_on:
+  - 010-double-shift-palette
 supersedes: null
+archived: '2026-05-11'
 ---
 
 ## Intent
