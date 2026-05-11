@@ -1,13 +1,15 @@
 ---
 id: 042-wire-palette-sidebar
 title: Wire palette-sidebar page composition
-status: active
+status: archived
 kind: workflow
 gate: scripts/smoke-042-wire-palette-sidebar.ts
-created: 2026-05-11
+created: 2026-05-11T00:00:00.000Z
 owner: main
-depends_on: ["041-palette-file-search"]
+depends_on:
+  - 041-palette-file-search
 supersedes: null
+archived: '2026-05-11'
 ---
 
 ## Intent

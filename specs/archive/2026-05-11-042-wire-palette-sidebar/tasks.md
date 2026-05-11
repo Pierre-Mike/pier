@@ -1,21 +1,21 @@
 # Tasks
 
-- [ ] 1. Add renderFileTree() call at end of refreshFiles in files.ts
+- [x] 1. Add renderFileTree() call at end of refreshFiles in files.ts
   - agent: main
   - depends: []
   - file_targets: [apps/frontend/src/dashboard/files.ts]
   - boundary: [apps/frontend/src/dashboard/files.ts]
-- [ ] 2a. [P] Remove dead files: store.files from getStore() in index.astro
+- [x] 2a. [P] Remove dead files: store.files from getStore() in index.astro
   - agent: main
   - depends: [1]
   - file_targets: [apps/frontend/src/pages/index.astro]
   - boundary: [apps/frontend/src/pages/index.astro]
-- [ ] 2b. [P] Add fetchFileResults to installPalette call in index.astro
+- [x] 2b. [P] Add fetchFileResults to installPalette call in index.astro
   - agent: main
   - depends: [1]
   - file_targets: [apps/frontend/src/pages/index.astro]
   - boundary: [apps/frontend/src/pages/index.astro]
-- [ ] 3. Add spec 042 DOM-level test for refreshFiles → renderFileTree to files.test.ts
+- [x] 3. Add spec 042 DOM-level test for refreshFiles → renderFileTree to files.test.ts
   - agent: main
   - depends: [1]
   - file_targets: [apps/frontend/src/dashboard/files.test.ts]
