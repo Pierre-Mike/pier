@@ -1,9 +1,14 @@
 /**
- * Double-shift command palette — spec 010.
+ * Double-shift command palette — spec 010, perf fix spec 039.
  *
  * Exports a single `installPalette(deps) → PaletteHandle` factory.
  * All state-machine logic is pure (timestamps passed in, no Date.now() calls
  * inside the machine) so it is deterministic and testable without fake timers.
+ *
+ * spec 039: Snapshot-identity memoisation — `getStore()` is called once per
+ * `getEntries` invocation. `selectRowAt` reuses the cached entries from the
+ * last `getEntries` call rather than calling `getStore()` independently.
+ * Cache is invalidated when `getStore()` returns a different object reference.
  */
 
 export interface Project {
@@ -57,6 +62,10 @@ const DOUBLE_SHIFT_WINDOW_MS = 300;
 // ---------------------------------------------------------------------------
 // Fuzzy filter: entries containing the query substring rank above others.
 // Within each tier (match / no-match), original order is preserved.
+//
+// spec 039: removed redundant double-filter pass. The previous implementation
+// built `[matches, others]` then filtered again — silently discarding `others`
+// and doing O(2n) comparisons instead of O(n). Now returns `matches` directly.
 // ---------------------------------------------------------------------------
 function applyFuzzyFilter(
 	entries: ReadonlyArray<PaletteEntry>,
@@ -65,15 +74,12 @@ function applyFuzzyFilter(
 	if (!query) return entries;
 	const q = query.toLowerCase();
 	const matches: PaletteEntry[] = [];
-	const others: PaletteEntry[] = [];
 	for (const entry of entries) {
 		if (entry.label.toLowerCase().includes(q)) {
 			matches.push(entry);
-		} else {
-			others.push(entry);
 		}
 	}
-	return [...matches, ...others].filter((e) => e.label.toLowerCase().includes(q));
+	return matches;
 }
 
 // ---------------------------------------------------------------------------
@@ -117,10 +123,32 @@ export function installPalette(deps: PaletteDeps): PaletteHandle {
 	let lastShiftTime: number | null = null;
 	/** Tracks the last query passed to getEntries so selectRowAt uses the same filtered view. */
 	let lastQuery = "";
+	/** Snapshot-identity cache (spec 039). Invalidated when getStore() returns a new reference. */
+	let lastSnapshot: StoreSnapshot | null = null;
+	let cachedAllEntries: ReadonlyArray<PaletteEntry> = [];
 
 	// --- Helpers ---
 	function close(): void {
 		open = false;
+	}
+
+	/**
+	 * Returns the cached PaletteEntry list, rebuilding only when the snapshot
+	 * reference has changed (spec 039 — snapshot-identity memoisation).
+	 *
+	 * Calls getStore() exactly once per invocation to read + compare the
+	 * current snapshot reference. If the reference is unchanged, rebuilding
+	 * is skipped and the cached list is returned in O(1).
+	 */
+	function resolveAllEntries(): ReadonlyArray<PaletteEntry> {
+		const snapshot: StoreSnapshot = getStore
+			? getStore()
+			: { projects: [], files: [], activeProject: null };
+		if (snapshot !== lastSnapshot) {
+			lastSnapshot = snapshot;
+			cachedAllEntries = buildEntries(snapshot);
+		}
+		return cachedAllEntries;
 	}
 
 	function processTap(t: number): void {
@@ -170,21 +198,16 @@ export function installPalette(deps: PaletteDeps): PaletteHandle {
 
 		getEntries(query: string): ReadonlyArray<{ kind: "project" | "file"; label: string }> {
 			lastQuery = query;
-			const snapshot: StoreSnapshot = getStore
-				? getStore()
-				: { projects: [], files: [], activeProject: null };
-			const all = buildEntries(snapshot);
+			const all = resolveAllEntries();
 			return applyFuzzyFilter(all, query);
 		},
 
 		selectRowAt(index: number): void {
-			const snapshot: StoreSnapshot = getStore
-				? getStore()
-				: { projects: [], files: [], activeProject: null };
-			const all = buildEntries(snapshot);
+			// Reuse the cached entries from the last getEntries call — no getStore() call
+			// (spec 039: selectRowAt must not call getStore independently when cache is warm).
 			// Use the same filtered view that getEntries last returned so the
 			// DOM-rendered index maps correctly even when a query is active.
-			const filtered = applyFuzzyFilter(all, lastQuery);
+			const filtered = applyFuzzyFilter(cachedAllEntries, lastQuery);
 			const entry = filtered[index];
 			if (!entry) return;
 
@@ -203,6 +226,8 @@ export function installPalette(deps: PaletteDeps): PaletteHandle {
 			relayTarget.removeEventListener("message", onRelayMessage);
 			open = false;
 			lastShiftTime = null;
+			lastSnapshot = null;
+			cachedAllEntries = [];
 		},
 	};
 
