@@ -14,7 +14,7 @@
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { gateEntries, listActiveSpecs, listArchivedIds, VALID_KINDS } from "./_lib";
+import { gateEntries, listActiveSpecs, listArchivedIds, type Spec, VALID_KINDS } from "./_lib";
 
 export interface ParsedTask {
 	readonly index: number;
@@ -221,6 +221,56 @@ export function parseTasksFile(path: string): readonly ParsedTask[] {
 	return tasks;
 }
 
+/**
+ * Frontend globs: file paths under pages/ or dashboard/ that indicate a
+ * user-visible behaviour change requiring an e2e gate entry.
+ * Motivated by the 040→041→042 regression chain (2026-05-11 retro).
+ */
+const FRONTEND_GLOBS = ["apps/frontend/src/pages/**", "apps/frontend/src/dashboard/**"] as const;
+
+/**
+ * Validate that a kind:code spec touching frontend pages/dashboard declares
+ * at least one apps/e2e/tests/*.spec.ts gate entry.
+ *
+ * Pure — no IO beyond what is already loaded into `spec`.
+ */
+export function validateFrontendE2eGate(spec: Spec): { errors: string[] } {
+	if (spec.frontmatter.kind !== "code") return { errors: [] };
+
+	// Collect all file_targets from tasks.md
+	const tasksPath = join(spec.dir, "tasks.md");
+	const tasks = parseTasksFile(tasksPath);
+	const allTargets = tasks.flatMap((t) => [...t.file_targets]);
+
+	// Exclude test/spec files from the frontend-touch heuristic
+	const nonTestTargets = allTargets.filter(
+		(f) => !f.endsWith(".test.ts") && !f.endsWith(".spec.ts"),
+	);
+
+	// Check if any non-test target matches the frontend globs
+	const globs = FRONTEND_GLOBS.map((p) => new Bun.Glob(p));
+	const touchesFrontend = nonTestTargets.some((f) => globs.some((g) => g.match(f)));
+	if (!touchesFrontend) return { errors: [] };
+
+	// Check if any gate entry matches apps/e2e/tests/*.spec.ts
+	const e2ePattern = /^apps\/e2e\/tests\/.+\.spec\.ts$/;
+	let entries: readonly { path: string; level: string }[];
+	try {
+		entries = gateEntries(spec);
+	} catch {
+		// gateEntries already errors in spec-lint main loop; skip here
+		return { errors: [] };
+	}
+	const hasE2eEntry = entries.some((e) => e2ePattern.test(e.path));
+	if (hasE2eEntry) return { errors: [] };
+
+	return {
+		errors: [
+			`${spec.slug}: kind:code touching apps/frontend/{pages,dashboard} must include an apps/e2e/tests/*.spec.ts gate entry`,
+		],
+	};
+}
+
 function main(): void {
 	const errors: string[] = [];
 	const warnings: string[] = [];
@@ -266,6 +316,12 @@ function main(): void {
 		const levelReport = validateGateLevels({ kind: fm.kind, entries });
 		for (const e of levelReport.errors) {
 			errors.push(`${spec.slug}: ${e}`);
+		}
+
+		// Frontend e2e gate requirement for kind:code touching pages/dashboard
+		const frontendE2eReport = validateFrontendE2eGate(spec);
+		for (const e of frontendE2eReport.errors) {
+			errors.push(e);
 		}
 
 		for (const dep of fm.depends_on) {
