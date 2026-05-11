@@ -1,13 +1,15 @@
 ---
-id: "043"
+id: '043'
 title: Require apps/e2e gate entry on frontend-touching code specs
-status: active
+status: archived
 kind: rule
 gate: scripts/gates/frontend-e2e-gate-required.ts
-created: 2026-05-11
+created: 2026-05-11T00:00:00.000Z
 owner: main
-depends_on: ["036-e2e-smoke"]
+depends_on:
+  - 036-e2e-smoke
 supersedes: null
+archived: '2026-05-11'
 ---
 
 ## Intent

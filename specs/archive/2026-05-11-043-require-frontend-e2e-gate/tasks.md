@@ -1,12 +1,12 @@
 # Tasks
 
-- [ ] 1. Add validateFrontendE2eGate to spec-lint.ts and wire into main loop
+- [x] 1. Add validateFrontendE2eGate to spec-lint.ts and wire into main loop
   - agent: main
   - depends: []
   - file_targets: [scripts/spec-lint.ts]
   - boundary: [scripts/spec-lint.ts]
 
-- [ ] 2. Author fixture directories (pass + fail)
+- [x] 2. Author fixture directories (pass + fail)
   - agent: main
   - depends: [1]
   - file_targets: [scripts/gates/fixtures/frontend-e2e-gate-required/999-pass/proposal.md, scripts/gates/fixtures/frontend-e2e-gate-required/999-pass/tasks.md, scripts/gates/fixtures/frontend-e2e-gate-required/999-fail/proposal.md, scripts/gates/fixtures/frontend-e2e-gate-required/999-fail/tasks.md]
