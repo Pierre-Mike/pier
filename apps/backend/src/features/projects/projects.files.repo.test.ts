@@ -352,7 +352,6 @@ describe("spec 041 AC1: searchFiles — basic substring match", () => {
 		const layer = makeRepoServiceTest(searchFiles);
 		const program = Effect.gen(function* () {
 			const svc = yield* RepoService;
-			// @ts-expect-error — searchFiles does not exist yet in RED state
 			return yield* svc.searchFiles("searchproj", "index", 50);
 		});
 		const result = await Effect.runPromise(Effect.provide(program, layer));
@@ -364,7 +363,6 @@ describe("spec 041 AC1: searchFiles — basic substring match", () => {
 		const layer = makeRepoServiceTest(searchFiles);
 		const program = Effect.gen(function* () {
 			const svc = yield* RepoService;
-			// @ts-expect-error — searchFiles does not exist yet in RED state
 			return yield* svc.searchFiles("searchproj", "INDEX", 50);
 		});
 		const result = await Effect.runPromise(Effect.provide(program, layer));
@@ -376,7 +374,6 @@ describe("spec 041 AC1: searchFiles — basic substring match", () => {
 		const layer = makeRepoServiceTest(searchFiles);
 		const program = Effect.gen(function* () {
 			const svc = yield* RepoService;
-			// @ts-expect-error — searchFiles does not exist yet in RED state
 			return yield* svc.searchFiles("searchproj", "src", 50);
 		});
 		const result = await Effect.runPromise(Effect.provide(program, layer));
@@ -391,7 +388,6 @@ describe("spec 041 AC1: searchFiles — basic substring match", () => {
 		const layer = makeRepoServiceTest(searchFiles);
 		const program = Effect.gen(function* () {
 			const svc = yield* RepoService;
-			// @ts-expect-error — searchFiles does not exist yet in RED state
 			return yield* svc.searchFiles("searchproj", "", 50);
 		});
 		const result = await Effect.runPromise(Effect.provide(program, layer));
@@ -402,7 +398,6 @@ describe("spec 041 AC1: searchFiles — basic substring match", () => {
 		const layer = makeRepoServiceTest(searchFiles);
 		const program = Effect.gen(function* () {
 			const svc = yield* RepoService;
-			// @ts-expect-error — searchFiles does not exist yet in RED state
 			return yield* svc.searchFiles("no-such-project", "index", 50);
 		});
 		const result = await Effect.runPromise(Effect.provide(program, layer));
@@ -413,7 +408,6 @@ describe("spec 041 AC1: searchFiles — basic substring match", () => {
 		const layer = makeRepoServiceTest(searchFiles);
 		const program = Effect.gen(function* () {
 			const svc = yield* RepoService;
-			// @ts-expect-error — searchFiles does not exist yet in RED state
 			return yield* svc.searchFiles("searchproj", ".ts", 50);
 		});
 		const result = await Effect.runPromise(Effect.provide(program, layer));
@@ -431,7 +425,6 @@ describe("spec 041 AC2: searchFiles — limit enforcement", () => {
 		const layer = makeRepoServiceTest(searchFiles);
 		const program = Effect.gen(function* () {
 			const svc = yield* RepoService;
-			// @ts-expect-error — searchFiles does not exist yet in RED state
 			return yield* svc.searchFiles("searchproj", "a", 2);
 		});
 		const result = await Effect.runPromise(Effect.provide(program, layer));
@@ -442,7 +435,6 @@ describe("spec 041 AC2: searchFiles — limit enforcement", () => {
 		const layer = makeRepoServiceTest(searchFiles);
 		const program = Effect.gen(function* () {
 			const svc = yield* RepoService;
-			// @ts-expect-error — searchFiles does not exist yet in RED state
 			return yield* svc.searchFiles("searchproj", ".ts", 1);
 		});
 		const result = await Effect.runPromise(Effect.provide(program, layer));
