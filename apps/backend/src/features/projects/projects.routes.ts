@@ -28,9 +28,15 @@ const projectsListHandler = (_c: Context<{ Bindings: AppBindings }>) =>
 
 const projectFilesHandler = (c: Context<{ Bindings: AppBindings }>) =>
 	Effect.gen(function* () {
-		const idRaw = c.req.param("id");
-		const id = idRaw ?? "";
+		const id = c.req.param("id") ?? "";
+		const prefixParam = c.req.query("prefix");
 		const repo = yield* RepoService;
+		if (prefixParam !== undefined) {
+			// Lazy-load path: return immediate children for the given prefix.
+			const result = yield* repo.listFilesInPrefix(id, prefixParam);
+			return c.json({ files: result }, 200);
+		}
+		// Default path: return all files (backward-compatible).
 		const result = yield* repo.listFiles(id);
 		if (result instanceof Error) {
 			return c.json({ files: [] }, 400);
