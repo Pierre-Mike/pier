@@ -12,7 +12,7 @@
  */
 
 import { renameSync, writeFileSync } from "node:fs";
-import { appendFile, mkdir, readFile } from "node:fs/promises";
+import { appendFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
 // ---------------------------------------------------------------------------
@@ -129,11 +129,12 @@ const HISTORY_FILE = "history.ndjson";
 async function readRegistry(dataDir: string): Promise<SnapshotRegistry> {
 	const path = join(dataDir, REGISTRY_FILE);
 	try {
-		const raw = await readFile(path, "utf-8");
+		const file = Bun.file(path);
+		if (!(await file.exists())) return {};
+		const raw = await file.text();
 		const parsed = JSON.parse(raw) as Record<string, SnapshotEntryJson>;
 		return jsonToRegistry(parsed);
 	} catch {
-		// File missing or corrupt — start fresh
 		return {};
 	}
 }
