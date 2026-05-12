@@ -9,7 +9,10 @@ async function selectDefaultSession(): Promise<void> {
 	if (!store.sessions.has("__default__")) {
 		try {
 			const resp = await api.api.sessions.default.$post();
-			if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+			if (!resp.ok) {
+				const body = (await resp.json().catch(() => ({}))) as { error?: string };
+				throw new Error(body.error ?? `HTTP ${resp.status}`);
+			}
 			const info = (await resp.json()) as { url: string; id: string };
 			store.sessions.set("__default__", { url: info.url, sessionId: info.id });
 		} catch (e) {

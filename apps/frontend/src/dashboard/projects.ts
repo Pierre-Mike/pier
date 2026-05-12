@@ -253,7 +253,12 @@ export async function selectProject(id: string): Promise<void> {
 			const resp = await api.api.projects[":id"].terminal.$post({
 				param: { id },
 			});
-			if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+			if (!resp.ok) {
+				// Surface the backend error (set by sessions.repo.ts spawn failures)
+				// instead of a bare "HTTP 500" — the body carries the real cause.
+				const body = (await resp.json().catch(() => ({}))) as { error?: string };
+				throw new Error(body.error ?? `HTTP ${resp.status}`);
+			}
 			const info = (await resp.json()) as { url: string; id: string };
 			store.sessions.set(id, { url: info.url, sessionId: info.id });
 		} catch (e) {

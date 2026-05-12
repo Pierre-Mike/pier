@@ -97,7 +97,10 @@ const spawnNamedSession = async (id: string, cwd: string): Promise<void> => {
 		}
 	}
 
-	const stderrSnippet = await new Response(proc.stderr).text().catch(() => "");
+	const stderrSnippet =
+		proc.stderr instanceof ReadableStream
+			? await new Response(proc.stderr).text().catch(() => "")
+			: "";
 	proc.kill();
 	await proc.exited.catch(() => undefined);
 	throw new Error(
