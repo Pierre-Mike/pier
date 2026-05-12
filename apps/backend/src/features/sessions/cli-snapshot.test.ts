@@ -137,21 +137,31 @@ describe("snapshotNow", () => {
 				};
 			return { stdout: "", stderr: "", exitCode: 1 };
 		};
-		const entries = await snapshotNow({ dataDir, zellijRoot, spawner, now: () => NOW });
+		const entries = await snapshotNow({
+			dataDir,
+			zellijRoot,
+			spawner,
+			now: () => NOW,
+			enrich: false,
+			processEnrich: false,
+		});
 		expect(entries).toHaveLength(2);
 
 		const raw = await Bun.file(join(dataDir, "registry.json")).text();
 		const parsed = JSON.parse(raw) as Record<string, Record<string, unknown>>;
-		expect(Object.keys(parsed).sort()).toEqual(["alpha", "beta"]);
-		expect(parsed["alpha"]?.["tabTitle"]).toBe("tab-alpha");
+		// Discovery now emits one entry per terminal pane → composite keys.
+		expect(Object.keys(parsed).sort()).toEqual(["alpha:terminal_0", "beta:terminal_0"]);
+		expect(parsed["alpha:terminal_0"]?.["tabTitle"]).toBe("tab-alpha");
+		expect(parsed["alpha:terminal_0"]?.["paneId"]).toBe("terminal_0");
 	});
 
 	it("preserves hook-captured cwd / resume-id across snapshotNow", async () => {
-		// Seed the registry with hook-style data (cwd, resume-id) for "alpha".
+		// Seed the registry with hook-style data (cwd, resume-id) for the
+		// pane-keyed entry that discovery will emit (alpha:terminal_0).
 		const { snapshotSession } = await import("./snapshot.ts");
 		await snapshotSession(dataDir, {
 			name: "alpha",
-			paneId: null,
+			paneId: "terminal_0",
 			tabTitle: null,
 			cwd: "/Users/x/repo",
 			transcriptPath: "/tmp/t.jsonl",
@@ -161,7 +171,6 @@ describe("snapshotNow", () => {
 			updatedAt: NOW,
 		});
 
-		// Discovery only knows tab + status; it would normally clobber.
 		const spawner: Spawner = async (cmd) => {
 			if (cmd.includes("list-tabs"))
 				return { stdout: "TAB_ID  POSITION  NAME\n0  0  fresh-tab\n", stderr: "", exitCode: 0 };
@@ -180,16 +189,23 @@ describe("snapshotNow", () => {
 			return { stdout: "", stderr: "", exitCode: 1 };
 		};
 
-		await snapshotNow({ dataDir, zellijRoot, spawner, now: () => NOW });
+		await snapshotNow({
+			dataDir,
+			zellijRoot,
+			spawner,
+			now: () => NOW,
+			enrich: false,
+			processEnrich: false,
+		});
 
 		const raw = await Bun.file(join(dataDir, "registry.json")).text();
 		const parsed = JSON.parse(raw) as Record<string, Record<string, unknown>>;
-		expect(parsed["alpha"]?.["cwd"]).toBe("/Users/x/repo");
-		expect(parsed["alpha"]?.["claudeResumeId"]).toBe("sess_kept");
-		expect(parsed["alpha"]?.["transcriptPath"]).toBe("/tmp/t.jsonl");
-		expect(parsed["alpha"]?.["lastPrompt"]).toBe("kept prompt");
-		// Discovery still wins for tabTitle.
-		expect(parsed["alpha"]?.["tabTitle"]).toBe("fresh-tab");
+		const key = "alpha:terminal_0";
+		expect(parsed[key]?.["cwd"]).toBe("/Users/x/repo");
+		expect(parsed[key]?.["claudeResumeId"]).toBe("sess_kept");
+		expect(parsed[key]?.["transcriptPath"]).toBe("/tmp/t.jsonl");
+		expect(parsed[key]?.["lastPrompt"]).toBe("kept prompt");
+		expect(parsed[key]?.["tabTitle"]).toBe("fresh-tab");
 	});
 });
 

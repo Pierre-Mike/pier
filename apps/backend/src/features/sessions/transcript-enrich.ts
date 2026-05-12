@@ -151,12 +151,18 @@ const DEFAULT_RECENCY_MS = 24 * 60 * 60 * 1000;
  * the newest recent transcript and fills cwd / claudeResumeId /
  * transcriptPath. Always returns the entry — never throws on lookup
  * failure; an unenriched entry stays as-is.
+ *
+ * Skips entries that already carry a paneId — those are per-pane records
+ * and the process-enrich pass (pgrep/lsof/ps) is the authoritative source
+ * for them. Falling back to a session-name heuristic here would assign
+ * the SAME transcript to every pane of a multi-pane session.
  */
 export async function enrichEntry(
 	entry: SnapshotEntry,
 	opts: EnrichOptions = {},
 ): Promise<SnapshotEntry> {
 	if (entry.claudeResumeId && entry.cwd && entry.cwd.length > 0) return entry;
+	if (entry.paneId) return entry;
 
 	const home = opts.home ?? homedir();
 	const projectsRoot = opts.projectsRoot ?? join(home, ".claude", "projects");

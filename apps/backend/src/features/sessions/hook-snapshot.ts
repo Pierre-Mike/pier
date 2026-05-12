@@ -10,8 +10,7 @@
  * throwing; the runnable wrapper exits 0 regardless.
  */
 
-import type { SnapshotEntry } from "./snapshot.ts";
-import { snapshotSession } from "./snapshot.ts";
+import { normalizeZellijPaneId, type SnapshotEntry, snapshotSession } from "./snapshot.ts";
 
 // ---------------------------------------------------------------------------
 // Hook payload shape (subset we rely on — extras are ignored)
@@ -45,13 +44,12 @@ export type HookEnv = {
 
 /**
  * Derive the zellij pane id the hook is running in. Zellij exposes a numeric
- * `ZELLIJ_PANE_ID` env var (e.g. "1"); `zellij action focus-pane-id` accepts
- * either `terminal_<n>` or the raw number, so we round-trip it as-is.
- * Returns null when the var is missing — entry keys by session name only.
+ * `ZELLIJ_PANE_ID` env var (e.g. "1"); normalises to `terminal_<n>` to match
+ * the format returned by `list-panes` so registry keys stay consistent
+ * between hook-side and discovery-side captures.
  */
 export function derivePaneId(env: HookEnv): string | null {
-	if (env.ZELLIJ_PANE_ID && env.ZELLIJ_PANE_ID.length > 0) return env.ZELLIJ_PANE_ID;
-	return null;
+	return normalizeZellijPaneId(env.ZELLIJ_PANE_ID);
 }
 
 // ---------------------------------------------------------------------------

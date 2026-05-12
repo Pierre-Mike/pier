@@ -9,6 +9,7 @@
 import { join } from "node:path";
 import { writeToPane } from "../zellij/write-to-pane.ts";
 import { defaultSpawner, discoverSnapshotEntries, type Spawner } from "./discovery.ts";
+import { enrichEntriesWithProcesses, type ProcessEnrichOptions } from "./process-enrich.ts";
 import { entryKey, listResumable, type SnapshotEntry, snapshotSession } from "./snapshot.ts";
 import { type EnrichOptions, enrichEntries } from "./transcript-enrich.ts";
 
@@ -28,6 +29,9 @@ export type SnapshotNowDeps = {
 	// backfill from ~/.claude/projects/ entirely (useful for tests that don't
 	// want the helper poking at the real home dir).
 	readonly enrich?: false | EnrichOptions;
+	// Process-enrich options. `processEnrich: false` disables the pgrep/lsof
+	// pass entirely. Same shape as ProcessEnrichOptions otherwise.
+	readonly processEnrich?: false | ProcessEnrichOptions;
 };
 
 export type RestoreDeps = {
@@ -88,11 +92,22 @@ export async function snapshotNow(deps: SnapshotNowDeps): Promise<readonly Snaps
 	if (deps.spawner !== undefined) discoveryOpts.spawner = deps.spawner;
 	if (deps.now !== undefined) discoveryOpts.now = deps.now;
 	const discovered = await discoverSnapshotEntries(discoveryOpts);
-	// Backfill cwd / claudeResumeId / transcriptPath from ~/.claude/projects/
-	// before the merge so prior registry data can still win for fields that
-	// hooks captured. Skipped when deps.enrich === false.
+	// PASS 1 — pgrep/lsof/ps enrichment. Strongest signal: matches each
+	// discovery entry to a live claude PID by (ZELLIJ_SESSION_NAME,
+	// ZELLIJ_PANE_ID) read from the proc's env, then pins resume-id from
+	// the cmdline's `--resume <uuid>` flag (if present) or the newest
+	// unassigned transcript in the proc's cwd.
+	const processEnriched =
+		deps.processEnrich === false
+			? discovered
+			: await enrichEntriesWithProcesses(discovered, deps.processEnrich ?? {});
+	// PASS 2 — for any entry still lacking a resume id (e.g. sessions whose
+	// pane env vars don't match an active claude proc), fall back to the
+	// session-name-based transcript heuristic.
 	const enriched =
-		deps.enrich === false ? discovered : await enrichEntries(discovered, deps.enrich ?? {});
+		deps.enrich === false
+			? processEnriched
+			: await enrichEntries(processEnriched, deps.enrich ?? {});
 	const priorAll = await readAllSnapshots(deps.dataDir);
 	const priorByKey = new Map(priorAll.map((e) => [entryKey(e), e]));
 	const persist = deps.persist ?? snapshotSession;

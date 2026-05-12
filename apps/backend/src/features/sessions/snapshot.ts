@@ -46,6 +46,19 @@ export function entryKey(entry: Pick<SnapshotEntry, "name" | "paneId">): string 
 	return entry.paneId ? `${entry.name}:${entry.paneId}` : entry.name;
 }
 
+/**
+ * Normalises a zellij pane id to the `terminal_<n>` form used by `list-panes`
+ * output. Bare numeric ids (from $ZELLIJ_PANE_ID) get the prefix; already-
+ * prefixed ids pass through. Empty / null / non-numeric unprefixed values
+ * return null.
+ */
+export function normalizeZellijPaneId(id: string | null | undefined): string | null {
+	if (!id) return null;
+	if (id.startsWith("terminal_") || id.startsWith("plugin_")) return id;
+	if (/^\d+$/.test(id)) return `terminal_${id}`;
+	return null;
+}
+
 // ---------------------------------------------------------------------------
 // Core pure functions
 // ---------------------------------------------------------------------------
