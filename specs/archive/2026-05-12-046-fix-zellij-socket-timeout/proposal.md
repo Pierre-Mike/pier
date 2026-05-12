@@ -1,17 +1,18 @@
 ---
 id: 046-fix-zellij-socket-timeout
 title: Fix zellij socket creation timeout
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/backend/src/features/sessions/sessions.repo.test.ts
     level: unit
   - path: apps/backend/src/features/sessions/sessions.routes.integration.test.ts
     level: integration
-created: 2026-05-12
+created: 2026-05-12T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-05-12'
 ---
 
 ## Intent
