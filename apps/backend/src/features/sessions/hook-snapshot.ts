@@ -38,7 +38,21 @@ export type HookPayload = {
 export type HookEnv = {
 	readonly ZELLIJ_SESSION_NAME?: string;
 	readonly ZELLIJ?: string;
+	// Zellij sets ZELLIJ_PANE_ID inside every pane it spawns. The hook script
+	// passes it through so the entry can target the right pane on restore.
+	readonly ZELLIJ_PANE_ID?: string;
 };
+
+/**
+ * Derive the zellij pane id the hook is running in. Zellij exposes a numeric
+ * `ZELLIJ_PANE_ID` env var (e.g. "1"); `zellij action focus-pane-id` accepts
+ * either `terminal_<n>` or the raw number, so we round-trip it as-is.
+ * Returns null when the var is missing — entry keys by session name only.
+ */
+export function derivePaneId(env: HookEnv): string | null {
+	if (env.ZELLIJ_PANE_ID && env.ZELLIJ_PANE_ID.length > 0) return env.ZELLIJ_PANE_ID;
+	return null;
+}
 
 // ---------------------------------------------------------------------------
 // Pure builder
@@ -105,6 +119,7 @@ export function buildEntryFromHook(args: {
 	const lastPrompt = prompt ?? message;
 	return {
 		name: deriveZellijSessionName(payload, env),
+		paneId: derivePaneId(env),
 		tabTitle: null,
 		cwd: typeof payload.cwd === "string" ? payload.cwd : "",
 		transcriptPath: typeof payload.transcript_path === "string" ? payload.transcript_path : null,

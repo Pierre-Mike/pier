@@ -25,6 +25,7 @@ describe("mergeDiscoveredEntry", () => {
 	const NOW_LOCAL = new Date("2026-05-12T22:00:00.000Z");
 	const discovered: SnapshotEntry = {
 		name: "alpha",
+		paneId: null,
 		tabTitle: "fresh-tab",
 		cwd: "",
 		transcriptPath: null,
@@ -41,6 +42,7 @@ describe("mergeDiscoveredEntry", () => {
 	it("preserves prior cwd / resume-id / transcript / lastPrompt", () => {
 		const prior: SnapshotEntry = {
 			name: "alpha",
+			paneId: "terminal_2",
 			tabTitle: "old-tab",
 			cwd: "/Users/x/repo",
 			transcriptPath: "/tmp/t.jsonl",
@@ -84,6 +86,7 @@ const NOW = new Date("2026-05-12T22:00:00.000Z");
 
 const makeEntry = (overrides: Partial<SnapshotEntry> = {}): SnapshotEntry => ({
 	name: "session-alpha",
+	paneId: null,
 	tabTitle: "tab-1",
 	cwd: "/Users/x/repo",
 	transcriptPath: "/Users/x/.claude/projects/repo/sess.jsonl",
@@ -148,6 +151,7 @@ describe("snapshotNow", () => {
 		const { snapshotSession } = await import("./snapshot.ts");
 		await snapshotSession(dataDir, {
 			name: "alpha",
+			paneId: null,
 			tabTitle: null,
 			cwd: "/Users/x/repo",
 			transcriptPath: "/tmp/t.jsonl",
@@ -209,14 +213,22 @@ describe("planRestore", () => {
 		expect(plan.kind).toBe("not-found");
 	});
 
-	it("returns spawn-session with the matched entry", async () => {
+	it("returns spawn-session with every matching entry (multi-pane)", async () => {
 		const { snapshotSession } = await import("./snapshot.ts");
-		await snapshotSession(dataDir, makeEntry({ name: "alpha" }));
+		await snapshotSession(
+			dataDir,
+			makeEntry({ name: "alpha", paneId: "terminal_1", claudeResumeId: "sess_a1" }),
+		);
+		await snapshotSession(
+			dataDir,
+			makeEntry({ name: "alpha", paneId: "terminal_2", claudeResumeId: "sess_a2" }),
+		);
 		const plan = await planRestore({ dataDir, sessionName: "alpha" });
 		expect(plan.kind).toBe("spawn-session");
 		if (plan.kind !== "spawn-session") return;
-		expect(plan.entry.name).toBe("alpha");
-		expect(plan.claudeResume).toBe("sess_resume_alpha");
+		expect(plan.entries).toHaveLength(2);
+		expect(plan.entries.map((e) => e.paneId).sort()).toEqual(["terminal_1", "terminal_2"]);
+		expect(plan.entries.map((e) => e.claudeResumeId).sort()).toEqual(["sess_a1", "sess_a2"]);
 	});
 });
 
@@ -265,6 +277,36 @@ describe("executeRestore", () => {
 		// Entries with null claudeResumeId are not resumable → not-found.
 		expect(plan.kind).toBe("not-found");
 		expect(calls).toHaveLength(0);
+	});
+
+	it("per-pane: focuses paneId before write-chars (multi-pane restore)", async () => {
+		const { snapshotSession } = await import("./snapshot.ts");
+		await snapshotSession(
+			dataDir,
+			makeEntry({ name: "alpha", paneId: "terminal_1", claudeResumeId: "sess_a1" }),
+		);
+		await snapshotSession(
+			dataDir,
+			makeEntry({ name: "alpha", paneId: "terminal_2", claudeResumeId: "sess_a2" }),
+		);
+		const calls: string[][] = [];
+		const spawn: SpawnOnly = async (cmd) => {
+			calls.push([...cmd]);
+			return { exitCode: 0 };
+		};
+		await executeRestore({ dataDir, sessionName: "alpha", spawn });
+		// 1 spawn for the session, then 2 (focus + write) per pane × 2 panes = 5 total.
+		expect(calls).toHaveLength(5);
+		// Pull the focus-pane-id invocations in order.
+		const focusCalls = calls.filter((c) => c.includes("focus-pane-id"));
+		expect(focusCalls.map((c) => c[c.indexOf("focus-pane-id") + 1])).toEqual([
+			"terminal_1",
+			"terminal_2",
+		]);
+		const writeCalls = calls.filter((c) => c.includes("write-chars"));
+		expect(writeCalls).toHaveLength(2);
+		expect(writeCalls[0]?.at(-1)).toMatch(/claude --resume sess_a1/);
+		expect(writeCalls[1]?.at(-1)).toMatch(/claude --resume sess_a2/);
 	});
 
 	it("emits onWarn when entry.cwd is empty (silent fallback otherwise)", async () => {

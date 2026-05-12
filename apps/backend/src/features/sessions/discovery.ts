@@ -223,8 +223,13 @@ export async function discoverSnapshotEntries(
 		// looking at. Fall back to null when zellij reports "N/A".
 		const cmd = clients[0]?.runningCommand;
 		const lastPrompt = cmd && cmd !== "N/A" ? cmd : null;
+		// Discovery is session-scoped — paneId is always null here. Per-pane
+		// entries are created by the hooks (which know $ZELLIJ_PANE_ID for the
+		// pane they fire from). The composite registry key keeps the two
+		// shapes from clobbering one another.
 		entries.push({
 			name,
+			paneId: null,
 			tabTitle,
 			cwd: "",
 			transcriptPath: null,
