@@ -13,12 +13,72 @@ import { join } from "node:path";
 import {
 	executeRestore,
 	listSnapshots,
+	mergeDiscoveredEntry,
 	planRestore,
 	type SpawnOnly,
 	snapshotNow,
 } from "./cli-snapshot.ts";
 import type { Spawner } from "./discovery.ts";
 import type { SnapshotEntry } from "./snapshot.ts";
+
+describe("mergeDiscoveredEntry", () => {
+	const NOW_LOCAL = new Date("2026-05-12T22:00:00.000Z");
+	const discovered: SnapshotEntry = {
+		name: "alpha",
+		tabTitle: "fresh-tab",
+		cwd: "",
+		transcriptPath: null,
+		claudeResumeId: null,
+		lastPrompt: null,
+		status: "active",
+		updatedAt: NOW_LOCAL,
+	};
+
+	it("returns discovered as-is when no prior entry exists", () => {
+		expect(mergeDiscoveredEntry(undefined, discovered)).toEqual(discovered);
+	});
+
+	it("preserves prior cwd / resume-id / transcript / lastPrompt", () => {
+		const prior: SnapshotEntry = {
+			name: "alpha",
+			tabTitle: "old-tab",
+			cwd: "/Users/x/repo",
+			transcriptPath: "/tmp/t.jsonl",
+			claudeResumeId: "sess_keep",
+			lastPrompt: "old prompt",
+			status: "crashed",
+			updatedAt: new Date("2025-01-01"),
+		};
+		const merged = mergeDiscoveredEntry(prior, discovered);
+		expect(merged.cwd).toBe("/Users/x/repo");
+		expect(merged.transcriptPath).toBe("/tmp/t.jsonl");
+		expect(merged.claudeResumeId).toBe("sess_keep");
+		expect(merged.lastPrompt).toBe("old prompt");
+		// Discovery wins for tabTitle / status / updatedAt
+		expect(merged.tabTitle).toBe("fresh-tab");
+		expect(merged.status).toBe("active");
+		expect(merged.updatedAt).toEqual(NOW_LOCAL);
+	});
+
+	it("falls through to discovered values when prior fields are empty/null", () => {
+		const prior: SnapshotEntry = {
+			...discovered,
+			tabTitle: null,
+			cwd: "",
+			claudeResumeId: null,
+		};
+		const richer: SnapshotEntry = {
+			...discovered,
+			tabTitle: "richer-tab",
+			cwd: "/some/cwd",
+			claudeResumeId: "sess_new",
+		};
+		const merged = mergeDiscoveredEntry(prior, richer);
+		expect(merged.cwd).toBe("/some/cwd");
+		expect(merged.claudeResumeId).toBe("sess_new");
+		expect(merged.tabTitle).toBe("richer-tab");
+	});
+});
 
 const NOW = new Date("2026-05-12T22:00:00.000Z");
 
@@ -81,6 +141,51 @@ describe("snapshotNow", () => {
 		const parsed = JSON.parse(raw) as Record<string, Record<string, unknown>>;
 		expect(Object.keys(parsed).sort()).toEqual(["alpha", "beta"]);
 		expect(parsed["alpha"]?.["tabTitle"]).toBe("tab-alpha");
+	});
+
+	it("preserves hook-captured cwd / resume-id across snapshotNow", async () => {
+		// Seed the registry with hook-style data (cwd, resume-id) for "alpha".
+		const { snapshotSession } = await import("./snapshot.ts");
+		await snapshotSession(dataDir, {
+			name: "alpha",
+			tabTitle: null,
+			cwd: "/Users/x/repo",
+			transcriptPath: "/tmp/t.jsonl",
+			claudeResumeId: "sess_kept",
+			lastPrompt: "kept prompt",
+			status: "active",
+			updatedAt: NOW,
+		});
+
+		// Discovery only knows tab + status; it would normally clobber.
+		const spawner: Spawner = async (cmd) => {
+			if (cmd.includes("list-tabs"))
+				return { stdout: "TAB_ID  POSITION  NAME\n0  0  fresh-tab\n", stderr: "", exitCode: 0 };
+			if (cmd.includes("list-panes"))
+				return {
+					stdout: "PANE_ID  TYPE  TITLE\nterminal_0  terminal  shell\n",
+					stderr: "",
+					exitCode: 0,
+				};
+			if (cmd.includes("list-clients"))
+				return {
+					stdout: "CLIENT_ID ZELLIJ_PANE_ID RUNNING_COMMAND\n1  terminal_0  bash\n",
+					stderr: "",
+					exitCode: 0,
+				};
+			return { stdout: "", stderr: "", exitCode: 1 };
+		};
+
+		await snapshotNow({ dataDir, zellijRoot, spawner, now: () => NOW });
+
+		const raw = await Bun.file(join(dataDir, "registry.json")).text();
+		const parsed = JSON.parse(raw) as Record<string, Record<string, unknown>>;
+		expect(parsed["alpha"]?.["cwd"]).toBe("/Users/x/repo");
+		expect(parsed["alpha"]?.["claudeResumeId"]).toBe("sess_kept");
+		expect(parsed["alpha"]?.["transcriptPath"]).toBe("/tmp/t.jsonl");
+		expect(parsed["alpha"]?.["lastPrompt"]).toBe("kept prompt");
+		// Discovery still wins for tabTitle.
+		expect(parsed["alpha"]?.["tabTitle"]).toBe("fresh-tab");
 	});
 });
 
@@ -160,6 +265,35 @@ describe("executeRestore", () => {
 		// Entries with null claudeResumeId are not resumable → not-found.
 		expect(plan.kind).toBe("not-found");
 		expect(calls).toHaveLength(0);
+	});
+
+	it("emits onWarn when entry.cwd is empty (silent fallback otherwise)", async () => {
+		const { snapshotSession } = await import("./snapshot.ts");
+		await snapshotSession(dataDir, makeEntry({ name: "alpha", cwd: "" }));
+		const warnings: string[] = [];
+		const spawn: SpawnOnly = async () => ({ exitCode: 0 });
+		await executeRestore({
+			dataDir,
+			sessionName: "alpha",
+			spawn,
+			onWarn: (m) => warnings.push(m),
+		});
+		expect(warnings.length).toBeGreaterThan(0);
+		expect(warnings[0]).toMatch(/no cwd captured/);
+	});
+
+	it("does NOT warn when entry.cwd is populated", async () => {
+		const { snapshotSession } = await import("./snapshot.ts");
+		await snapshotSession(dataDir, makeEntry({ name: "alpha", cwd: "/Users/x/repo" }));
+		const warnings: string[] = [];
+		const spawn: SpawnOnly = async () => ({ exitCode: 0 });
+		await executeRestore({
+			dataDir,
+			sessionName: "alpha",
+			spawn,
+			onWarn: (m) => warnings.push(m),
+		});
+		expect(warnings).toEqual([]);
 	});
 
 	it("returns not-found and does NOT spawn when session is missing", async () => {

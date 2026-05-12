@@ -29,6 +29,7 @@ export type RestoreDeps = {
 	readonly sessionName: string;
 	readonly spawn: SpawnOnly;
 	readonly zellijRoot?: string;
+	readonly onWarn?: (msg: string) => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -36,8 +37,38 @@ export type RestoreDeps = {
 // ---------------------------------------------------------------------------
 
 /**
+ * Merges a freshly-discovered entry with any prior entry of the same name.
+ * Discovery only knows tabTitle / status / updatedAt — it has no signal for
+ * cwd, transcriptPath, claudeResumeId, or lastPrompt. Those fields are
+ * populated by the Stop/Notification hook (hook-snapshot.ts). Without this
+ * merge, every `snapshotNow` call would silently clobber the hook-captured
+ * cwd / resume-id with empty/null, and `restore` would fall back to
+ * process.cwd() and skip the claude resume — the exact recovery-drill bug.
+ */
+export function mergeDiscoveredEntry(
+	prior: SnapshotEntry | undefined,
+	discovered: SnapshotEntry,
+): SnapshotEntry {
+	if (!prior) return discovered;
+	return {
+		name: discovered.name,
+		// Discovery wins for fields it actually populates.
+		tabTitle: discovered.tabTitle ?? prior.tabTitle,
+		status: discovered.status,
+		updatedAt: discovered.updatedAt,
+		// Hook-populated fields win unless the prior had no value.
+		cwd: prior.cwd && prior.cwd.length > 0 ? prior.cwd : discovered.cwd,
+		transcriptPath: prior.transcriptPath ?? discovered.transcriptPath,
+		claudeResumeId: prior.claudeResumeId ?? discovered.claudeResumeId,
+		lastPrompt: prior.lastPrompt ?? discovered.lastPrompt,
+	};
+}
+
+/**
  * Discovers every live zellij session and persists one SnapshotEntry per
- * session via snapshotSession. Returns the entries written (caller can print).
+ * session via snapshotSession. Merges with the prior registry per-name so
+ * hook-captured cwd / resume-id / transcript are preserved across discovery
+ * passes. Returns the entries actually written.
  */
 export async function snapshotNow(deps: SnapshotNowDeps): Promise<readonly SnapshotEntry[]> {
 	const discoveryOpts: {
@@ -48,12 +79,17 @@ export async function snapshotNow(deps: SnapshotNowDeps): Promise<readonly Snaps
 	if (deps.zellijRoot !== undefined) discoveryOpts.zellijRoot = deps.zellijRoot;
 	if (deps.spawner !== undefined) discoveryOpts.spawner = deps.spawner;
 	if (deps.now !== undefined) discoveryOpts.now = deps.now;
-	const entries = await discoverSnapshotEntries(discoveryOpts);
+	const discovered = await discoverSnapshotEntries(discoveryOpts);
+	const priorAll = await readAllSnapshots(deps.dataDir);
+	const priorByName = new Map(priorAll.map((e) => [e.name, e]));
 	const persist = deps.persist ?? snapshotSession;
-	for (const entry of entries) {
-		await persist(deps.dataDir, entry);
+	const merged: SnapshotEntry[] = [];
+	for (const entry of discovered) {
+		const out = mergeDiscoveredEntry(priorByName.get(entry.name), entry);
+		await persist(deps.dataDir, out);
+		merged.push(out);
 	}
-	return entries;
+	return merged;
 }
 
 // ---------------------------------------------------------------------------
@@ -93,7 +129,13 @@ export async function executeRestore(deps: RestoreDeps): Promise<RestorePlan> {
 	if (plan.kind === "not-found") return plan;
 
 	const { entry } = plan;
-	const cwd = entry.cwd && entry.cwd.length > 0 ? entry.cwd : process.cwd();
+	const haveCwd = entry.cwd && entry.cwd.length > 0;
+	if (!haveCwd && deps.onWarn) {
+		deps.onWarn(
+			`restore "${entry.name}": no cwd captured for this session; falling back to ${process.cwd()}. Resume will run from the wrong directory — let the Stop/Notification hook fire at least once before restoring.`,
+		);
+	}
+	const cwd = haveCwd ? entry.cwd : process.cwd();
 
 	// Step 1: ensure the zellij session exists. `zellij --session <name>` is
 	// safe to call when the session already exists — it attaches as a new
