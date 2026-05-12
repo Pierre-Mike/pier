@@ -4,6 +4,7 @@ import { type AppBindings, mountPair, route } from "../../platform/route-kit.ts"
 import type { RouteModule } from "../../platform/route-types.ts";
 import {
 	makeTerminalSessionsLive,
+	type TerminalError,
 	TerminalSessions,
 	TerminalSessionsTest,
 } from "./sessions.repo.ts";
@@ -16,8 +17,8 @@ const openSessionHandler = (c: Context<{ Bindings: AppBindings }>) =>
 		const session = yield* svc.open(id);
 		return c.json(session, 200);
 	}).pipe(
-		Effect.catchAll((err) =>
-			Effect.succeed(c.json({ error: err instanceof Error ? err.message : "open failed" }, 500)),
+		Effect.catchTag("TerminalError", (err: TerminalError) =>
+			Effect.succeed(c.json({ error: err.message }, 500)),
 		),
 	);
 
