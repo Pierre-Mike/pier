@@ -1,0 +1,46 @@
+/*
+ * Theme tokens — spec 044.
+ *
+ * `data-theme` on <html> selects the active palette. Dark is the default and
+ * is also mirrored on :root so unqualified `var(--token)` lookups resolve
+ * even before the inline init script writes the attribute.
+ */
+
+:root {
+	--bg: #0e1116;
+	--bg-elev: #151a21;
+	--bg-hover: #1d2430;
+	--fg: #d6deeb;
+	--fg-dim: #8b98ad;
+	--accent: #5ccfe6;
+	--accent-dim: #3a98ad;
+	--border: #222a35;
+	--danger: #ff6b6b;
+	--ok: #78d98f;
+}
+
+[data-theme="dark"] {
+	--bg: #0e1116;
+	--bg-elev: #151a21;
+	--bg-hover: #1d2430;
+	--fg: #d6deeb;
+	--fg-dim: #8b98ad;
+	--accent: #5ccfe6;
+	--accent-dim: #3a98ad;
+	--border: #222a35;
+	--danger: #ff6b6b;
+	--ok: #78d98f;
+}
+
+[data-theme="light"] {
+	--bg: #ffffff;
+	--bg-elev: #f4f6f9;
+	--bg-hover: #e6ecf3;
+	--fg: #1a1f29;
+	--fg-dim: #5b6675;
+	--accent: #1f7a99;
+	--accent-dim: #4ea3c0;
+	--border: #d4dae3;
+	--danger: #c43838;
+	--ok: #2d8a4a;
+}
