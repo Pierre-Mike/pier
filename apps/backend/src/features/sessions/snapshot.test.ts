@@ -41,6 +41,7 @@ afterEach(() => {
 
 const makeEntry = (overrides: Partial<SnapshotEntry> = {}): SnapshotEntry => ({
 	name: "session-alpha",
+	paneId: null,
 	tabTitle: "Claude Code — pier",
 	cwd: "/Users/test/pier",
 	transcriptPath: "/Users/test/.claude/projects/pier/transcript.jsonl",

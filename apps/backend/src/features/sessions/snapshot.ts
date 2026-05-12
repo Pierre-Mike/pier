@@ -23,6 +23,7 @@ export type SnapshotStatus = "active" | "crashed" | "unknown";
 
 export type SnapshotEntry = {
 	readonly name: string;
+	readonly paneId: string | null;
 	readonly tabTitle: string | null;
 	readonly cwd: string;
 	readonly transcriptPath: string | null;
@@ -34,16 +35,40 @@ export type SnapshotEntry = {
 
 export type SnapshotRegistry = Readonly<Record<string, SnapshotEntry>>;
 
+/**
+ * Registry key for an entry. One zellij session can host multiple Claude
+ * panes; keying by `<name>:<paneId>` (when paneId is known) prevents the
+ * hooks fired from different panes in the same session from clobbering
+ * one another. Entries with no paneId (e.g. legacy data or discovery's
+ * single-pane fallback) key by `name` alone — preserves backward compat.
+ */
+export function entryKey(entry: Pick<SnapshotEntry, "name" | "paneId">): string {
+	return entry.paneId ? `${entry.name}:${entry.paneId}` : entry.name;
+}
+
+/**
+ * Normalises a zellij pane id to the `terminal_<n>` form used by `list-panes`
+ * output. Bare numeric ids (from $ZELLIJ_PANE_ID) get the prefix; already-
+ * prefixed ids pass through. Empty / null / non-numeric unprefixed values
+ * return null.
+ */
+export function normalizeZellijPaneId(id: string | null | undefined): string | null {
+	if (!id) return null;
+	if (id.startsWith("terminal_") || id.startsWith("plugin_")) return id;
+	if (/^\d+$/.test(id)) return `terminal_${id}`;
+	return null;
+}
+
 // ---------------------------------------------------------------------------
 // Core pure functions
 // ---------------------------------------------------------------------------
 
 /**
- * Returns a new registry with `entry` inserted or replaced (keyed by `entry.name`).
- * Does NOT mutate the input registry.
+ * Returns a new registry with `entry` inserted or replaced. Key is composite
+ * — see entryKey. Does NOT mutate the input registry.
  */
 export function upsertEntry(registry: SnapshotRegistry, entry: SnapshotEntry): SnapshotRegistry {
-	return { ...registry, [entry.name]: entry };
+	return { ...registry, [entryKey(entry)]: entry };
 }
 
 /**
@@ -67,6 +92,7 @@ export function filterResumable(registry: SnapshotRegistry): readonly SnapshotEn
  */
 type SnapshotEntryJson = {
 	readonly name: string;
+	readonly paneId?: string | null;
 	readonly tabTitle: string | null;
 	readonly cwd: string;
 	readonly transcriptPath: string | null;
@@ -79,6 +105,7 @@ type SnapshotEntryJson = {
 function entryToJson(entry: SnapshotEntry): SnapshotEntryJson {
 	return {
 		name: entry.name,
+		paneId: entry.paneId,
 		tabTitle: entry.tabTitle,
 		cwd: entry.cwd,
 		transcriptPath: entry.transcriptPath,
@@ -92,6 +119,9 @@ function entryToJson(entry: SnapshotEntry): SnapshotEntryJson {
 function jsonToEntry(json: SnapshotEntryJson): SnapshotEntry {
 	return {
 		name: json.name,
+		// `paneId` may be missing on legacy JSON entries written before this PR;
+		// treat absent / undefined / empty as null so old registries still parse.
+		paneId: typeof json.paneId === "string" && json.paneId.length > 0 ? json.paneId : null,
 		tabTitle: json.tabTitle,
 		cwd: json.cwd,
 		transcriptPath: json.transcriptPath,

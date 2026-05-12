@@ -98,6 +98,7 @@ async function main(): Promise<number> {
 			sessionName: name,
 			spawn,
 			zellijRoot: ZELLIJ_ROOT,
+			onWarn: (msg) => console.warn(`warning: ${msg}`),
 		});
 		if (plan.kind === "not-found") {
 			console.error(`restore: session "${name}" not found in registry`);

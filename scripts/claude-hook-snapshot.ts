@@ -61,6 +61,7 @@ async function main(): Promise<void> {
 		env: {
 			ZELLIJ_SESSION_NAME: process.env["ZELLIJ_SESSION_NAME"],
 			ZELLIJ: process.env["ZELLIJ"],
+			ZELLIJ_PANE_ID: process.env["ZELLIJ_PANE_ID"],
 		},
 		dataDir,
 	});

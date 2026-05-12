@@ -10,25 +10,47 @@
  * throwing; the runnable wrapper exits 0 regardless.
  */
 
-import type { SnapshotEntry } from "./snapshot.ts";
-import { snapshotSession } from "./snapshot.ts";
+import { normalizeZellijPaneId, type SnapshotEntry, snapshotSession } from "./snapshot.ts";
 
 // ---------------------------------------------------------------------------
 // Hook payload shape (subset we rely on — extras are ignored)
 // ---------------------------------------------------------------------------
 
 export type HookPayload = {
-	readonly hook_event_name: "Stop" | "Notification" | string;
+	readonly hook_event_name:
+		| "Stop"
+		| "Notification"
+		| "SessionStart"
+		| "UserPromptSubmit"
+		| "PreCompact"
+		| "SubagentStop"
+		| "SessionEnd"
+		| string;
 	readonly session_id?: string;
 	readonly transcript_path?: string;
 	readonly cwd?: string;
 	readonly message?: string;
+	// UserPromptSubmit payload field — what the user just typed.
+	readonly prompt?: string;
 };
 
 export type HookEnv = {
 	readonly ZELLIJ_SESSION_NAME?: string;
 	readonly ZELLIJ?: string;
+	// Zellij sets ZELLIJ_PANE_ID inside every pane it spawns. The hook script
+	// passes it through so the entry can target the right pane on restore.
+	readonly ZELLIJ_PANE_ID?: string;
 };
+
+/**
+ * Derive the zellij pane id the hook is running in. Zellij exposes a numeric
+ * `ZELLIJ_PANE_ID` env var (e.g. "1"); normalises to `terminal_<n>` to match
+ * the format returned by `list-panes` so registry keys stay consistent
+ * between hook-side and discovery-side captures.
+ */
+export function derivePaneId(env: HookEnv): string | null {
+	return normalizeZellijPaneId(env.ZELLIJ_PANE_ID);
+}
 
 // ---------------------------------------------------------------------------
 // Pure builder
@@ -50,13 +72,30 @@ export function deriveZellijSessionName(payload: HookPayload, env: HookEnv): str
 
 /**
  * Map hook event name → SnapshotStatus.
- *   Stop          → active   (Claude finished its turn cleanly, awaiting user)
- *   Notification  → active   (Claude needs attention but is alive)
- *   anything else → unknown
+ *
+ *   SessionStart      → active   (Claude just booted in this pane)
+ *   UserPromptSubmit  → active   (user is interacting)
+ *   Stop              → active   (Claude finished its turn cleanly)
+ *   Notification      → active   (Claude needs attention but is alive)
+ *   PreCompact        → active   (long-running checkpoint)
+ *   SubagentStop      → active   (subagent finished, parent still live)
+ *   SessionEnd        → unknown  (Claude exited — caller should refresh)
+ *   anything else     → unknown
  */
 export function statusForEvent(name: string): SnapshotEntry["status"] {
-	if (name === "Stop" || name === "Notification") return "active";
-	return "unknown";
+	switch (name) {
+		case "SessionStart":
+		case "UserPromptSubmit":
+		case "Stop":
+		case "Notification":
+		case "PreCompact":
+		case "SubagentStop":
+			return "active";
+		case "SessionEnd":
+			return "unknown";
+		default:
+			return "unknown";
+	}
 }
 
 /**
@@ -71,14 +110,19 @@ export function buildEntryFromHook(args: {
 }): SnapshotEntry {
 	const { payload, env } = args;
 	const now = args.now ?? new Date();
+	// UserPromptSubmit carries the user's input as `prompt`; Notification uses
+	// `message`. Prefer prompt when both are present.
+	const prompt = typeof payload.prompt === "string" ? payload.prompt : null;
 	const message = typeof payload.message === "string" ? payload.message : null;
+	const lastPrompt = prompt ?? message;
 	return {
 		name: deriveZellijSessionName(payload, env),
+		paneId: derivePaneId(env),
 		tabTitle: null,
 		cwd: typeof payload.cwd === "string" ? payload.cwd : "",
 		transcriptPath: typeof payload.transcript_path === "string" ? payload.transcript_path : null,
 		claudeResumeId: typeof payload.session_id === "string" ? payload.session_id : null,
-		lastPrompt: message,
+		lastPrompt,
 		status: statusForEvent(payload.hook_event_name),
 		updatedAt: now,
 	};

@@ -165,14 +165,14 @@ export async function inspectSession(
 		spawner(["zellij", "--session", session, "action", "list-panes"], sock),
 		spawner(["zellij", "--session", session, "action", "list-clients"], sock),
 	]);
-	const orphaned =
-		isOrphanedSessionOutput(tabsRes.stderr) ||
-		isOrphanedSessionOutput(panesRes.stderr) ||
-		isOrphanedSessionOutput(clientsRes.stderr) ||
-		// Defensive: some zellij builds may write the marker to stdout instead.
-		isOrphanedSessionOutput(tabsRes.stdout) ||
-		isOrphanedSessionOutput(panesRes.stdout) ||
-		isOrphanedSessionOutput(clientsRes.stdout);
+	// Orphan only when EVERY sub-call agrees — running three actions in
+	// parallel against a live socket can transiently return the marker from
+	// one call while the others succeed. ALL-agree avoids false positives
+	// that would replace pier:terminal_<n> entries with a session-summary
+	// `pier` (crashed) row and lose pane data.
+	const matches = (r: { stdout: string; stderr: string }): boolean =>
+		isOrphanedSessionOutput(r.stderr) || isOrphanedSessionOutput(r.stdout);
+	const orphaned = matches(tabsRes) && matches(panesRes) && matches(clientsRes);
 	if (orphaned) {
 		return { tabs: [], panes: [], clients: [], orphaned: true };
 	}
@@ -217,25 +217,54 @@ export async function discoverSnapshotEntries(
 	const sessions = await enumerateZellijSessions(zellijRoot);
 	const entries: SnapshotEntry[] = [];
 	for (const name of sessions) {
-		const { tabs, clients, orphaned } = await inspectSession(name, { zellijRoot, spawner });
-		const tabTitle = tabs[0]?.name ?? null;
-		// Prefer the client's running command — it's what the user is actually
-		// looking at. Fall back to null when zellij reports "N/A".
-		const cmd = clients[0]?.runningCommand;
-		const lastPrompt = cmd && cmd !== "N/A" ? cmd : null;
-		entries.push({
-			name,
-			tabTitle,
-			cwd: "",
-			transcriptPath: null,
-			claudeResumeId: null,
-			lastPrompt,
-			// Orphaned sockets (zellij reports "Session not found") are exactly
-			// the recovery target — flag them as "crashed" so listResumable picks
-			// them up once a claudeResumeId is attached by a later enrichment.
-			status: orphaned ? "crashed" : "active",
-			updatedAt: now,
-		});
+		const inspected = await inspectSession(name, { zellijRoot, spawner });
+		entries.push(...buildSessionEntries({ name, ...inspected, now }));
 	}
 	return entries;
+}
+
+type SessionEntryArgs = {
+	name: string;
+	tabs: readonly ZellijTab[];
+	panes: readonly ZellijPane[];
+	clients: readonly ZellijClient[];
+	orphaned: boolean;
+	now: Date;
+};
+
+function buildSessionEntries(args: SessionEntryArgs): SnapshotEntry[] {
+	const tabTitle = args.tabs[0]?.name ?? null;
+	const cmd = args.clients[0]?.runningCommand;
+	const lastPrompt = cmd && cmd !== "N/A" ? cmd : null;
+	const status: SnapshotEntry["status"] = args.orphaned ? "crashed" : "active";
+
+	const summary = (override: Partial<SnapshotEntry> = {}): SnapshotEntry => ({
+		name: args.name,
+		paneId: null,
+		tabTitle,
+		cwd: "",
+		transcriptPath: null,
+		claudeResumeId: null,
+		lastPrompt,
+		status,
+		updatedAt: args.now,
+		...override,
+	});
+
+	if (args.orphaned) return [summary()];
+
+	// One entry per *terminal* pane. Plugin panes (tab-bar, status-bar)
+	// never host a Claude process and are filtered out. Sessions with no
+	// terminal panes fall back to a single session-summary entry.
+	const terminalPanes = args.panes.filter((p) => p.type === "terminal");
+	if (terminalPanes.length === 0) return [summary()];
+
+	return terminalPanes.map((pane) =>
+		summary({
+			paneId: pane.id,
+			// Only the focused client's running command is known; tag the
+			// matched pane so the registry has at least one breadcrumb.
+			lastPrompt: args.clients[0]?.paneId === pane.id ? lastPrompt : null,
+		}),
+	);
 }

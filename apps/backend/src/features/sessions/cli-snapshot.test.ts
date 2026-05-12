@@ -13,6 +13,7 @@ import { join } from "node:path";
 import {
 	executeRestore,
 	listSnapshots,
+	mergeDiscoveredEntry,
 	planRestore,
 	type SpawnOnly,
 	snapshotNow,
@@ -20,10 +21,72 @@ import {
 import type { Spawner } from "./discovery.ts";
 import type { SnapshotEntry } from "./snapshot.ts";
 
+describe("mergeDiscoveredEntry", () => {
+	const NOW_LOCAL = new Date("2026-05-12T22:00:00.000Z");
+	const discovered: SnapshotEntry = {
+		name: "alpha",
+		paneId: null,
+		tabTitle: "fresh-tab",
+		cwd: "",
+		transcriptPath: null,
+		claudeResumeId: null,
+		lastPrompt: null,
+		status: "active",
+		updatedAt: NOW_LOCAL,
+	};
+
+	it("returns discovered as-is when no prior entry exists", () => {
+		expect(mergeDiscoveredEntry(undefined, discovered)).toEqual(discovered);
+	});
+
+	it("preserves prior cwd / resume-id / transcript / lastPrompt", () => {
+		const prior: SnapshotEntry = {
+			name: "alpha",
+			paneId: "terminal_2",
+			tabTitle: "old-tab",
+			cwd: "/Users/x/repo",
+			transcriptPath: "/tmp/t.jsonl",
+			claudeResumeId: "sess_keep",
+			lastPrompt: "old prompt",
+			status: "crashed",
+			updatedAt: new Date("2025-01-01"),
+		};
+		const merged = mergeDiscoveredEntry(prior, discovered);
+		expect(merged.cwd).toBe("/Users/x/repo");
+		expect(merged.transcriptPath).toBe("/tmp/t.jsonl");
+		expect(merged.claudeResumeId).toBe("sess_keep");
+		expect(merged.lastPrompt).toBe("old prompt");
+		// Discovery wins for tabTitle / status / updatedAt
+		expect(merged.tabTitle).toBe("fresh-tab");
+		expect(merged.status).toBe("active");
+		expect(merged.updatedAt).toEqual(NOW_LOCAL);
+	});
+
+	it("falls through to discovered values when prior fields are empty/null", () => {
+		const prior: SnapshotEntry = {
+			...discovered,
+			tabTitle: null,
+			cwd: "",
+			claudeResumeId: null,
+		};
+		const richer: SnapshotEntry = {
+			...discovered,
+			tabTitle: "richer-tab",
+			cwd: "/some/cwd",
+			claudeResumeId: "sess_new",
+		};
+		const merged = mergeDiscoveredEntry(prior, richer);
+		expect(merged.cwd).toBe("/some/cwd");
+		expect(merged.claudeResumeId).toBe("sess_new");
+		expect(merged.tabTitle).toBe("richer-tab");
+	});
+});
+
 const NOW = new Date("2026-05-12T22:00:00.000Z");
 
 const makeEntry = (overrides: Partial<SnapshotEntry> = {}): SnapshotEntry => ({
 	name: "session-alpha",
+	paneId: null,
 	tabTitle: "tab-1",
 	cwd: "/Users/x/repo",
 	transcriptPath: "/Users/x/.claude/projects/repo/sess.jsonl",
@@ -74,13 +137,75 @@ describe("snapshotNow", () => {
 				};
 			return { stdout: "", stderr: "", exitCode: 1 };
 		};
-		const entries = await snapshotNow({ dataDir, zellijRoot, spawner, now: () => NOW });
+		const entries = await snapshotNow({
+			dataDir,
+			zellijRoot,
+			spawner,
+			now: () => NOW,
+			enrich: false,
+			processEnrich: false,
+		});
 		expect(entries).toHaveLength(2);
 
 		const raw = await Bun.file(join(dataDir, "registry.json")).text();
 		const parsed = JSON.parse(raw) as Record<string, Record<string, unknown>>;
-		expect(Object.keys(parsed).sort()).toEqual(["alpha", "beta"]);
-		expect(parsed["alpha"]?.["tabTitle"]).toBe("tab-alpha");
+		// Discovery now emits one entry per terminal pane → composite keys.
+		expect(Object.keys(parsed).sort()).toEqual(["alpha:terminal_0", "beta:terminal_0"]);
+		expect(parsed["alpha:terminal_0"]?.["tabTitle"]).toBe("tab-alpha");
+		expect(parsed["alpha:terminal_0"]?.["paneId"]).toBe("terminal_0");
+	});
+
+	it("preserves hook-captured cwd / resume-id across snapshotNow", async () => {
+		// Seed the registry with hook-style data (cwd, resume-id) for the
+		// pane-keyed entry that discovery will emit (alpha:terminal_0).
+		const { snapshotSession } = await import("./snapshot.ts");
+		await snapshotSession(dataDir, {
+			name: "alpha",
+			paneId: "terminal_0",
+			tabTitle: null,
+			cwd: "/Users/x/repo",
+			transcriptPath: "/tmp/t.jsonl",
+			claudeResumeId: "sess_kept",
+			lastPrompt: "kept prompt",
+			status: "active",
+			updatedAt: NOW,
+		});
+
+		const spawner: Spawner = async (cmd) => {
+			if (cmd.includes("list-tabs"))
+				return { stdout: "TAB_ID  POSITION  NAME\n0  0  fresh-tab\n", stderr: "", exitCode: 0 };
+			if (cmd.includes("list-panes"))
+				return {
+					stdout: "PANE_ID  TYPE  TITLE\nterminal_0  terminal  shell\n",
+					stderr: "",
+					exitCode: 0,
+				};
+			if (cmd.includes("list-clients"))
+				return {
+					stdout: "CLIENT_ID ZELLIJ_PANE_ID RUNNING_COMMAND\n1  terminal_0  bash\n",
+					stderr: "",
+					exitCode: 0,
+				};
+			return { stdout: "", stderr: "", exitCode: 1 };
+		};
+
+		await snapshotNow({
+			dataDir,
+			zellijRoot,
+			spawner,
+			now: () => NOW,
+			enrich: false,
+			processEnrich: false,
+		});
+
+		const raw = await Bun.file(join(dataDir, "registry.json")).text();
+		const parsed = JSON.parse(raw) as Record<string, Record<string, unknown>>;
+		const key = "alpha:terminal_0";
+		expect(parsed[key]?.["cwd"]).toBe("/Users/x/repo");
+		expect(parsed[key]?.["claudeResumeId"]).toBe("sess_kept");
+		expect(parsed[key]?.["transcriptPath"]).toBe("/tmp/t.jsonl");
+		expect(parsed[key]?.["lastPrompt"]).toBe("kept prompt");
+		expect(parsed[key]?.["tabTitle"]).toBe("fresh-tab");
 	});
 });
 
@@ -104,14 +229,22 @@ describe("planRestore", () => {
 		expect(plan.kind).toBe("not-found");
 	});
 
-	it("returns spawn-session with the matched entry", async () => {
+	it("returns spawn-session with every matching entry (multi-pane)", async () => {
 		const { snapshotSession } = await import("./snapshot.ts");
-		await snapshotSession(dataDir, makeEntry({ name: "alpha" }));
+		await snapshotSession(
+			dataDir,
+			makeEntry({ name: "alpha", paneId: "terminal_1", claudeResumeId: "sess_a1" }),
+		);
+		await snapshotSession(
+			dataDir,
+			makeEntry({ name: "alpha", paneId: "terminal_2", claudeResumeId: "sess_a2" }),
+		);
 		const plan = await planRestore({ dataDir, sessionName: "alpha" });
 		expect(plan.kind).toBe("spawn-session");
 		if (plan.kind !== "spawn-session") return;
-		expect(plan.entry.name).toBe("alpha");
-		expect(plan.claudeResume).toBe("sess_resume_alpha");
+		expect(plan.entries).toHaveLength(2);
+		expect(plan.entries.map((e) => e.paneId).sort()).toEqual(["terminal_1", "terminal_2"]);
+		expect(plan.entries.map((e) => e.claudeResumeId).sort()).toEqual(["sess_a1", "sess_a2"]);
 	});
 });
 
@@ -160,6 +293,65 @@ describe("executeRestore", () => {
 		// Entries with null claudeResumeId are not resumable → not-found.
 		expect(plan.kind).toBe("not-found");
 		expect(calls).toHaveLength(0);
+	});
+
+	it("per-pane: focuses paneId before write-chars (multi-pane restore)", async () => {
+		const { snapshotSession } = await import("./snapshot.ts");
+		await snapshotSession(
+			dataDir,
+			makeEntry({ name: "alpha", paneId: "terminal_1", claudeResumeId: "sess_a1" }),
+		);
+		await snapshotSession(
+			dataDir,
+			makeEntry({ name: "alpha", paneId: "terminal_2", claudeResumeId: "sess_a2" }),
+		);
+		const calls: string[][] = [];
+		const spawn: SpawnOnly = async (cmd) => {
+			calls.push([...cmd]);
+			return { exitCode: 0 };
+		};
+		await executeRestore({ dataDir, sessionName: "alpha", spawn });
+		// 1 spawn for the session, then 2 (focus + write) per pane × 2 panes = 5 total.
+		expect(calls).toHaveLength(5);
+		// Pull the focus-pane-id invocations in order.
+		const focusCalls = calls.filter((c) => c.includes("focus-pane-id"));
+		expect(focusCalls.map((c) => c[c.indexOf("focus-pane-id") + 1])).toEqual([
+			"terminal_1",
+			"terminal_2",
+		]);
+		const writeCalls = calls.filter((c) => c.includes("write-chars"));
+		expect(writeCalls).toHaveLength(2);
+		expect(writeCalls[0]?.at(-1)).toMatch(/claude --resume sess_a1/);
+		expect(writeCalls[1]?.at(-1)).toMatch(/claude --resume sess_a2/);
+	});
+
+	it("emits onWarn when entry.cwd is empty (silent fallback otherwise)", async () => {
+		const { snapshotSession } = await import("./snapshot.ts");
+		await snapshotSession(dataDir, makeEntry({ name: "alpha", cwd: "" }));
+		const warnings: string[] = [];
+		const spawn: SpawnOnly = async () => ({ exitCode: 0 });
+		await executeRestore({
+			dataDir,
+			sessionName: "alpha",
+			spawn,
+			onWarn: (m) => warnings.push(m),
+		});
+		expect(warnings.length).toBeGreaterThan(0);
+		expect(warnings[0]).toMatch(/no cwd captured/);
+	});
+
+	it("does NOT warn when entry.cwd is populated", async () => {
+		const { snapshotSession } = await import("./snapshot.ts");
+		await snapshotSession(dataDir, makeEntry({ name: "alpha", cwd: "/Users/x/repo" }));
+		const warnings: string[] = [];
+		const spawn: SpawnOnly = async () => ({ exitCode: 0 });
+		await executeRestore({
+			dataDir,
+			sessionName: "alpha",
+			spawn,
+			onWarn: (m) => warnings.push(m),
+		});
+		expect(warnings).toEqual([]);
 	});
 
 	it("returns not-found and does NOT spawn when session is missing", async () => {
