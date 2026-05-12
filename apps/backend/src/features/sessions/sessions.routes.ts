@@ -17,13 +17,8 @@ const openSessionHandler = (c: Context<{ Bindings: AppBindings }>) =>
 		const session = yield* svc.open(id);
 		return c.json(session, 200);
 	}).pipe(
-		Effect.mapError((err: TerminalError) => c.json({ error: err.message }, 500)),
-		Effect.catchAll((err) =>
-			Effect.succeed(
-				err instanceof Response
-					? err
-					: c.json({ error: err instanceof Error ? err.message : "open failed" }, 500),
-			),
+		Effect.catchTag("TerminalError", (err: TerminalError) =>
+			Effect.succeed(c.json({ error: err.message }, 500)),
 		),
 	);
 
