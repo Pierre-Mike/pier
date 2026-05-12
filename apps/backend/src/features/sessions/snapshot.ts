@@ -11,7 +11,8 @@
  * Writes are atomic: serialise → write to .tmp → fs.rename → .tmp gone.
  */
 
-import { appendFile, mkdir, readFile, rename } from "node:fs/promises";
+import { renameSync, writeFileSync } from "node:fs";
+import { appendFile, mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 // ---------------------------------------------------------------------------
@@ -141,9 +142,11 @@ async function writeRegistryAtomic(dataDir: string, registry: SnapshotRegistry):
 	const tmpPath = join(dataDir, REGISTRY_TMP);
 	const finalPath = join(dataDir, REGISTRY_FILE);
 	const json = JSON.stringify(registryToJson(registry), null, 2);
-	// Use Bun.write for the tmp file (Bun-native, reliable on Linux CI).
-	await Bun.write(tmpPath, json);
-	await rename(tmpPath, finalPath);
+	// Use fully synchronous write + rename to ensure both ops complete before
+	// returning. Async writeFile/rename on Linux under Bun can report success
+	// before the OS commits the inode, causing subsequent reads to fail ENOENT.
+	writeFileSync(tmpPath, json, "utf-8");
+	renameSync(tmpPath, finalPath);
 }
 
 async function appendHistory(dataDir: string, entry: SnapshotEntry): Promise<void> {
