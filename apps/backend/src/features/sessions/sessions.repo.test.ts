@@ -471,3 +471,153 @@ describe("TerminalSessions Live — spec 036: non-existent project cwd", () => {
 		expect(sessionSpawns[0]?.cwd).toBe(join(tmpRoot, "ghost-project-036"));
 	});
 });
+
+// ---------------------------------------------------------------------------
+// spec 046: fix zellij socket creation timeout
+// ---------------------------------------------------------------------------
+// When a project's cwd does not exist on disk, zellij may silently stall,
+// causing spawnNamedSession to timeout after 3s with stderr: (empty). The fix
+// must either: (a) pre-create the cwd before spawning, (b) extend/adapt the
+// timeout, or (c) throw a clearer error. These tests encode all three ACs.
+
+describe("TerminalSessions Live — spec 046: socket timeout fix", () => {
+	let tmpRoot: string;
+	let capturedSpawnOptions: Array<{ args: string[]; cwd: string | undefined }>;
+	let originalSpawn: typeof Bun.spawn;
+	const fakeSockets: string[] = [];
+
+	beforeAll(() => {
+		tmpRoot = mkdtempSync(join(tmpdir(), "pier-spec-046-"));
+		// Do NOT create any subdirectory — tests must handle missing cwds.
+		mkdirSync(ZELLIJ_LIVE_DIR, { recursive: true });
+		capturedSpawnOptions = [];
+
+		originalSpawn = Bun.spawn;
+		// @ts-expect-error — intentional mock override for test isolation
+		Bun.spawn = (args: string[], opts?: { cwd?: string; [key: string]: unknown }) => {
+			capturedSpawnOptions.push({ args: args as string[], cwd: opts?.cwd });
+			const sessionIdx = args.indexOf("--session");
+			const id = sessionIdx >= 0 ? args[sessionIdx + 1] : undefined;
+			if (id) fakeSockets.push(writeFakeSocket(id));
+			return {
+				stdout: new ReadableStream({ start: (c) => c.close() }),
+				stderr: new ReadableStream({ start: (c) => c.close() }),
+				exited: Promise.resolve(0),
+				kill: () => undefined,
+			};
+		};
+	});
+
+	afterAll(() => {
+		Bun.spawn = originalSpawn;
+		for (const p of fakeSockets) tryUnlink(p);
+	});
+
+	const makeLayer = (projectsRoot: string) =>
+		makeTerminalSessionsLive().pipe(
+			Layer.provide(
+				Layer.succeed(ConfigService, {
+					get: () =>
+						Effect.succeed({
+							version: "0.0.0",
+							env: "test",
+							appPort: 5173,
+							sandboxPort: 5174,
+							zellijWebUrl: "https://test.local:8082",
+							projectsRoot,
+							piRoot: tmpRoot,
+							artifactsDir: join(tmpRoot, "artifacts"),
+							claudeProjectsRoot: join(tmpRoot, "claude-projects"),
+							appRoot: tmpRoot,
+						}),
+				}),
+			),
+		);
+
+	// AC 1: When sessions.open(projectId) is called for a project whose cwd
+	// does not exist on disk, the session opens successfully (cwd is created).
+	// RED: currently throws TerminalError after 3s because zellij stalls.
+	it("open(projectId) succeeds when cwd does not exist (cwd is pre-created)", async () => {
+		const result = await Effect.runPromise(
+			Effect.gen(function* () {
+				const sessions = yield* TerminalSessions;
+				return yield* sessions.open("missing-cwd-project");
+			}).pipe(Effect.provide(makeLayer(tmpRoot))),
+		);
+		expect(result.status).toBe("live");
+		expect(result.projectId).toBe("missing-cwd-project");
+	});
+
+	// AC 2: The socket poll timeout is extended OR adaptive when cwd does not exist.
+	// RED: currently hardcoded at 3s (30 × 100ms), which is too short for zellij
+	// to spawn in a non-existent cwd on slow disks or under load.
+	it("socket poll timeout is extended or adaptive for non-existent cwd", async () => {
+		// This test is structural: verify the implementation either:
+		// (a) pre-creates cwd (making timeout irrelevant), OR
+		// (b) extends the timeout beyond 3s, OR
+		// (c) adapts the timeout based on cwd existence.
+		// We verify by reading the source and asserting the timeout constant
+		// is either removed or made conditional.
+		const source = await Bun.file(new URL("./sessions.repo.ts", import.meta.url)).text();
+		const spawnNamedSessionBody = source.match(
+			/const spawnNamedSession[\s\S]*?(?=\nexport const resolveProjectCwd)/,
+		)?.[0];
+		expect(spawnNamedSessionBody).toBeDefined();
+		// If the fix is pre-creation, the timeout loop may still be 30 × 100ms
+		// but the cwd will exist so zellij won't stall. If the fix is timeout
+		// extension, the constant must be >30 or conditionally increased.
+		// We can't easily distinguish (a) from (b) in a single test, so we
+		// assert that EITHER the cwd is created before spawn OR the timeout
+		// is extended. The simplest check: if `mkdir` appears before the loop,
+		// it's (a); if the loop constant is >30, it's (b).
+		const hasMkdirBeforeLoop =
+			spawnNamedSessionBody?.includes("mkdir") &&
+			spawnNamedSessionBody?.indexOf("mkdir") <
+				spawnNamedSessionBody?.indexOf("for (let i = 0; i < 30");
+		const hasExtendedTimeout = !spawnNamedSessionBody?.includes("i < 30");
+		// At least one must be true.
+		expect(hasMkdirBeforeLoop || hasExtendedTimeout).toBe(true);
+	});
+
+	// AC 3: Error messages for socket timeout failures include actionable context.
+	// RED: currently the error message includes cwd but not whether it exists.
+	it("timeout error message includes cwd path and existence status", async () => {
+		// Mock Bun.spawn to NOT drop a fake socket, forcing the timeout path.
+		Bun.spawn = originalSpawn;
+		// @ts-expect-error — intentional mock override to force timeout
+		Bun.spawn = (args: string[], opts?: { cwd?: string; [key: string]: unknown }) => {
+			capturedSpawnOptions.push({ args: args as string[], cwd: opts?.cwd });
+			// Do NOT write a fake socket — force the timeout path.
+			return {
+				stdout: new ReadableStream({ start: (c) => c.close() }),
+				stderr: new ReadableStream({ start: (c) => c.close() }),
+				exited: Promise.resolve(0),
+				kill: () => undefined,
+			};
+		};
+
+		try {
+			await Effect.runPromise(
+				Effect.gen(function* () {
+					const sessions = yield* TerminalSessions;
+					return yield* sessions.open("timeout-error-project");
+				}).pipe(Effect.provide(makeLayer(tmpRoot))),
+			);
+			// If we reach here, the fix pre-created the cwd and zellij succeeded.
+			// That's also acceptable (AC 1).
+		} catch (err) {
+			// If we get a TerminalError, verify the message includes:
+			// - the cwd path
+			// - whether the cwd exists (or a hint like "directory does not exist")
+			const msg = err instanceof Error ? err.message : String(err);
+			expect(msg).toContain("cwd=");
+			// The message should mention cwd existence or non-existence.
+			const mentionsCwdExistence =
+				msg.includes("does not exist") ||
+				msg.includes("directory not found") ||
+				msg.includes("cwd exists: false") ||
+				msg.includes("missing");
+			expect(mentionsCwdExistence).toBe(true);
+		}
+	});
+});
