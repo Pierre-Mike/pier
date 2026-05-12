@@ -25,7 +25,14 @@ The implementer must attempt the mechanisms above and document which one worked 
 
 ## Implementation
 
-_(Filled in by the implementer after investigation. Replace this section or add a ## Limitation section.)_
+**Chosen mechanism: postMessage** — the parent page sends `{ type: "pier-theme-change", theme }` to each iframe's `contentWindow`. The backend's zellij proxy (`apps/backend/src/features/zellij/zellij.wrapper.ts`) already injects a relay script pattern for the palette feature; the same proxy can be extended to inject a theme-receiver script into the zellij-web HTML that listens for `pier-theme-change` messages and applies CSS custom properties to the iframe document root.
+
+**What changes with this implementation:**
+- The surrounding zellij-web chrome (background, scrollbar colors, any CSS-driven UI elements) follows the UI theme.
+- The xterm.js terminal canvas (the rendered text and cursor) does NOT change — xterm.js manages its own canvas and color palette internally. Changing xterm colors at runtime requires calling `terminal.setOption('theme', {...})` on the xterm instance inside the iframe. Since zellij-web does not expose a public postMessage API for this, and accessing the internal xterm instance would constitute a brittle hack, this is left as a known limitation.
+
+**Limitation (documented per user request):**
+The terminal canvas colors (text, cursor, ANSI color codes) cannot be dynamically updated at runtime without either: (a) a zellij-web upstream change to expose a theme API, or (b) a brittle DOM hack to find and mutate the internal xterm instance. Per the user's explicit constraint ("stop without forcing a hack"), this spec implements the clean mechanism (postMessage chrome relay) and documents that xterm canvas colors remain fixed to the zellij-web default theme.
 
 ## Files touched
 

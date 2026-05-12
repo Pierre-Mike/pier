@@ -1,11 +1,17 @@
 /*
  * Theme toggle + persistence — spec 044.
+ * Terminal iframe relay — spec 045.
  *
  * `data-theme` on <html> drives the CSS token cascade in theme.css. We read
  * from / write to localStorage under the key "pier-theme". The inline init
  * script in index.astro <head> applies the saved value before first paint;
  * this module wires the runtime toggle button after the page is interactive.
+ *
+ * On every theme change (init + toggle) syncTerminalTheme relays the new value
+ * to all active zellij-web terminal iframes via postMessage.
  */
+
+import { syncTerminalTheme } from "./terminal-theme.ts";
 
 const STORAGE_KEY = "pier-theme";
 type Theme = "dark" | "light";
@@ -18,6 +24,7 @@ export function getTheme(): Theme {
 function applyTheme(theme: Theme): void {
 	document.documentElement.dataset.theme = theme;
 	localStorage.setItem(STORAGE_KEY, theme);
+	syncTerminalTheme(theme);
 }
 
 export function initTheme(): void {
