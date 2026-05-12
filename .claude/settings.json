@@ -51,6 +51,26 @@
 					}
 				]
 			}
+		],
+		"Stop": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bun scripts/claude-hook-snapshot.ts"
+					}
+				]
+			}
+		],
+		"Notification": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bun scripts/claude-hook-snapshot.ts"
+					}
+				]
+			}
 		]
 	}
 }
