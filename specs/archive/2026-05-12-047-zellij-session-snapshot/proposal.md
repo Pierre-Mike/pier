@@ -1,17 +1,18 @@
 ---
 id: 047-zellij-session-snapshot
 title: Add Zellij session snapshot registry
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/backend/src/features/sessions/snapshot.test.ts
     level: unit
   - path: scripts/smoke-047-zellij-session-snapshot.ts
     level: e2e
-created: 2026-05-12
+created: 2026-05-12T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-05-12'
 ---
 
 ## Intent
