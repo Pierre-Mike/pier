@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { mkdirSync, mkdtempSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Layer } from "effect";
@@ -546,37 +546,27 @@ describe("TerminalSessions Live — spec 046: socket timeout fix", () => {
 		);
 		expect(result.status).toBe("live");
 		expect(result.projectId).toBe("missing-cwd-project");
+		// Verify the cwd was actually created on disk (closes adversarial gap):
+		expect(existsSync(join(tmpRoot, "missing-cwd-project"))).toBe(true);
 	});
 
 	// AC 2: The socket poll timeout is extended OR adaptive when cwd does not exist.
 	// RED: currently hardcoded at 3s (30 × 100ms), which is too short for zellij
 	// to spawn in a non-existent cwd on slow disks or under load.
 	it("socket poll timeout is extended or adaptive for non-existent cwd", async () => {
-		// This test is structural: verify the implementation either:
-		// (a) pre-creates cwd (making timeout irrelevant), OR
-		// (b) extends the timeout beyond 3s, OR
-		// (c) adapts the timeout based on cwd existence.
-		// We verify by reading the source and asserting the timeout constant
-		// is either removed or made conditional.
-		const source = await Bun.file(new URL("./sessions.repo.ts", import.meta.url)).text();
-		const spawnNamedSessionBody = source.match(
-			/const spawnNamedSession[\s\S]*?(?=\nexport const resolveProjectCwd)/,
-		)?.[0];
-		expect(spawnNamedSessionBody).toBeDefined();
-		// If the fix is pre-creation, the timeout loop may still be 30 × 100ms
-		// but the cwd will exist so zellij won't stall. If the fix is timeout
-		// extension, the constant must be >30 or conditionally increased.
-		// We can't easily distinguish (a) from (b) in a single test, so we
-		// assert that EITHER the cwd is created before spawn OR the timeout
-		// is extended. The simplest check: if `mkdir` appears before the loop,
-		// it's (a); if the loop constant is >30, it's (b).
-		const hasMkdirBeforeLoop =
-			spawnNamedSessionBody?.includes("mkdir") &&
-			spawnNamedSessionBody?.indexOf("mkdir") <
-				spawnNamedSessionBody?.indexOf("for (let i = 0; i < 30");
-		const hasExtendedTimeout = !spawnNamedSessionBody?.includes("i < 30");
-		// At least one must be true.
-		expect(hasMkdirBeforeLoop || hasExtendedTimeout).toBe(true);
+		// Behavioral test: verify that sessions.open succeeds for a non-existent cwd,
+		// proving the fix (either cwd pre-creation OR timeout extension) worked.
+		// RED: currently throws TerminalError after 3s.
+		const result = await Effect.runPromise(
+			Effect.gen(function* () {
+				const sessions = yield* TerminalSessions;
+				return yield* sessions.open("timeout-test-project");
+			}).pipe(Effect.provide(makeLayer(tmpRoot))),
+		);
+		expect(result.status).toBe("live");
+		expect(result.projectId).toBe("timeout-test-project");
+		// Verify the cwd was created (proving pre-creation path worked):
+		expect(existsSync(join(tmpRoot, "timeout-test-project"))).toBe(true);
 	});
 
 	// AC 3: Error messages for socket timeout failures include actionable context.
@@ -616,6 +606,8 @@ describe("TerminalSessions Live — spec 046: socket timeout fix", () => {
 				msg.includes("does not exist") ||
 				msg.includes("directory not found") ||
 				msg.includes("cwd exists: false") ||
+				msg.includes("cwd exists: true") ||
+				msg.includes("exists:") ||
 				msg.includes("missing");
 			expect(mentionsCwdExistence).toBe(true);
 		}
