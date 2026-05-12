@@ -10,7 +10,9 @@ import { ConfigService } from "../../platform/config.repo.ts";
 // (see zellij-org/zellij#5081), which would orphan running sessions.
 // Users who want their interactive `zellij` to share these sessions should
 // `export ZELLIJ_SOCKET_DIR=/var/z` in their shell rc.
-export const ZELLIJ_SOCKET_DIR = "/var/z";
+// Test environments override via `PIER_ZELLIJ_SOCKET_DIR` so sessions.repo
+// tests don't collide with the user's real running zellij sockets.
+export const ZELLIJ_SOCKET_DIR = process.env["PIER_ZELLIJ_SOCKET_DIR"] ?? "/var/z";
 const MAX_ZELLIJ_NAME = 60;
 
 const sessionIdFromProjectId = (projectId: string): string =>

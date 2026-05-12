@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { mkdirSync, mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Layer } from "effect";
@@ -9,7 +9,26 @@ import {
 	resolveProjectCwd,
 	TerminalSessions,
 	TerminalSessionsTest,
+	ZELLIJ_SOCKET_DIR,
 } from "./sessions.repo.ts";
+
+// spawnNamedSession (post spec-5ec4849) polls ZELLIJ_SOCKET_DIR/contract_version_1
+// for a socket named after the session id and throws if it never appears. Tests
+// that mock Bun.spawn must therefore drop a marker file at that path so the
+// polling loop returns instead of throwing TerminalError after 3s.
+const ZELLIJ_LIVE_DIR = join(ZELLIJ_SOCKET_DIR, "contract_version_1");
+const writeFakeSocket = (id: string): string => {
+	const p = join(ZELLIJ_LIVE_DIR, id);
+	writeFileSync(p, "");
+	return p;
+};
+const tryUnlink = (p: string): void => {
+	try {
+		unlinkSync(p);
+	} catch {
+		/* already gone */
+	}
+};
 
 describe("TerminalSessionsTest", () => {
 	it("open creates a new session", async () => {
@@ -239,19 +258,25 @@ describe("TerminalSessions Live — cwd resolution (spec 023)", () => {
 	let existingProject: string;
 	let capturedSpawnOptions: Array<{ args: string[]; cwd: string | undefined }>;
 	let originalSpawn: typeof Bun.spawn;
+	const fakeSockets: string[] = [];
 
 	beforeAll(() => {
 		tmpRoot = mkdtempSync(join(tmpdir(), "pier-spec-023-live-"));
 		existingProject = "real-project";
 		mkdirSync(join(tmpRoot, existingProject));
+		mkdirSync(ZELLIJ_LIVE_DIR, { recursive: true });
 		capturedSpawnOptions = [];
 
 		// Capture Bun.spawn calls so we can assert cwd without actually launching zellij.
+		// Also drop a marker file at the path spawnNamedSession polls so its 3s
+		// socket-wait loop returns instead of throwing.
 		originalSpawn = Bun.spawn;
 		// @ts-expect-error — intentional mock override for test isolation
 		Bun.spawn = (args: string[], opts?: { cwd?: string; [key: string]: unknown }) => {
 			capturedSpawnOptions.push({ args: args as string[], cwd: opts?.cwd });
-			// Return a minimal fake proc so spawnNamedSession's await-loop terminates quickly.
+			const sessionIdx = args.indexOf("--session");
+			const id = sessionIdx >= 0 ? args[sessionIdx + 1] : undefined;
+			if (id) fakeSockets.push(writeFakeSocket(id));
 			return {
 				stdout: new ReadableStream({ start: (c) => c.close() }),
 				stderr: new ReadableStream({ start: (c) => c.close() }),
@@ -263,6 +288,7 @@ describe("TerminalSessions Live — cwd resolution (spec 023)", () => {
 
 	afterAll(() => {
 		Bun.spawn = originalSpawn;
+		for (const p of fakeSockets) tryUnlink(p);
 	});
 
 	const makeLayer = (projectsRoot: string) =>
@@ -377,16 +403,21 @@ describe("TerminalSessions Live — spec 036: non-existent project cwd", () => {
 	let tmpRoot: string;
 	let capturedSpawnOptions: Array<{ args: string[]; cwd: string | undefined }>;
 	let originalSpawn: typeof Bun.spawn;
+	const fakeSockets: string[] = [];
 
 	beforeAll(() => {
 		tmpRoot = mkdtempSync(join(tmpdir(), "pier-spec-036-live-"));
 		// No subdirectories created — the ghost project directory does NOT exist.
+		mkdirSync(ZELLIJ_LIVE_DIR, { recursive: true });
 		capturedSpawnOptions = [];
 
 		originalSpawn = Bun.spawn;
 		// @ts-expect-error — intentional mock override for test isolation
 		Bun.spawn = (args: string[], opts?: { cwd?: string; [key: string]: unknown }) => {
 			capturedSpawnOptions.push({ args: args as string[], cwd: opts?.cwd });
+			const sessionIdx = args.indexOf("--session");
+			const id = sessionIdx >= 0 ? args[sessionIdx + 1] : undefined;
+			if (id) fakeSockets.push(writeFakeSocket(id));
 			return {
 				stdout: new ReadableStream({ start: (c) => c.close() }),
 				stderr: new ReadableStream({ start: (c) => c.close() }),
@@ -398,6 +429,7 @@ describe("TerminalSessions Live — spec 036: non-existent project cwd", () => {
 
 	afterAll(() => {
 		Bun.spawn = originalSpawn;
+		for (const p of fakeSockets) tryUnlink(p);
 	});
 
 	const makeLayer = (projectsRoot: string) =>
