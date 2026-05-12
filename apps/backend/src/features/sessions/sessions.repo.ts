@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Context, Data, Effect, Layer } from "effect";
@@ -70,6 +71,17 @@ const zellijSessionExists = async (id: string): Promise<boolean> => {
 const spawnNamedSession = async (id: string, cwd: string): Promise<void> => {
 	if (await zellijSessionExists(id)) return;
 
+	// Pre-create the cwd directory so zellij can spawn a PTY with a valid working
+	// directory. If this fails (e.g., permission denied), throw immediately rather
+	// than waiting 3s for a socket timeout.
+	try {
+		await mkdir(cwd, { recursive: true });
+	} catch (err) {
+		throw new Error(
+			`Failed to create session cwd at ${cwd}: ${err instanceof Error ? err.message : String(err)}`,
+		);
+	}
+
 	const spawnOrThrow = (): ReturnType<typeof Bun.spawn> => {
 		try {
 			return Bun.spawn(["zellij", "--session", id], {
@@ -106,7 +118,7 @@ const spawnNamedSession = async (id: string, cwd: string): Promise<void> => {
 	proc.kill();
 	await proc.exited.catch(() => undefined);
 	throw new Error(
-		`zellij --session ${id} did not create a socket within 3s at cwd=${cwd}. stderr: ${stderrSnippet.slice(0, 500) || "(empty)"}`,
+		`zellij --session ${id} did not create a socket within 3s at cwd=${cwd} (exists: ${existsSync(cwd)}). stderr: ${stderrSnippet.slice(0, 500) || "(empty)"}`,
 	);
 };
 
