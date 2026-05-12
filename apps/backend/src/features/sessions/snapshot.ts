@@ -11,7 +11,7 @@
  * Writes are atomic: serialise → write to .tmp → fs.rename → .tmp gone.
  */
 
-import { appendFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, rename } from "node:fs/promises";
 import { join } from "node:path";
 
 // ---------------------------------------------------------------------------
@@ -141,7 +141,8 @@ async function writeRegistryAtomic(dataDir: string, registry: SnapshotRegistry):
 	const tmpPath = join(dataDir, REGISTRY_TMP);
 	const finalPath = join(dataDir, REGISTRY_FILE);
 	const json = JSON.stringify(registryToJson(registry), null, 2);
-	await writeFile(tmpPath, json, "utf-8");
+	// Use Bun.write for the tmp file (Bun-native, reliable on Linux CI).
+	await Bun.write(tmpPath, json);
 	await rename(tmpPath, finalPath);
 }
 
