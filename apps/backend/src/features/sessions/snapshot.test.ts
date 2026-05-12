@@ -7,9 +7,13 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
-import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+// Reads via Bun.file deliberately bypass node:fs/promises so this suite
+// is unaffected when another test file (e.g. zellij.auth.repo.test.ts)
+// registers a process-global mock.module("node:fs/promises", ...).
+const readFile = (path: string): Promise<string> => Bun.file(path).text();
 
 import {
 	filterResumable,
@@ -118,7 +122,7 @@ describe("snapshotSession", () => {
 		const entry = makeEntry();
 		await snapshotSession(dataDir, entry);
 
-		const raw = await readFile(join(dataDir, "registry.json"), "utf-8");
+		const raw = await readFile(join(dataDir, "registry.json"));
 		const parsed = JSON.parse(raw) as Record<string, unknown>;
 		const stored = parsed["session-alpha"] as Record<string, unknown>;
 
@@ -140,7 +144,7 @@ describe("snapshotSession", () => {
 		await snapshotSession(dataDir, entry2);
 		await snapshotSession(dataDir, makeEntry({ name: "session-alpha", lastPrompt: "second" }));
 
-		const raw = await readFile(join(dataDir, "registry.json"), "utf-8");
+		const raw = await readFile(join(dataDir, "registry.json"));
 		const parsed = JSON.parse(raw) as Record<string, Record<string, unknown>>;
 		expect(parsed["session-alpha"]?.["lastPrompt"]).toBe("second");
 		expect(parsed["session-beta"]?.["lastPrompt"]).toBe("beta");
@@ -152,7 +156,7 @@ describe("snapshotSession", () => {
 		await snapshotSession(dataDir, makeEntry({ lastPrompt: "call 2" }));
 		await snapshotSession(dataDir, makeEntry({ lastPrompt: "call 3" }));
 
-		const raw = await readFile(join(dataDir, "history.ndjson"), "utf-8");
+		const raw = await readFile(join(dataDir, "history.ndjson"));
 		const lines = raw.trim().split("\n").filter(Boolean);
 		expect(lines).toHaveLength(3);
 		for (const line of lines) {
@@ -164,7 +168,7 @@ describe("snapshotSession", () => {
 
 	it("AC6: registry.json is valid JSON", async () => {
 		await snapshotSession(dataDir, makeEntry());
-		const raw = await readFile(join(dataDir, "registry.json"), "utf-8");
+		const raw = await readFile(join(dataDir, "registry.json"));
 		expect(() => JSON.parse(raw)).not.toThrow();
 	});
 
@@ -210,9 +214,8 @@ describe("listResumable", () => {
 	});
 
 	it("AC5: returns empty array when registry is empty object", async () => {
-		// Write an empty registry manually
-		const { writeFile } = await import("node:fs/promises");
-		await writeFile(join(dataDir, "registry.json"), "{}", "utf-8");
+		// Write an empty registry manually — Bun.write bypasses the global mock.
+		await Bun.write(join(dataDir, "registry.json"), "{}");
 		expect(await listResumable(dataDir)).toEqual([]);
 	});
 });
