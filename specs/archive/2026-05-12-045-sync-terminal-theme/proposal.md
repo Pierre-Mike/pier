@@ -1,7 +1,7 @@
 ---
 id: '045'
 title: Sync iframe terminal theme with UI theme
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/frontend/src/dashboard/terminal-theme.test.ts
@@ -13,6 +13,7 @@ owner: main
 depends_on:
   - '044'
 supersedes: null
+archived: '2026-05-12'
 ---
 
 ## Intent
