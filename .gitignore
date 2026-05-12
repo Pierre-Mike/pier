@@ -12,3 +12,5 @@ dist/
 .claude/traces/
 .claude/dashboard.html
 .pi/extensions/.tmp/
+data/snapshots/*.json
+data/snapshots/*.ndjson

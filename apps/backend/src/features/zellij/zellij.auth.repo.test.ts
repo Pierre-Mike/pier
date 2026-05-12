@@ -12,7 +12,7 @@
  *     state between cases.
  */
 
-import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import * as realFsPromises from "node:fs/promises";
 
 // --- fs/promises mock setup ------------------------------------------------
@@ -40,6 +40,12 @@ mock.module("node:fs/promises", () => ({
 		mockWriteFile({ path, content, opts: opts ?? {} }),
 	mkdir: (_path: string, _opts: unknown) => Promise.resolve(undefined),
 }));
+
+// mock.module is process-global; without this restore, subsequent test files
+// in the same Bun process inherit the mocked readFile/writeFile/mkdir.
+afterAll(() => {
+	mock.module("node:fs/promises", () => ({ ...realFsPromises }));
+});
 
 // --- subject import (after mock.module registration) ----------------------
 // We import the full module namespace. getZellijReadOnlyToken is the symbol
