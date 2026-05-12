@@ -51,6 +51,21 @@ describe("statusForEvent", () => {
 	it("Notification → active", () => {
 		expect(statusForEvent("Notification")).toBe("active");
 	});
+	it("SessionStart → active (boot-time capture)", () => {
+		expect(statusForEvent("SessionStart")).toBe("active");
+	});
+	it("UserPromptSubmit → active (per-prompt capture)", () => {
+		expect(statusForEvent("UserPromptSubmit")).toBe("active");
+	});
+	it("PreCompact → active (long-run checkpoint)", () => {
+		expect(statusForEvent("PreCompact")).toBe("active");
+	});
+	it("SubagentStop → active (parent still live)", () => {
+		expect(statusForEvent("SubagentStop")).toBe("active");
+	});
+	it("SessionEnd → unknown", () => {
+		expect(statusForEvent("SessionEnd")).toBe("unknown");
+	});
 	it("anything else → unknown", () => {
 		expect(statusForEvent("Whatever")).toBe("unknown");
 	});
@@ -70,6 +85,40 @@ describe("buildEntryFromHook", () => {
 		expect(entry.status).toBe("active");
 		expect(entry.lastPrompt).toBe(null);
 		expect(entry.updatedAt).toEqual(NOW);
+	});
+
+	it("UserPromptSubmit prompt wins over Notification message when both present", () => {
+		const entry = buildEntryFromHook({
+			payload: {
+				...basePayload,
+				hook_event_name: "UserPromptSubmit",
+				prompt: "user typed this",
+				message: "stale notification",
+			},
+			env: { ZELLIJ_SESSION_NAME: "pier" },
+			now: NOW,
+		});
+		expect(entry.lastPrompt).toBe("user typed this");
+	});
+
+	it("falls back to message when prompt is absent", () => {
+		const entry = buildEntryFromHook({
+			payload: { ...basePayload, hook_event_name: "Notification", message: "needs perm" },
+			env: { ZELLIJ_SESSION_NAME: "pier" },
+			now: NOW,
+		});
+		expect(entry.lastPrompt).toBe("needs perm");
+	});
+
+	it("SessionStart payload populates resume-id even with no prompt/message", () => {
+		const entry = buildEntryFromHook({
+			payload: { ...basePayload, hook_event_name: "SessionStart" },
+			env: { ZELLIJ_SESSION_NAME: "pier" },
+			now: NOW,
+		});
+		expect(entry.claudeResumeId).toBe("sess_abc123def456");
+		expect(entry.status).toBe("active");
+		expect(entry.lastPrompt).toBe(null);
 	});
 
 	it("captures Notification message as lastPrompt", () => {

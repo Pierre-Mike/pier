@@ -71,6 +71,46 @@
 					}
 				]
 			}
+		],
+		"SessionStart": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bun scripts/claude-hook-snapshot.ts"
+					}
+				]
+			}
+		],
+		"UserPromptSubmit": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bun scripts/claude-hook-snapshot.ts"
+					}
+				]
+			}
+		],
+		"PreCompact": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bun scripts/claude-hook-snapshot.ts"
+					}
+				]
+			}
+		],
+		"SubagentStop": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bun scripts/claude-hook-snapshot.ts"
+					}
+				]
+			}
 		]
 	}
 }
