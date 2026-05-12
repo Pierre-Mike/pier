@@ -1,27 +1,22 @@
 # Tasks
 
-- [ ] 1. Add cwd pre-creation to spawnNamedSession
+- [x] 1. Add cwd pre-creation to spawnNamedSession
   - agent: main
   - depends: []
   - file_targets: [apps/backend/src/features/sessions/sessions.repo.ts]
   - boundary: [apps/backend/src/features/sessions/sessions.repo.ts]
-- [ ] 2. Enhance timeout error message with cwd existence status
+- [x] 2. Enhance timeout error message with cwd existence status
   - agent: main
   - depends: [1]
   - file_targets: [apps/backend/src/features/sessions/sessions.repo.ts]
   - boundary: [apps/backend/src/features/sessions/sessions.repo.ts]
-- [ ] 3. Update sessions.routes.ts to use TerminalError with mapError for typed error handling
+- [x] 3. Update sessions.routes.ts to use TerminalError with mapError for typed error handling
   - agent: main
   - depends: [2]
   - file_targets: [apps/backend/src/features/sessions/sessions.routes.ts]
   - boundary: [apps/backend/src/features/sessions/sessions.routes.ts]
-- [ ] 4. Add root bunfig.toml so tasks:verify preloads backend test setup from repo root
+- [x] 4. Add root bunfig.toml so tasks:verify preloads backend test setup from repo root
   - agent: main
   - depends: [3]
   - file_targets: [bunfig.toml]
   - boundary: [bunfig.toml]
-- [ ] 5. Verify gate tests pass (GREEN)
-  - agent: main
-  - depends: [4]
-  - file_targets: []
-  - boundary: [apps/backend/src/features/sessions/*.test.ts]
