@@ -1,14 +1,6 @@
+@import "./theme.css";
+
 :root {
-	--bg: #0e1116;
-	--bg-elev: #151a21;
-	--bg-hover: #1d2430;
-	--fg: #d6deeb;
-	--fg-dim: #8b98ad;
-	--accent: #5ccfe6;
-	--accent-dim: #3a98ad;
-	--border: #222a35;
-	--danger: #ff6b6b;
-	--ok: #78d98f;
 	--mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 

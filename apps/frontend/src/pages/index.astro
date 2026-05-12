@@ -7,6 +7,19 @@ import TerminalPane from "../components/TerminalPane.astro";
 import Base from "../layouts/Base.astro";
 ---
 
+<script is:inline>
+	// Pre-paint theme init (spec 044). Reads "pier-theme" from localStorage and
+	// applies it to <html> before the body renders so there is no light-flash.
+	(function () {
+		try {
+			var t = localStorage.getItem("pier-theme");
+			document.documentElement.dataset.theme = t === "light" ? "light" : "dark";
+		} catch (_e) {
+			document.documentElement.dataset.theme = "dark";
+		}
+	})();
+</script>
+
 <Base title="pier">
 	<Sidebar />
 	<TerminalPane />
@@ -23,6 +36,13 @@ import Base from "../layouts/Base.astro";
 			</section>
 		</div>
 	</div>
+
+	<button
+		type="button"
+		data-testid="theme-toggle"
+		aria-label="Toggle dark/light theme"
+		style="position:fixed;left:14px;bottom:14px;z-index:90;width:36px;height:36px;border-radius:50%;background:var(--bg-elev);color:var(--accent);border:1px solid var(--border);cursor:pointer;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,0.4);"
+	>◐</button>
 
 	<div id="toast"></div>
 </Base>
@@ -50,8 +70,10 @@ import Base from "../layouts/Base.astro";
 	import { wireDefaultSession } from "../dashboard/default-session";
 	import { installPalette } from "../dashboard/palette";
 	import { openRepoFile } from "../dashboard/viewer";
+	import { initTheme } from "../dashboard/theme";
 
 	async function init() {
+		initTheme();
 		await loadConfig();
 		await refreshProjects();
 		subscribeEvents(handleEvent);
