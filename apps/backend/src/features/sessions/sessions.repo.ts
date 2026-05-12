@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Context, Data, Effect, Layer } from "effect";
@@ -73,9 +73,12 @@ const spawnNamedSession = async (id: string, cwd: string): Promise<void> => {
 
 	// Pre-create the cwd directory so zellij can spawn a PTY with a valid working
 	// directory. If this fails (e.g., permission denied), throw immediately rather
-	// than waiting 3s for a socket timeout.
+	// than waiting 3s for a socket timeout. Use mkdirSync so the dir is guaranteed
+	// on disk before Bun.spawn — Bun's async fs.promises.mkdir has been observed
+	// to resolve before the entry is visible on Linux, leaving zellij to stall on
+	// a still-missing cwd.
 	try {
-		await mkdir(cwd, { recursive: true });
+		mkdirSync(cwd, { recursive: true });
 	} catch (err) {
 		throw new Error(
 			`Failed to create session cwd at ${cwd}: ${err instanceof Error ? err.message : String(err)}`,
