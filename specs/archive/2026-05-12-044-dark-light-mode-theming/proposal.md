@@ -1,17 +1,18 @@
 ---
 id: '044'
 title: Add dark/light mode theming
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/frontend/src/styles/theme.test.ts
     level: unit
   - path: apps/e2e/tests/dark-light-mode-theming.spec.ts
     level: e2e
-created: 2026-05-12
+created: 2026-05-12T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-05-12'
 ---
 
 ## Intent
