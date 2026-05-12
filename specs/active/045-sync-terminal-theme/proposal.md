@@ -34,7 +34,7 @@ Spec 044 introduced a dark/light UI theme toggled by `data-theme` on `<html>` an
 - [ ] `syncTerminalTheme` iterates all active terminal iframes (those with `data-project` attribute in `#terminals`) and applies the theme — either via `postMessage`, URL query param update, or `data-theme` attribute on the iframe element itself (mechanism documented in design.md).
 - [ ] `apps/frontend/src/dashboard/theme.ts` calls `syncTerminalTheme` after each theme change (both on toggle and on `initTheme()`).
 - [ ] `bun test apps/frontend/src/dashboard/terminal-theme.test.ts` passes GREEN after implementation.
-- [ ] `bun run apps/e2e/terminal-theme.e2e.ts` exits 0 GREEN after implementation.
+- [ ] `bun run apps/e2e/tests/terminal-theme.spec.ts` exits 0 GREEN after implementation.
 - [ ] `design.md` documents the investigation: which mechanisms were considered, which was chosen (or why all were rejected).
 
 ## Context
