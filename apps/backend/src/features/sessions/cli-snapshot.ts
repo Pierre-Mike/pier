@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { writeToPane } from "../zellij/write-to-pane.ts";
 import { defaultSpawner, discoverSnapshotEntries, type Spawner } from "./discovery.ts";
 import { entryKey, listResumable, type SnapshotEntry, snapshotSession } from "./snapshot.ts";
+import { type EnrichOptions, enrichEntries } from "./transcript-enrich.ts";
 
 // ---------------------------------------------------------------------------
 // Types & seams
@@ -23,6 +24,10 @@ export type SnapshotNowDeps = {
 	readonly spawner?: Spawner;
 	readonly persist?: typeof snapshotSession;
 	readonly now?: () => Date;
+	// Transcript-enrich options. `enrich: false` disables the post-discovery
+	// backfill from ~/.claude/projects/ entirely (useful for tests that don't
+	// want the helper poking at the real home dir).
+	readonly enrich?: false | EnrichOptions;
 };
 
 export type RestoreDeps = {
@@ -83,11 +88,16 @@ export async function snapshotNow(deps: SnapshotNowDeps): Promise<readonly Snaps
 	if (deps.spawner !== undefined) discoveryOpts.spawner = deps.spawner;
 	if (deps.now !== undefined) discoveryOpts.now = deps.now;
 	const discovered = await discoverSnapshotEntries(discoveryOpts);
+	// Backfill cwd / claudeResumeId / transcriptPath from ~/.claude/projects/
+	// before the merge so prior registry data can still win for fields that
+	// hooks captured. Skipped when deps.enrich === false.
+	const enriched =
+		deps.enrich === false ? discovered : await enrichEntries(discovered, deps.enrich ?? {});
 	const priorAll = await readAllSnapshots(deps.dataDir);
 	const priorByKey = new Map(priorAll.map((e) => [entryKey(e), e]));
 	const persist = deps.persist ?? snapshotSession;
 	const merged: SnapshotEntry[] = [];
-	for (const entry of discovered) {
+	for (const entry of enriched) {
 		const out = mergeDiscoveredEntry(priorByKey.get(entryKey(entry)), entry);
 		await persist(deps.dataDir, out);
 		merged.push(out);
