@@ -147,17 +147,16 @@ async function writeRegistryAtomic(dataDir: string, registry: SnapshotRegistry):
 
 async function appendHistory(dataDir: string, entry: SnapshotEntry): Promise<void> {
 	const histPath = join(dataDir, HISTORY_FILE);
-	const line =
-		JSON.stringify({
-			ts: entry.updatedAt.toISOString(),
-			name: entry.name,
-			tabTitle: entry.tabTitle,
-			cwd: entry.cwd,
-			transcriptPath: entry.transcriptPath,
-			claudeResumeId: entry.claudeResumeId,
-			lastPrompt: entry.lastPrompt,
-			status: entry.status,
-		}) + "\n";
+	const line = `${JSON.stringify({
+		ts: entry.updatedAt.toISOString(),
+		name: entry.name,
+		tabTitle: entry.tabTitle,
+		cwd: entry.cwd,
+		transcriptPath: entry.transcriptPath,
+		claudeResumeId: entry.claudeResumeId,
+		lastPrompt: entry.lastPrompt,
+		status: entry.status,
+	})}\n`;
 	await appendFile(histPath, line, "utf-8");
 }
 
