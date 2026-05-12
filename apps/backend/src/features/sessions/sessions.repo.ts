@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Context, Data, Effect, Layer } from "effect";
 import { ConfigService } from "../../platform/config.repo.ts";
@@ -44,48 +44,65 @@ export interface TerminalSessions {
 
 export const TerminalSessions = Context.GenericTag<TerminalSessions>("TerminalSessions");
 
-const listZellijSessions = async (): Promise<string[]> => {
-	const proc = Bun.spawn(["zellij", "list-sessions", "-s"], {
-		stdout: "pipe",
-		stderr: "pipe",
-		env: { ...process.env, ZELLIJ_SOCKET_DIR },
-	});
-	const out = await new Response(proc.stdout).text();
-	await proc.exited;
-	return out
-		.split("\n")
-		.map((l) => l.trim())
-		.filter(Boolean);
+// Truth source for "does a zellij --server exist for this name?" is the unix
+// socket under ZELLIJ_SOCKET_DIR/contract_version_1/. We CANNOT shell out to
+// `zellij list-sessions`: Bun.spawn invokes it without a TTY and the process
+// blocks for ~25s instead of exiting, freezing every code path that calls it.
+const zellijSocketDir = (): string => join(ZELLIJ_SOCKET_DIR, "contract_version_1");
+
+const zellijSessionExists = async (id: string): Promise<boolean> => {
+	try {
+		const entries = await readdir(zellijSocketDir());
+		return entries.includes(id);
+	} catch {
+		return false;
+	}
 };
 
 // Spawn `zellij --session <id>` in a real PTY at `cwd`, wait for the server to
-// register the session, then kill the client. The server keeps the session
-// alive across client disconnects, so the iframe can attach to it later with
-// the right working directory.
+// register the session (socket appears on disk), then kill the client. The
+// server keeps the session alive across client disconnects, so the iframe can
+// attach to it later with the right working directory. Throws if the socket
+// never appears so callers can return a proper error instead of registering a
+// fake "live" session whose iframe will render black.
 const spawnNamedSession = async (id: string, cwd: string): Promise<void> => {
-	const existing = await listZellijSessions().catch(() => [] as string[]);
-	if (existing.some((line) => line === id || line.startsWith(`${id} `))) return;
+	if (await zellijSessionExists(id)) return;
 
-	const proc = Bun.spawn(["zellij", "--session", id], {
-		cwd,
-		env: { ...process.env, ZELLIJ_SOCKET_DIR },
-		terminal: {
-			cols: 80,
-			rows: 24,
-			data: () => {
-				/* discard zellij's TUI output */
-			},
-		},
-	});
+	const spawnOrThrow = (): ReturnType<typeof Bun.spawn> => {
+		try {
+			return Bun.spawn(["zellij", "--session", id], {
+				cwd,
+				env: { ...process.env, ZELLIJ_SOCKET_DIR },
+				terminal: {
+					cols: 80,
+					rows: 24,
+					data: () => {
+						/* discard zellij's TUI output */
+					},
+				},
+				stderr: "pipe",
+			});
+		} catch (err) {
+			throw new Error(`Bun.spawn(zellij --session ${id}) at cwd=${cwd} failed: ${String(err)}`);
+		}
+	};
+	const proc = spawnOrThrow();
 
 	for (let i = 0; i < 30; i++) {
 		await new Promise((r) => setTimeout(r, 100));
-		const lines = await listZellijSessions().catch(() => [] as string[]);
-		if (lines.some((line) => line === id || line.startsWith(`${id} `))) break;
+		if (await zellijSessionExists(id)) {
+			proc.kill();
+			await proc.exited.catch(() => undefined);
+			return;
+		}
 	}
 
+	const stderrSnippet = await new Response(proc.stderr).text().catch(() => "");
 	proc.kill();
 	await proc.exited.catch(() => undefined);
+	throw new Error(
+		`zellij --session ${id} did not create a socket within 3s at cwd=${cwd}. stderr: ${stderrSnippet.slice(0, 500) || "(empty)"}`,
+	);
 };
 
 export const resolveProjectCwd = async (
@@ -130,25 +147,53 @@ export const makeTerminalSessionsLive = (): Layer.Layer<TerminalSessions, never,
 					await writeFile(registryPath, `${JSON.stringify(sess)}\n`, { flag: "a" });
 				}).pipe(Effect.orElseSucceed(() => undefined));
 
+			// Boot reconciliation: any "live" registry entry whose backing
+			// zellij --server is gone (host reboot, zellij crash, socket wipe)
+			// would otherwise be returned by open() unchanged — iframe loads
+			// with no PTY behind it and renders black.
+			{
+				const alive = new Set(
+					yield* Effect.tryPromise(() => readdir(zellijSocketDir())).pipe(
+						Effect.orElseSucceed(() => [] as string[]),
+					),
+				);
+				for (const sess of registry.values()) {
+					if (sess.status === "live" && !alive.has(sess.id)) {
+						sess.status = "dead";
+						yield* persist(sess);
+					}
+				}
+			}
+
 			return {
 				open: (projectId) =>
 					Effect.gen(function* () {
 						const id = sessionIdFromProjectId(projectId);
 						const existing = registry.get(id);
-						if (existing?.status === "live") return existing;
+						if (
+							existing?.status === "live" &&
+							(yield* Effect.promise(() => zellijSessionExists(id)))
+						) {
+							return existing;
+						}
 
 						const cwd = yield* Effect.tryPromise(() =>
 							resolveProjectCwd(config.projectsRoot, projectId),
 						).pipe(Effect.orElseSucceed(() => config.projectsRoot));
 
-						yield* Effect.tryPromise(() => spawnNamedSession(id, cwd)).pipe(
+						yield* Effect.tryPromise({
+							try: () => spawnNamedSession(id, cwd),
+							catch: (cause) =>
+								new TerminalError({
+									message: cause instanceof Error ? cause.message : String(cause),
+								}),
+						}).pipe(
 							Effect.tapError((err) =>
 								Effect.sync(() => {
-									// biome-ignore lint/suspicious/noConsole: diagnostic for cwd-spawn failure
-									console.warn(`[pier] zellij session spawn failed: ${String(err)}`);
+									// biome-ignore lint/suspicious/noConsole: surface real spawn failure
+									console.warn(`[pier] zellij session spawn failed: ${err.message}`);
 								}),
 							),
-							Effect.orElseSucceed(() => undefined),
 						);
 
 						const url = `${proxyBase}/${encodeURIComponent(id)}`;
@@ -167,18 +212,28 @@ export const makeTerminalSessionsLive = (): Layer.Layer<TerminalSessions, never,
 					Effect.gen(function* () {
 						const id = "default";
 						const existing = registry.get(id);
-						if (existing?.status === "live") return existing;
+						if (
+							existing?.status === "live" &&
+							(yield* Effect.promise(() => zellijSessionExists(id)))
+						) {
+							return existing;
+						}
 
 						const cwd = config.projectsRoot;
 
-						yield* Effect.tryPromise(() => spawnNamedSession(id, cwd)).pipe(
+						yield* Effect.tryPromise({
+							try: () => spawnNamedSession(id, cwd),
+							catch: (cause) =>
+								new TerminalError({
+									message: cause instanceof Error ? cause.message : String(cause),
+								}),
+						}).pipe(
 							Effect.tapError((err) =>
 								Effect.sync(() => {
-									// biome-ignore lint/suspicious/noConsole: diagnostic for cwd-spawn failure
-									console.warn(`[pier] zellij session spawn failed: ${String(err)}`);
+									// biome-ignore lint/suspicious/noConsole: surface real spawn failure
+									console.warn(`[pier] zellij session spawn failed: ${err.message}`);
 								}),
 							),
-							Effect.orElseSucceed(() => undefined),
 						);
 
 						const url = `${proxyBase}/${encodeURIComponent(id)}`;
