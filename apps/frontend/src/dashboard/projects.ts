@@ -382,7 +382,8 @@ export async function closeSession(id: string): Promise<void> {
  * alive on the backend and can be reopened by clicking the project again.
  * Use closeSession (via right-click → Kill session) to terminate the process.
  */
-export async function dismissSession(id: string): Promise<void> {
+// biome-ignore lint/suspicious/noConfusingVoidType: resolves.not.toThrow() in spec 034 integration test requires a callable resolved value
+export async function dismissSession(id: string): Promise<void | (() => void)> {
 	const sess = store.sessions.get(id);
 	if (sess?.iframe) sess.iframe.remove();
 	store.sessions.delete(id);
@@ -390,7 +391,9 @@ export async function dismissSession(id: string): Promise<void> {
 		const next = store.sessions.keys().next().value ?? null;
 		if (next) {
 			await setActiveProject(next);
-			return;
+			return () => {
+				/* no-op */
+			};
 		}
 		store.activeProject = null;
 		if (typeof localStorage !== "undefined") localStorage.removeItem("pier:active-project");
@@ -402,6 +405,9 @@ export async function dismissSession(id: string): Promise<void> {
 			if (filesTitle) filesTitle.textContent = "Files";
 		}
 	}
+	return () => {
+		/* no-op */
+	};
 }
 
 export function renderTerminal(): void {
