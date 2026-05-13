@@ -10,18 +10,23 @@ import { Schema } from "effect";
 // Roster schema
 // ---------------------------------------------------------------------------
 
-// Worker entry inside roster.json workers map
+// Worker entry inside roster.json workers map.
+// Only fields the slice reads are typed strictly; all others are optional unknowns
+// so the schema tolerates any shape the CLI emits without brittle nested decoders.
 const WorkerEntrySchema = Schema.Struct({
 	pid: Schema.Number,
 	sessionId: Schema.String,
 	cwd: Schema.String,
 	cliVersion: Schema.String,
-	rendezvousSock: Schema.String,
-	ptySock: Schema.String,
-	dispatch: Schema.String,
-	agent: Schema.String,
-	isolation: Schema.String,
-	seed: Schema.String,
+	// Non-consumed fields — tolerated but not decoded
+	dispatch: Schema.optional(Schema.Unknown),
+	rendezvousSock: Schema.optional(Schema.Unknown),
+	ptySock: Schema.optional(Schema.Unknown),
+	procStart: Schema.optional(Schema.Unknown),
+	startedAt: Schema.optional(Schema.Unknown),
+	attempt: Schema.optional(Schema.Unknown),
+	respawnFlags: Schema.optional(Schema.Unknown),
+	decModes: Schema.optional(Schema.Unknown),
 });
 
 // roster.json top-level shape

@@ -1,42 +1,103 @@
 {
+	"proto": 1,
+	"supervisorPid": 99990,
+	"updatedAt": 1778684800000,
 	"workers": {
 		"abcd0001": {
-			"pid": 12345,
-			"sessionId": "session-abc-working",
-			"cwd": "/Users/pierre-mikel/Github/pier",
+			"pid": 99999,
+			"procStart": "Wed May 13 14:35:16 2026",
+			"sessionId": "aaaaaaaa-0000-0000-0000-000000000001",
+			"rendezvousSock": "/tmp/placeholder/rv/abcd0001.sock",
+			"ptySock": "/tmp/placeholder/spare/abcd0001.pty.sock",
 			"cliVersion": "2.1.140",
-			"rendezvousSock": "/tmp/claude-rendezvous-abcd0001",
-			"ptySock": "/tmp/claude-pty-abcd0001",
-			"dispatch": "2026-05-13T10:00:00.000Z",
-			"agent": "default",
-			"isolation": "default",
-			"seed": "abcd0001-seed"
+			"startedAt": 1778684794925,
+			"attempt": 1,
+			"cwd": "/Users/pierre-mikel/Github/pier",
+			"dispatch": {
+				"proto": 1,
+				"short": "abcd0001",
+				"nonce": "deadbeef",
+				"sessionId": "aaaaaaaa-0000-0000-0000-000000000001",
+				"createdAt": 1778684794869,
+				"source": "spare",
+				"cwd": "/Users/pierre-mikel/Github/pier",
+				"launch": {
+					"mode": "prompt",
+					"args": ["--session-id", "aaaaaaaa-0000-0000-0000-000000000001", "--agent", "claude"]
+				},
+				"env": {},
+				"isolation": "none",
+				"respawnFlags": ["--agent", "claude"],
+				"agent": "claude",
+				"seed": { "intent": "" },
+				"cols": 80,
+				"rows": 24
+			},
+			"decModes": [1000, 1002, 1003, 1006, 2004, 1004, 2031]
 		},
 		"abcd0002": {
-			"pid": 12346,
-			"sessionId": "session-def-blocked",
-			"cwd": "/Users/pierre-mikel/Github/pier",
+			"pid": 99998,
+			"procStart": "Wed May 13 14:35:07 2026",
+			"sessionId": "aaaaaaaa-0000-0000-0000-000000000002",
+			"rendezvousSock": "/tmp/placeholder/rv/abcd0002.sock",
+			"ptySock": "/tmp/placeholder/spare/abcd0002.pty.sock",
 			"cliVersion": "2.1.140",
-			"rendezvousSock": "/tmp/claude-rendezvous-abcd0002",
-			"ptySock": "/tmp/claude-pty-abcd0002",
-			"dispatch": "2026-05-13T09:00:00.000Z",
-			"agent": "default",
-			"isolation": "default",
-			"seed": "abcd0002-seed"
+			"startedAt": 1778682913347,
+			"attempt": 1,
+			"cwd": "/Users/pierre-mikel/Github/pier",
+			"dispatch": {
+				"proto": 1,
+				"short": "abcd0002",
+				"nonce": "cafebabe",
+				"sessionId": "aaaaaaaa-0000-0000-0000-000000000002",
+				"createdAt": 1778682913298,
+				"source": "spare",
+				"cwd": "/Users/pierre-mikel/Github/pier",
+				"launch": {
+					"mode": "prompt",
+					"args": ["--session-id", "aaaaaaaa-0000-0000-0000-000000000002", "--agent", "claude"]
+				},
+				"env": {},
+				"isolation": "none",
+				"respawnFlags": ["--agent", "claude"],
+				"agent": "claude",
+				"seed": { "intent": "" },
+				"cols": 80,
+				"rows": 24
+			},
+			"decModes": [1000, 1002, 1003, 1006, 2004, 1004, 2031]
 		},
 		"abcd0003": {
-			"pid": 12347,
-			"sessionId": "session-ghi-done",
-			"cwd": "/Users/pierre-mikel/Github/pier",
+			"pid": 99997,
+			"procStart": "Wed May 13 14:30:00 2026",
+			"sessionId": "aaaaaaaa-0000-0000-0000-000000000003",
+			"rendezvousSock": "/tmp/placeholder/rv/abcd0003.sock",
+			"ptySock": "/tmp/placeholder/spare/abcd0003.pty.sock",
 			"cliVersion": "2.1.140",
-			"rendezvousSock": "/tmp/claude-rendezvous-abcd0003",
-			"ptySock": "/tmp/claude-pty-abcd0003",
-			"dispatch": "2026-05-13T08:00:00.000Z",
-			"agent": "default",
-			"isolation": "default",
-			"seed": "abcd0003-seed"
+			"startedAt": 1778682600000,
+			"attempt": 1,
+			"cwd": "/Users/pierre-mikel/Github/pier",
+			"dispatch": {
+				"proto": 1,
+				"short": "abcd0003",
+				"nonce": "f00dcafe",
+				"sessionId": "aaaaaaaa-0000-0000-0000-000000000003",
+				"createdAt": 1778682599950,
+				"source": "spare",
+				"cwd": "/Users/pierre-mikel/Github/pier",
+				"launch": {
+					"mode": "prompt",
+					"args": ["--session-id", "aaaaaaaa-0000-0000-0000-000000000003", "--agent", "claude"]
+				},
+				"env": {},
+				"isolation": "none",
+				"respawnFlags": ["--agent", "claude"],
+				"agent": "claude",
+				"seed": { "intent": "" },
+				"cols": 80,
+				"rows": 24
+			},
+			"decModes": [1000, 1002, 1003, 1006, 2004, 1004, 2031]
 		}
-	},
-	"supervisorPid": 12340,
-	"version": "2.1.140"
+	}
 }
