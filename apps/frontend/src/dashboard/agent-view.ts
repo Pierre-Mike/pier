@@ -6,8 +6,8 @@
  * live updates. Dispatches new agents via POST /api/agents.
  *
  * Attach surface: clicking "Attach" opens the zellij iframe with
- * `claude attach <shortId>` as the launch command via the zellij panel
- * custom event system.
+ * `claude --resume <sessionId>` as the launch command via the zellij panel
+ * custom event system. The pane is spawned in the session's original cwd.
  */
 
 import { apiBase } from "../api";
@@ -20,6 +20,7 @@ type AgentGroup = "working" | "needs-input" | "completed";
 
 interface AgentRow {
 	readonly shortId: string;
+	readonly sessionId: string;
 	readonly group: AgentGroup;
 	readonly name: string;
 	readonly needs: string | null;
@@ -100,7 +101,7 @@ function renderAgentRow(row: AgentRow): HTMLElement {
 	attachBtn.textContent = "Attach";
 	attachBtn.addEventListener("click", (e) => {
 		e.stopPropagation();
-		attachAgent(row.shortId);
+		attachAgent(row.sessionId, row.cwd);
 	});
 	actions.appendChild(attachBtn);
 
@@ -149,12 +150,12 @@ function render(): void {
 // Attach → zellij iframe
 // ---------------------------------------------------------------------------
 
-function attachAgent(shortId: string): void {
-	// Signal the zellij panel to open `claude attach <shortId>`
-	// Uses the same custom event that the terminal panel listens to.
+function attachAgent(sessionId: string, cwd: string): void {
+	// Signal the zellij panel to resume the session via `claude --resume <sessionId>`.
+	// The cwd is passed so the pane is spawned in the session's original working directory.
 	document.dispatchEvent(
 		new CustomEvent("pier:zellij-launch", {
-			detail: { command: `claude attach ${shortId}` },
+			detail: { command: `claude --resume ${sessionId}`, cwd },
 			bubbles: true,
 		}),
 	);

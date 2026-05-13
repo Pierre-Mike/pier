@@ -7,6 +7,7 @@ export type AgentGroup = "working" | "needs-input" | "completed";
 
 export interface AgentRow {
 	readonly shortId: string;
+	readonly sessionId: string;
 	readonly group: AgentGroup;
 	readonly name: string;
 	readonly needs: string | null;
@@ -56,9 +57,11 @@ export const stateToAgentRow = (shortId: string, state: Record<string, unknown>)
 	const cwd = typeof state["cwd"] === "string" ? state["cwd"] : "";
 	const updatedAt = typeof state["updatedAt"] === "string" ? state["updatedAt"] : "";
 	const cliVersion = typeof state["cliVersion"] === "string" ? state["cliVersion"] : "";
+	const sessionId = typeof state["sessionId"] === "string" ? state["sessionId"] : "";
 
 	return {
 		shortId,
+		sessionId,
 		group: stateToGroup(rawState),
 		name,
 		needs,
