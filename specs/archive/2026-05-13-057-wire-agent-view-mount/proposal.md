@@ -1,7 +1,7 @@
 ---
 id: 057-wire-agent-view-mount
 title: Wire agent-view mount into dashboard
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/frontend/src/pages/index.astro.mount.test.ts
@@ -13,6 +13,7 @@ owner: main
 depends_on:
   - 056-agent-view-mirror
 supersedes: null
+archived: '2026-05-13'
 ---
 
 ## Intent
