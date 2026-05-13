@@ -28,7 +28,7 @@ const win = new GlobalWindow();
 // biome-ignore lint/suspicious/noExplicitAny: test-only global injection
 (globalThis as any).NodeList = win.NodeList;
 
-import { renderProjects } from "../dashboard/projects.ts";
+import { renderProjects, wireSidebarTabs } from "../dashboard/projects.ts";
 import { store } from "../dashboard/state.ts";
 
 // ---------------------------------------------------------------------------
@@ -427,5 +427,119 @@ describe("spec 059 — renderProjects DOM: session-alive-dot preserved in groupe
 		const deadLi = ul?.querySelector(`li[data-id="dead-proj"]`);
 		const dot = deadLi?.querySelector(".session-alive-dot");
 		expect(dot).toBeNull();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// spec 059 AC 2: Sidebar tab switcher — DOM click behavior
+// ---------------------------------------------------------------------------
+
+// Helper: build a minimal sidebar DOM with two tab buttons and two tab panels.
+// wireSidebarTabs() reads these elements by ID and class.
+function buildTabDOM() {
+	document.body.innerHTML = `
+		<div class="sidebar-tabs">
+			<button class="sidebar-tab active" data-tab="projects">Projects</button>
+			<button class="sidebar-tab" data-tab="agents">Active Agents</button>
+		</div>
+		<div id="sidebar-tab-projects">
+			<ul id="projects"></ul>
+		</div>
+		<div id="sidebar-tab-agents" class="hidden">
+			<div id="agent-view-inline"></div>
+		</div>
+	`;
+}
+
+describe("spec 059 AC 2 — tab switcher DOM: exactly two tabs exist", () => {
+	beforeEach(() => {
+		buildTabDOM();
+	});
+
+	afterEach(() => {
+		document.body.innerHTML = "";
+	});
+
+	test("sidebar contains exactly two tab buttons with class sidebar-tab", () => {
+		// RED: no tab markup exists yet — wireSidebarTabs builds/reads it.
+		// After implementation the DOM (set up by Sidebar.astro) must have exactly 2 tabs.
+		// We assert on the buildTabDOM fixture to verify wireSidebarTabs works with it.
+		wireSidebarTabs();
+		const tabs = document.querySelectorAll(".sidebar-tab");
+		expect(tabs.length).toBe(2);
+	});
+
+	test("tab buttons are labelled 'Projects' and 'Active Agents'", () => {
+		wireSidebarTabs();
+		const tabs = Array.from(document.querySelectorAll(".sidebar-tab")).map(
+			(t) => (t as HTMLElement).textContent?.trim() ?? "",
+		);
+		expect(tabs).toContain("Projects");
+		// The "Active Agents" label may include a count badge — check for prefix match.
+		const hasAgentTab = tabs.some((t) => t.startsWith("Active Agents"));
+		expect(hasAgentTab).toBe(true);
+	});
+});
+
+describe("spec 059 AC 3 — clicking 'Projects' tab shows projects panel, hides agents panel", () => {
+	beforeEach(() => {
+		buildTabDOM();
+		wireSidebarTabs();
+		// Start with "Active Agents" active to test clicking back to "Projects"
+		const agentsBtn = document.querySelector('[data-tab="agents"]') as HTMLElement | null;
+		agentsBtn?.click();
+	});
+
+	afterEach(() => {
+		document.body.innerHTML = "";
+	});
+
+	test("clicking Projects tab removes hidden from projects panel", () => {
+		// RED: no tab-switch logic exists yet.
+		const projectsBtn = document.querySelector('[data-tab="projects"]') as HTMLElement | null;
+		projectsBtn?.click();
+		const projectsPanel = document.getElementById("sidebar-tab-projects");
+		expect(projectsPanel?.classList.contains("hidden")).toBe(false);
+	});
+
+	test("clicking Projects tab adds hidden to agents panel", () => {
+		const projectsBtn = document.querySelector('[data-tab="projects"]') as HTMLElement | null;
+		projectsBtn?.click();
+		const agentsPanel = document.getElementById("sidebar-tab-agents");
+		expect(agentsPanel?.classList.contains("hidden")).toBe(true);
+	});
+});
+
+describe("spec 059 AC 4 — clicking 'Active Agents' tab shows agents panel, hides projects panel", () => {
+	beforeEach(() => {
+		buildTabDOM();
+		wireSidebarTabs();
+	});
+
+	afterEach(() => {
+		document.body.innerHTML = "";
+	});
+
+	test("clicking Active Agents tab adds hidden to projects panel", () => {
+		// RED: no tab-switch logic exists yet.
+		const agentsBtn = document.querySelector('[data-tab="agents"]') as HTMLElement | null;
+		agentsBtn?.click();
+		const projectsPanel = document.getElementById("sidebar-tab-projects");
+		expect(projectsPanel?.classList.contains("hidden")).toBe(true);
+	});
+
+	test("clicking Active Agents tab removes hidden from agents panel", () => {
+		const agentsBtn = document.querySelector('[data-tab="agents"]') as HTMLElement | null;
+		agentsBtn?.click();
+		const agentsPanel = document.getElementById("sidebar-tab-agents");
+		expect(agentsPanel?.classList.contains("hidden")).toBe(false);
+	});
+
+	test("clicking Active Agents tab marks that button as active and deactivates Projects button", () => {
+		const agentsBtn = document.querySelector('[data-tab="agents"]') as HTMLElement | null;
+		agentsBtn?.click();
+		expect(agentsBtn?.classList.contains("active")).toBe(true);
+		const projectsBtn = document.querySelector('[data-tab="projects"]') as HTMLElement | null;
+		expect(projectsBtn?.classList.contains("active")).toBe(false);
 	});
 });

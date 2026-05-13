@@ -566,16 +566,21 @@ describe("spec 059 — sidebar tab switcher", () => {
 		expect(hasTabWire).toBe(true);
 	});
 
-	test("projects.ts source hides/shows tab content (hidden class or display toggle)", () => {
+	test("projects.ts source hides/shows tab content using 'hidden' class on sidebar-tab panels", () => {
 		// RED: no tab visibility toggle logic exists.
-		// The switcher must add/remove the 'hidden' class or toggle display style.
-		const hasToggle =
-			projectsSource.includes('"hidden"') ||
-			projectsSource.includes("'hidden'") ||
-			projectsSource.includes("classList.add") ||
-			projectsSource.includes("classList.remove") ||
-			projectsSource.includes("classList.toggle");
-		expect(hasToggle).toBe(true);
+		// The switcher must add/remove the 'hidden' class specifically on the tab panels.
+		// We check that "sidebar-tab" + "hidden" appear in close proximity (within 600 chars)
+		// in projects.ts, indicating the tab-panel toggle logic is co-located — not relying
+		// on pre-existing classList calls from project row rendering.
+		const hiddenIdx =
+			projectsSource.indexOf('"hidden"') >= 0
+				? projectsSource.indexOf('"hidden"')
+				: projectsSource.indexOf("'hidden'");
+		const tabIdx = projectsSource.indexOf("sidebar-tab");
+		// Both must exist, and must appear within 600 chars of each other.
+		expect(hiddenIdx).toBeGreaterThanOrEqual(0);
+		expect(tabIdx).toBeGreaterThanOrEqual(0);
+		expect(Math.abs(hiddenIdx - tabIdx)).toBeLessThan(600);
 	});
 });
 
