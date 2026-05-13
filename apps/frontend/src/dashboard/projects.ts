@@ -165,32 +165,7 @@ async function openSessionContextMenu(args: { id: string; x: number; y: number }
 	});
 }
 
-function buildProjectLi(p: Project, highlightIdx: number): HTMLLIElement {
-	const li = document.createElement("li");
-	li.dataset.id = p.id;
-	if (store.activeProject === p.id) li.classList.add("active");
-	if (store.projectsWithEvents.has(p.id)) li.classList.add("has-events");
-	if (highlightIdx === store.projectHighlight) li.classList.add("highlighted");
-	li.style.setProperty("--proj-color", projectColor(p.id));
-	li.style.userSelect = "none";
-	li.title = p.name;
-	const aliveSessionDot = store.aliveSessions.has(p.id)
-		? `<span class="session-alive-dot" title="Zellij session is alive"></span>`
-		: "";
-	li.innerHTML = `<span class="dot"></span><span class="initial">${escapeHTML(projectInitial(p.name))}</span><span class="name">${escapeHTML(p.name)}</span>${aliveSessionDot}`;
-	li.addEventListener("click", () => selectProject(p.id));
-	li.addEventListener("mouseenter", () => {
-		if (store.projectHighlight !== highlightIdx) {
-			store.projectHighlight = highlightIdx;
-		}
-	});
-	li.addEventListener("contextmenu", (ev) => {
-		ev.preventDefault();
-		void openProjectContextMenu({ id: p.id, x: ev.clientX, y: ev.clientY });
-	});
-	return li;
-}
-
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: grouped rendering with nested per-row listeners
 export function renderProjects(): void {
 	const ul = $("#projects");
 	ul.innerHTML = "";
@@ -221,7 +196,30 @@ export function renderProjects(): void {
 		header.title = dir;
 		ul.appendChild(header);
 		for (const p of projects) {
-			ul.appendChild(buildProjectLi(p, globalIdx++));
+			const i = globalIdx++;
+			const li = document.createElement("li");
+			li.dataset.id = p.id;
+			if (store.activeProject === p.id) li.classList.add("active");
+			if (store.projectsWithEvents.has(p.id)) li.classList.add("has-events");
+			if (i === store.projectHighlight) li.classList.add("highlighted");
+			li.style.setProperty("--proj-color", projectColor(p.id));
+			li.style.userSelect = "none";
+			li.title = p.name;
+			const aliveSessionDot = store.aliveSessions.has(p.id)
+				? `<span class="session-alive-dot" title="Zellij session is alive"></span>`
+				: "";
+			li.innerHTML = `<span class="dot"></span><span class="initial">${escapeHTML(projectInitial(p.name))}</span><span class="name">${escapeHTML(p.name)}</span>${aliveSessionDot}`;
+			li.addEventListener("click", () => selectProject(p.id));
+			li.addEventListener("mouseenter", () => {
+				if (store.projectHighlight !== i) {
+					store.projectHighlight = i;
+				}
+			});
+			li.addEventListener("contextmenu", (ev) => {
+				ev.preventDefault();
+				void openProjectContextMenu({ id: p.id, x: ev.clientX, y: ev.clientY });
+			});
+			ul.appendChild(li);
 		}
 	}
 	const hl = ul.querySelector("li.highlighted");
