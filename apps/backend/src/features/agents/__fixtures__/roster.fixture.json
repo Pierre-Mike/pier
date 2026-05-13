@@ -1,0 +1,42 @@
+{
+	"workers": {
+		"abcd0001": {
+			"pid": 12345,
+			"sessionId": "session-abc-working",
+			"cwd": "/Users/pierre-mikel/Github/pier",
+			"cliVersion": "2.1.140",
+			"rendezvousSock": "/tmp/claude-rendezvous-abcd0001",
+			"ptySock": "/tmp/claude-pty-abcd0001",
+			"dispatch": "2026-05-13T10:00:00.000Z",
+			"agent": "default",
+			"isolation": "default",
+			"seed": "abcd0001-seed"
+		},
+		"abcd0002": {
+			"pid": 12346,
+			"sessionId": "session-def-blocked",
+			"cwd": "/Users/pierre-mikel/Github/pier",
+			"cliVersion": "2.1.140",
+			"rendezvousSock": "/tmp/claude-rendezvous-abcd0002",
+			"ptySock": "/tmp/claude-pty-abcd0002",
+			"dispatch": "2026-05-13T09:00:00.000Z",
+			"agent": "default",
+			"isolation": "default",
+			"seed": "abcd0002-seed"
+		},
+		"abcd0003": {
+			"pid": 12347,
+			"sessionId": "session-ghi-done",
+			"cwd": "/Users/pierre-mikel/Github/pier",
+			"cliVersion": "2.1.140",
+			"rendezvousSock": "/tmp/claude-rendezvous-abcd0003",
+			"ptySock": "/tmp/claude-pty-abcd0003",
+			"dispatch": "2026-05-13T08:00:00.000Z",
+			"agent": "default",
+			"isolation": "default",
+			"seed": "abcd0003-seed"
+		}
+	},
+	"supervisorPid": 12340,
+	"version": "2.1.140"
+}
