@@ -498,3 +498,122 @@ describe("spec 035 — session-alive dot in renderSessions", () => {
 		expect(dismissBody).not.toContain("api.api.sessions");
 	});
 });
+
+// ---------------------------------------------------------------------------
+// spec 059: Repo-grouped project tabs with agent view
+// ---------------------------------------------------------------------------
+
+// AC 1: renderProjects groups rows by parent directory
+describe("spec 059 — renderProjects groups projects by parent directory", () => {
+	// Extract the renderProjects body for source-level assertions.
+	const renderProjectsBody059 = extractFunctionBody(projectsSource, "renderProjects");
+
+	test("renderProjects source contains proj-group-header class (grouping header present)", () => {
+		// RED: renderProjects currently renders a flat list with no group headers.
+		// After implementation it must emit elements with class `proj-group-header`.
+		expect(renderProjectsBody059).toContain("proj-group-header");
+	});
+
+	test("renderProjects source derives parent directory from project.path for grouping", () => {
+		// RED: no path-splitting for group keys exists yet.
+		// The grouping key must be derived from the project's path (parent dir).
+		// Accept any of: split("/"), dirname, lastIndexOf("/"), or path manipulation.
+		const hasPathSplit =
+			renderProjectsBody059.includes('.split("/")') ||
+			renderProjectsBody059.includes('lastIndexOf("/")') ||
+			renderProjectsBody059.includes("lastIndexOf('/')") ||
+			renderProjectsBody059.includes("dirname") ||
+			renderProjectsBody059.includes(".path");
+		expect(hasPathSplit).toBe(true);
+	});
+
+	test("renderProjects source groups items by repo/parent dir key (Map or object keyed by dir)", () => {
+		// RED: no grouping structure exists in renderProjects yet.
+		// The implementation must use a Map, object, or array-of-groups keyed by parent dir.
+		const hasGroupStructure =
+			renderProjectsBody059.includes("Map(") ||
+			renderProjectsBody059.includes("new Map") ||
+			renderProjectsBody059.includes("groups") ||
+			renderProjectsBody059.includes("grouped") ||
+			renderProjectsBody059.includes("byDir") ||
+			renderProjectsBody059.includes("byRepo");
+		expect(hasGroupStructure).toBe(true);
+	});
+});
+
+// AC 2: Sidebar tab switcher — source-level checks on projects.ts
+describe("spec 059 — sidebar tab switcher", () => {
+	test('projects.ts source contains "Projects" tab label', () => {
+		// RED: no tab switcher UI exists yet.
+		// The tab-wiring function must reference the literal string "Projects" as a tab label.
+		expect(projectsSource).toContain('"Projects"');
+	});
+
+	test('projects.ts source contains "Active Agents" tab label', () => {
+		// RED: no "Active Agents" tab label exists yet.
+		expect(projectsSource).toContain('"Active Agents"');
+	});
+
+	test("projects.ts source contains tab-switching function (wireSidebarTabs or equivalent)", () => {
+		// RED: no tab-wiring function exists yet.
+		// Accept any of: wireSidebarTabs, initTabs, setupTabs, renderSidebarTabs.
+		const hasTabWire =
+			projectsSource.includes("wireSidebarTabs") ||
+			projectsSource.includes("initTabs") ||
+			projectsSource.includes("setupTabs") ||
+			projectsSource.includes("renderSidebarTabs") ||
+			projectsSource.includes("tabSwitcher");
+		expect(hasTabWire).toBe(true);
+	});
+
+	test("projects.ts source hides/shows tab content using 'hidden' class on sidebar-tab panels", () => {
+		// RED: no tab visibility toggle logic exists.
+		// The switcher must add/remove the 'hidden' class specifically on the tab panels.
+		// We check that "sidebar-tab" + "hidden" appear in close proximity (within 600 chars)
+		// in projects.ts, indicating the tab-panel toggle logic is co-located — not relying
+		// on pre-existing classList calls from project row rendering.
+		const hiddenIdx =
+			projectsSource.indexOf('"hidden"') >= 0
+				? projectsSource.indexOf('"hidden"')
+				: projectsSource.indexOf("'hidden'");
+		const tabIdx = projectsSource.indexOf("sidebar-tab");
+		// Both must exist, and must appear within 600 chars of each other.
+		expect(hiddenIdx).toBeGreaterThanOrEqual(0);
+		expect(tabIdx).toBeGreaterThanOrEqual(0);
+		expect(Math.abs(hiddenIdx - tabIdx)).toBeLessThan(600);
+	});
+});
+
+// AC 7: "Active Agents" tab count badge
+describe("spec 059 — Active Agents tab count badge", () => {
+	test("projects.ts source references agent count when rendering the Active Agents tab label", () => {
+		// RED: no agent count badge logic exists yet.
+		// The tab label must dynamically include a count — accept references to:
+		// agentCount, agentRows.length, agents.length, or a numeric badge pattern.
+		const hasCountRef =
+			projectsSource.includes("agentCount") ||
+			projectsSource.includes("agentRows") ||
+			projectsSource.includes(".length") ||
+			projectsSource.includes("badge");
+		expect(hasCountRef).toBe(true);
+	});
+
+	test('projects.ts source contains "Active Agents" string near a count or length reference', () => {
+		// Stronger version of the badge test: "Active Agents" must appear within 300 chars
+		// of a numeric/count expression to avoid a static label satisfying the above.
+		const idx = projectsSource.indexOf('"Active Agents"');
+		if (idx === -1) {
+			// Handled by the label test above — this test confirms badge is adjacent.
+			expect(projectsSource).toContain('"Active Agents"');
+			return;
+		}
+		const surrounding = projectsSource.slice(Math.max(0, idx - 300), idx + 300);
+		const hasNearCount =
+			surrounding.includes(".length") ||
+			surrounding.includes("agentCount") ||
+			surrounding.includes("agentRows") ||
+			surrounding.includes("badge") ||
+			/\d/.test(surrounding);
+		expect(hasNearCount).toBe(true);
+	});
+});

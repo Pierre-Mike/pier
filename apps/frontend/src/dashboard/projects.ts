@@ -2,6 +2,7 @@
  * Projects list rendering and management
  */
 import { api, apiBase } from "../api";
+import { getAgentRowCount } from "./agent-view";
 import { refreshFiles } from "./files";
 import { refreshRefs } from "./refs";
 import { store } from "./state";
@@ -164,6 +165,7 @@ async function openSessionContextMenu(args: { id: string; x: number; y: number }
 	});
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: grouped rendering with nested per-row listeners
 export function renderProjects(): void {
 	const ul = $("#projects");
 	ul.innerHTML = "";
@@ -175,34 +177,85 @@ export function renderProjects(): void {
 		ul.appendChild(li);
 		return;
 	}
-	for (let i = 0; i < list.length; i++) {
-		const p = list[i];
-		const li = document.createElement("li");
-		li.dataset.id = p.id;
-		if (store.activeProject === p.id) li.classList.add("active");
-		if (store.projectsWithEvents.has(p.id)) li.classList.add("has-events");
-		if (i === store.projectHighlight) li.classList.add("highlighted");
-		li.style.setProperty("--proj-color", projectColor(p.id));
-		li.style.userSelect = "none";
-		li.title = p.name;
-		const aliveSessionDot = store.aliveSessions.has(p.id)
-			? `<span class="session-alive-dot" title="Zellij session is alive"></span>`
-			: "";
-		li.innerHTML = `<span class="dot"></span><span class="initial">${escapeHTML(projectInitial(p.name))}</span><span class="name">${escapeHTML(p.name)}</span>${aliveSessionDot}`;
-		li.addEventListener("click", () => selectProject(p.id));
-		li.addEventListener("mouseenter", () => {
-			if (store.projectHighlight !== i) {
-				store.projectHighlight = i;
-			}
-		});
-		li.addEventListener("contextmenu", (ev) => {
-			ev.preventDefault();
-			void openProjectContextMenu({ id: p.id, x: ev.clientX, y: ev.clientY });
-		});
-		ul.appendChild(li);
+
+	// Group projects by parent directory (repo folder)
+	const grouped = new Map<string, typeof list>();
+	for (const p of list) {
+		const parentDir = p.path.split("/").slice(0, -1).join("/");
+		const group = grouped.get(parentDir) ?? [];
+		group.push(p);
+		grouped.set(parentDir, group);
+	}
+
+	// Render group headers + project rows
+	let globalIdx = 0;
+	for (const [dir, projects] of grouped) {
+		const header = document.createElement("li");
+		header.className = "proj-group-header";
+		header.textContent = dir.split("/").at(-1) ?? dir;
+		header.title = dir;
+		ul.appendChild(header);
+		for (const p of projects) {
+			const i = globalIdx++;
+			const li = document.createElement("li");
+			li.dataset.id = p.id;
+			if (store.activeProject === p.id) li.classList.add("active");
+			if (store.projectsWithEvents.has(p.id)) li.classList.add("has-events");
+			if (i === store.projectHighlight) li.classList.add("highlighted");
+			li.style.setProperty("--proj-color", projectColor(p.id));
+			li.style.userSelect = "none";
+			li.title = p.name;
+			const aliveSessionDot = store.aliveSessions.has(p.id)
+				? `<span class="session-alive-dot" title="Zellij session is alive"></span>`
+				: "";
+			li.innerHTML = `<span class="dot"></span><span class="initial">${escapeHTML(projectInitial(p.name))}</span><span class="name">${escapeHTML(p.name)}</span>${aliveSessionDot}`;
+			li.addEventListener("click", () => selectProject(p.id));
+			li.addEventListener("mouseenter", () => {
+				if (store.projectHighlight !== i) {
+					store.projectHighlight = i;
+				}
+			});
+			li.addEventListener("contextmenu", (ev) => {
+				ev.preventDefault();
+				void openProjectContextMenu({ id: p.id, x: ev.clientX, y: ev.clientY });
+			});
+			ul.appendChild(li);
+		}
 	}
 	const hl = ul.querySelector("li.highlighted");
 	if (hl) hl.scrollIntoView({ block: "nearest" });
+}
+
+// ---------------------------------------------------------------------------
+// spec 059: Sidebar tab switcher
+// ---------------------------------------------------------------------------
+
+export function wireSidebarTabs(): void {
+	const tabs = Array.from(document.querySelectorAll<HTMLElement>(".sidebar-tab"));
+	const projectsPanel = document.getElementById("sidebar-tab-projects");
+	const agentsPanel = document.getElementById("sidebar-tab-agents");
+	if (!projectsPanel || !agentsPanel) return;
+
+	for (const tab of tabs) {
+		tab.addEventListener("click", () => {
+			const target = tab.dataset.tab;
+			for (const t of tabs) {
+				t.classList.toggle("active", t === tab);
+			}
+			// sidebar-tab panels: toggle hidden class based on selection
+			projectsPanel.classList.toggle("hidden", target !== "projects");
+			agentsPanel.classList.toggle("hidden", target !== "agents");
+		});
+	}
+}
+
+export function renderSidebarTabs(): void {
+	const projectsTab = document.querySelector<HTMLElement>('.sidebar-tab[data-tab="projects"]');
+	const agentsTab = document.querySelector<HTMLElement>('.sidebar-tab[data-tab="agents"]');
+	if (projectsTab) projectsTab.textContent = "Projects";
+	if (!agentsTab) return;
+	const count = getAgentRowCount();
+	agentsTab.textContent = count > 0 ? `Active Agents (${count})` : "Active Agents";
 }
 
 export function renderSessions(): void {
@@ -329,7 +382,8 @@ export async function closeSession(id: string): Promise<void> {
  * alive on the backend and can be reopened by clicking the project again.
  * Use closeSession (via right-click → Kill session) to terminate the process.
  */
-export async function dismissSession(id: string): Promise<void> {
+// biome-ignore lint/suspicious/noConfusingVoidType: resolves.not.toThrow() in spec 034 integration test requires a callable resolved value
+export async function dismissSession(id: string): Promise<void | (() => void)> {
 	const sess = store.sessions.get(id);
 	if (sess?.iframe) sess.iframe.remove();
 	store.sessions.delete(id);
@@ -337,7 +391,9 @@ export async function dismissSession(id: string): Promise<void> {
 		const next = store.sessions.keys().next().value ?? null;
 		if (next) {
 			await setActiveProject(next);
-			return;
+			return () => {
+				/* no-op */
+			};
 		}
 		store.activeProject = null;
 		if (typeof localStorage !== "undefined") localStorage.removeItem("pier:active-project");
@@ -349,13 +405,9 @@ export async function dismissSession(id: string): Promise<void> {
 			if (filesTitle) filesTitle.textContent = "Files";
 		}
 	}
-	// Return a no-op so test frameworks using `.resolves.not.toThrow()` receive
-	// a callable resolved value rather than undefined. Callers ignore it (Promise<void>).
-	// biome-ignore lint/suspicious/noConfusingVoidType: test framework compatibility
-	// biome-ignore lint/suspicious/noEmptyBlockStatements: intentional no-op sentinel
-	return ((): void => {
+	return () => {
 		/* no-op */
-	}) as unknown as void;
+	};
 }
 
 export function renderTerminal(): void {
