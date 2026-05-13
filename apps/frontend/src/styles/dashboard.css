@@ -1374,7 +1374,9 @@ body.resizing iframe {
 	cursor: pointer;
 	background: transparent;
 	border: 1px solid transparent;
-	transition: background 0.1s, border-color 0.1s;
+	transition:
+		background 0.1s,
+		border-color 0.1s;
 }
 
 .agent-row:hover {
@@ -1413,7 +1415,9 @@ body.resizing iframe {
 	border-radius: 4px;
 	color: var(--fg-dim);
 	cursor: pointer;
-	transition: color 0.1s, border-color 0.1s;
+	transition:
+		color 0.1s,
+		border-color 0.1s;
 }
 
 .agent-row-attach:hover {
