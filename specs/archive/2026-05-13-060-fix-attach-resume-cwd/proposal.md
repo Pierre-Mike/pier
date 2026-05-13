@@ -1,7 +1,7 @@
 ---
 id: 060-fix-attach-resume-cwd
 title: Fix attach to resume claude with session cwd
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/frontend/src/dashboard/agent-view.test.ts
@@ -10,10 +10,11 @@ gate:
     level: unit
   - path: apps/e2e/tests/agent-view.spec.ts
     level: e2e
-created: 2026-05-13
+created: 2026-05-13T00:00:00.000Z
 owner: main
 depends_on: []
 supersedes: null
+archived: '2026-05-13'
 ---
 
 ## Intent
