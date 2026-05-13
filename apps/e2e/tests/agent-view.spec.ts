@@ -1,5 +1,5 @@
 /**
- * Gate — spec 056: Mirror Claude agent view as a web panel (e2e structural check)
+ * Gate — spec 056 + spec 060: Mirror Claude agent view as a web panel (e2e structural check)
  *
  * Standalone Bun script that verifies structural prerequisites for the agent
  * view panel feature. Checks are filesystem + source-level (no live browser
@@ -11,10 +11,14 @@
  *   3. agent-view.ts renders three group headings: "Needs input", "Working", "Completed"
  *   4. agent-view.ts uses data-group-heading attribute (AC6 structural check)
  *   5. agent-view.ts uses data-attach-button attribute per row (AC7 structural check)
- *   6. agent-view.ts dispatches pier:zellij-launch with claude attach command (AC7 behavior)
+ *   6. agent-view.ts dispatches pier:zellij-launch with claude --resume (spec 060 AC4)
  *   7. agents.routes.ts exists and exports agentsRoute (backend gate)
  *   8. agents.adapt.core.ts exists and exports stateToAgentRow (AC5 gate)
  *   9. dashboard.css contains .agent-view selector (CSS gate)
+ *  10. agent-view.ts does NOT use deprecated claude attach (spec 060 AC6)
+ *  11. agent-view.ts includes cwd in pier:zellij-launch detail (spec 060 AC5)
+ *  12. agent-view.ts AgentRow interface includes sessionId field (spec 060 AC3)
+ *  13. agents.adapt.core.ts AgentRow includes sessionId field (spec 060 AC1)
  *
  * Exits 0 when all checks pass, 1 on first failure.
  */
@@ -108,7 +112,8 @@ function pass(msg: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// Check 6 — pier:zellij-launch with claude attach (AC7 behavior)
+// Check 6 — pier:zellij-launch with claude --resume (spec 060 AC4)
+// RED: agent-view.ts currently uses `claude attach` — this check will FAIL until fixed
 // ---------------------------------------------------------------------------
 {
 	const path = join(repoRoot, "apps/frontend/src/dashboard/agent-view.ts");
@@ -116,10 +121,12 @@ function pass(msg: string): void {
 	if (!src.includes("pier:zellij-launch")) {
 		fail("Check 6: agent-view.ts missing pier:zellij-launch custom event");
 	}
-	if (!src.includes("claude attach")) {
-		fail("Check 6: agent-view.ts missing 'claude attach' in zellij-launch handler");
+	if (!src.includes("claude --resume")) {
+		fail(
+			"Check 6: agent-view.ts missing 'claude --resume' in zellij-launch handler (spec 060 AC4)",
+		);
 	}
-	pass("Check 6: agent-view.ts dispatches pier:zellij-launch with claude attach");
+	pass("Check 6: agent-view.ts dispatches pier:zellij-launch with claude --resume");
 }
 
 // ---------------------------------------------------------------------------
@@ -165,6 +172,66 @@ function pass(msg: string): void {
 		fail("Check 9: dashboard.css missing .agent-view CSS selector");
 	}
 	pass("Check 9: dashboard.css contains .agent-view CSS");
+}
+
+// ---------------------------------------------------------------------------
+// Check 10 — agent-view.ts does NOT use deprecated claude attach (spec 060 AC6)
+// RED: agent-view.ts currently uses `claude attach` — this check will FAIL until fixed
+// ---------------------------------------------------------------------------
+{
+	const path = join(repoRoot, "apps/frontend/src/dashboard/agent-view.ts");
+	const src = readFileSync(path, "utf8");
+	if (src.includes("claude attach")) {
+		fail(
+			"Check 10: agent-view.ts still uses deprecated 'claude attach' — replace with 'claude --resume' (spec 060 AC6)",
+		);
+	}
+	pass("Check 10: agent-view.ts does not use deprecated claude attach");
+}
+
+// ---------------------------------------------------------------------------
+// Check 11 — agent-view.ts includes cwd in pier:zellij-launch detail (spec 060 AC5)
+// RED: agent-view.ts currently does not pass cwd in the zellij-launch detail
+// ---------------------------------------------------------------------------
+{
+	const path = join(repoRoot, "apps/frontend/src/dashboard/agent-view.ts");
+	const src = readFileSync(path, "utf8");
+	// Must have both pier:zellij-launch and cwd in the same detail object
+	// A simple check: the detail object must include a cwd property after the launch event
+	if (!src.includes("detail: {") && !src.includes("detail:{")) {
+		fail("Check 11: agent-view.ts missing detail object in pier:zellij-launch event");
+	}
+	// Verify cwd appears in the source (it must be passed as detail.cwd)
+	if (!/pier:zellij-launch[\s\S]{0,200}cwd/.test(src)) {
+		fail("Check 11: agent-view.ts missing cwd in pier:zellij-launch event detail (spec 060 AC5)");
+	}
+	pass("Check 11: agent-view.ts includes cwd in pier:zellij-launch detail");
+}
+
+// ---------------------------------------------------------------------------
+// Check 12 — agent-view.ts AgentRow interface includes sessionId (spec 060 AC3)
+// RED: agent-view.ts currently does not have sessionId in AgentRow
+// ---------------------------------------------------------------------------
+{
+	const path = join(repoRoot, "apps/frontend/src/dashboard/agent-view.ts");
+	const src = readFileSync(path, "utf8");
+	if (!src.includes("sessionId")) {
+		fail("Check 12: agent-view.ts AgentRow interface missing sessionId field (spec 060 AC3)");
+	}
+	pass("Check 12: agent-view.ts AgentRow includes sessionId");
+}
+
+// ---------------------------------------------------------------------------
+// Check 13 — agents.adapt.core.ts AgentRow includes sessionId (spec 060 AC1)
+// RED: agents.adapt.core.ts currently does not expose sessionId in AgentRow
+// ---------------------------------------------------------------------------
+{
+	const path = join(repoRoot, "apps/backend/src/features/agents/agents.adapt.core.ts");
+	const src = readFileSync(path, "utf8");
+	if (!src.includes("sessionId")) {
+		fail("Check 13: agents.adapt.core.ts AgentRow missing sessionId field (spec 060 AC1)");
+	}
+	pass("Check 13: agents.adapt.core.ts AgentRow includes sessionId");
 }
 
 console.log("[e2e-056] all checks passed");

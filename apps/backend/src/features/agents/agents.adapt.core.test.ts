@@ -5,8 +5,12 @@
  * will resolve to an empty object, causing every test that requires the
  * exported function to fail.
  *
- * These tests cover AC5 from proposal.md:
+ * These tests cover AC5 from spec 056 proposal.md:
  *   stateToAgentRow maps daemon state strings to AgentRow groups.
+ *
+ * spec 060 additions (AC1–AC2):
+ *   AC1: AgentRow type includes sessionId: string field
+ *   AC2: stateToAgentRow extracts sessionId from state object
  */
 
 import { describe, expect, test } from "bun:test";
@@ -19,6 +23,7 @@ export type AgentGroup = "working" | "needs-input" | "completed";
 
 export interface AgentRow {
 	readonly shortId: string;
+	readonly sessionId: string; // spec 060 AC1: full UUID for claude --resume
 	readonly group: AgentGroup;
 	readonly name: string;
 	readonly needs: string | null;
@@ -141,5 +146,42 @@ describe("stateToAgentRow", () => {
 		expect(row.cwd).toBe("/home/user/project");
 		expect(row.updatedAt).toBe("2026-05-13T10:10:00.000Z");
 		expect(row.cliVersion).toBe("2.1.140");
+	});
+
+	// spec 060 AC1 + AC2: sessionId must be present in AgentRow and extracted from state
+	test("AC2: row exposes sessionId from state object", () => {
+		// RED: agents.adapt.core.ts currently does not expose sessionId in AgentRow
+		expect(adaptModule.stateToAgentRow).toBeDefined();
+		if (!adaptModule.stateToAgentRow) return;
+
+		const row = adaptModule.stateToAgentRow("abcd0001", {
+			...baseState,
+			sessionId: "aaaaaaaa-0000-0000-0000-000000000001",
+		});
+		expect(row.sessionId).toBe("aaaaaaaa-0000-0000-0000-000000000001");
+	});
+
+	test("AC2: sessionId defaults to empty string when absent from state", () => {
+		// RED: agents.adapt.core.ts currently does not expose sessionId in AgentRow
+		expect(adaptModule.stateToAgentRow).toBeDefined();
+		if (!adaptModule.stateToAgentRow) return;
+
+		const stateWithoutSessionId: Record<string, unknown> = { ...baseState };
+		delete stateWithoutSessionId["sessionId"];
+		const row = adaptModule.stateToAgentRow("abcd0007", stateWithoutSessionId);
+		expect(row.sessionId).toBe("");
+	});
+
+	test("AC2: sessionId is exposed from fixture-shaped state (session-abc-working)", () => {
+		// RED: agents.adapt.core.ts currently does not expose sessionId in AgentRow
+		expect(adaptModule.stateToAgentRow).toBeDefined();
+		if (!adaptModule.stateToAgentRow) return;
+
+		// Matches the shape used in state-working.fixture.json
+		const row = adaptModule.stateToAgentRow("abcd0001", {
+			...baseState,
+			sessionId: "session-abc-working",
+		});
+		expect(row.sessionId).toBe("session-abc-working");
 	});
 });

@@ -2,7 +2,12 @@
  * Tests for agent-view.ts dashboard module.
  *
  * Covers AC6 (three section headings) and AC7 (Attach button per row)
- * from proposal.md via both DOM rendering and source inspection.
+ * from spec 056 proposal.md via both DOM rendering and source inspection.
+ *
+ * spec 060 additions (AC1–AC6):
+ * - AC3: AgentRow interface includes sessionId field
+ * - AC4: attachAgent uses claude --resume <sessionId> (not claude attach)
+ * - AC5: pier:zellij-launch detail includes cwd field
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
@@ -72,8 +77,26 @@ describe("agent-view.ts source structure", () => {
 		expect(agentViewSource).toContain("pier:zellij-launch");
 	});
 
-	test("uses claude attach command string", () => {
-		expect(agentViewSource).toContain("claude attach");
+	// spec 060 AC4: attach must use claude --resume, NOT claude attach
+	test("uses claude --resume command string for attach (AC4)", () => {
+		expect(agentViewSource).toContain("claude --resume");
+	});
+
+	test("does NOT use deprecated claude attach command string (AC4)", () => {
+		// RED: agent-view.ts currently has `claude attach ${shortId}` — this must be removed
+		expect(agentViewSource).not.toContain("claude attach");
+	});
+
+	// spec 060 AC5: pier:zellij-launch detail must include cwd field
+	test("pier:zellij-launch event detail includes cwd field (AC5)", () => {
+		// RED: agent-view.ts currently does not pass cwd in the zellij-launch detail
+		expect(agentViewSource).toMatch(/pier:zellij-launch[\s\S]*detail[\s\S]*cwd/);
+	});
+
+	// spec 060 AC3: AgentRow interface must include sessionId
+	test("AgentRow interface includes sessionId field (AC3)", () => {
+		// RED: agent-view.ts currently does not have sessionId in AgentRow
+		expect(agentViewSource).toContain("sessionId");
 	});
 
 	test("exports mountAgentView function", () => {
