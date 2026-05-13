@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, ParseResult } from "effect";
 import { type AgentRow, stateToAgentRow } from "./agents.adapt.core.ts";
 import { decodeRoster } from "./agents.schema.ts";
 
@@ -42,7 +42,13 @@ export interface AgentDaemonService {
 		shortId: string,
 	) => Effect.Effect<Record<string, unknown> | null, never, never>;
 	/** Read list of all AgentRows from current roster + state files. */
-	readonly listAgents: () => Effect.Effect<AgentRow[] | { _tag: "DaemonAbsent" }, never, never>;
+	readonly listAgents: () => Effect.Effect<
+		| AgentRow[]
+		| { readonly _tag: "DaemonAbsent" }
+		| { readonly _tag: "DaemonRosterUnreadable"; readonly details: string },
+		never,
+		never
+	>;
 }
 
 export const AgentDaemon = Context.GenericTag<AgentDaemonService>("AgentDaemon");
@@ -94,13 +100,24 @@ const buildRowsFromRoster = (
 		return rows;
 	});
 
-const listAgentsLive = (): Effect.Effect<AgentRow[] | { _tag: "DaemonAbsent" }, never, never> =>
+const listAgentsLive = (): Effect.Effect<
+	| AgentRow[]
+	| { readonly _tag: "DaemonAbsent" }
+	| { readonly _tag: "DaemonRosterUnreadable"; readonly details: string },
+	never,
+	never
+> =>
 	Effect.gen(function* () {
 		const rosterRaw = yield* readRosterLive();
 		if (rosterRaw === null) return { _tag: "DaemonAbsent" as const };
 
 		const decoded = decodeRoster(rosterRaw);
-		if (decoded._tag === "Left") return { _tag: "DaemonAbsent" as const };
+		if (decoded._tag === "Left") {
+			const details = ParseResult.TreeFormatter.formatErrorSync(
+				decoded.left as ParseResult.ParseError,
+			);
+			return { _tag: "DaemonRosterUnreadable" as const, details };
+		}
 
 		return yield* buildRowsFromRoster(decoded.right.workers, readStateLive);
 	});
@@ -136,13 +153,24 @@ export const makeAgentDaemonTest = (opts: {
 			return state !== undefined ? (state as Record<string, unknown>) : null;
 		});
 
-	const listAgents = (): Effect.Effect<AgentRow[] | { _tag: "DaemonAbsent" }, never, never> =>
+	const listAgents = (): Effect.Effect<
+		| AgentRow[]
+		| { readonly _tag: "DaemonAbsent" }
+		| { readonly _tag: "DaemonRosterUnreadable"; readonly details: string },
+		never,
+		never
+	> =>
 		Effect.gen(function* () {
 			const rosterRaw = yield* readRoster();
 			if (rosterRaw === null) return { _tag: "DaemonAbsent" as const };
 
 			const decoded = decodeRoster(rosterRaw);
-			if (decoded._tag === "Left") return { _tag: "DaemonAbsent" as const };
+			if (decoded._tag === "Left") {
+				const details = ParseResult.TreeFormatter.formatErrorSync(
+					decoded.left as ParseResult.ParseError,
+				);
+				return { _tag: "DaemonRosterUnreadable" as const, details };
+			}
 
 			return yield* buildRowsFromRoster(decoded.right.workers, readState);
 		});

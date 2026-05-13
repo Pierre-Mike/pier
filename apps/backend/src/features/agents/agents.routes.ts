@@ -57,8 +57,16 @@ const listAgentsHandler = (c: AnyCtx): Effect.Effect<Response, never, AgentServi
 	Effect.gen(function* () {
 		const daemon = yield* AgentDaemon;
 		const result = yield* daemon.listAgents();
-		if (!Array.isArray(result) && result._tag === "DaemonAbsent") {
-			return c.json({ error: "claude daemon not running or roster.json absent" }, 409);
+		if (!Array.isArray(result)) {
+			if (result._tag === "DaemonAbsent") {
+				return c.json({ error: "daemon not running" }, 409);
+			}
+			if (result._tag === "DaemonRosterUnreadable") {
+				return c.json(
+					{ error: "roster shape unrecognized — check CLI version", details: result.details },
+					502,
+				);
+			}
 		}
 		return c.json(result, 200);
 	});
