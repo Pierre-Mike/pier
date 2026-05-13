@@ -1,17 +1,20 @@
 ---
 id: 059-repo-grouped-project-tabs
 title: Add repo-grouped project tabs with agent view
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/frontend/src/dashboard/projects.test.ts
     level: unit
   - path: apps/frontend/src/components/projects.integration.test.ts
     level: integration
-created: 2026-05-13
+created: 2026-05-13T00:00:00.000Z
 owner: main
-depends_on: ["057-wire-agent-view-mount", "058-fix-agents-schema-drift"]
+depends_on:
+  - 057-wire-agent-view-mount
+  - 058-fix-agents-schema-drift
 supersedes: null
+archived: '2026-05-13'
 ---
 
 ## Intent
