@@ -4,9 +4,9 @@ title: Fix agents schema drift for roster decode
 status: archived
 kind: code
 gate:
-  - path: apps/backend/src/features/agents/agents.schema.drift.test.ts
+  - path: apps/backend/src/features/agents/agents.schema.test.ts
     level: unit
-  - path: apps/backend/src/features/agents/agents.schema.drift.integration.test.ts
+  - path: apps/backend/src/features/agents/agents.schema.integration.test.ts
     level: integration
 created: 2026-05-13T00:00:00.000Z
 owner: main
