@@ -1,17 +1,19 @@
 ---
 id: 058-fix-agents-schema-drift
 title: Fix agents schema drift for roster decode
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/backend/src/features/agents/agents.schema.drift.test.ts
     level: unit
   - path: apps/backend/src/features/agents/agents.schema.drift.integration.test.ts
     level: integration
-created: 2026-05-13
+created: 2026-05-13T00:00:00.000Z
 owner: main
-depends_on: [056-agent-view-mirror]
+depends_on:
+  - 056-agent-view-mirror
 supersedes: null
+archived: '2026-05-13'
 ---
 
 ## Intent
