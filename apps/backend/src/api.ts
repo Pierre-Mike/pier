@@ -1,6 +1,8 @@
 import { join } from "node:path";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { agentsRoute } from "./features/agents/agents.routes.ts";
+import { agentsStreamRoute } from "./features/agents/agents.stream.routes.ts";
 import { artifactsBlobRoute } from "./features/artifacts/artifacts.blob.routes.ts";
 import { artifactsRoute } from "./features/artifacts/artifacts.routes.ts";
 import { streamArtifactsRoute } from "./features/artifacts/artifacts.stream.routes.ts";
@@ -66,7 +68,9 @@ const routedApp = app
 	.route("/", streamArtifactsRoute.app)
 	.route("/", streamReloadRoute.app)
 	.route("/", settingsRoute.app)
-	.route("/", tunnelRoute.app);
+	.route("/", tunnelRoute.app)
+	.route("/", agentsRoute.app)
+	.route("/", agentsStreamRoute.app);
 
 // Serve the built frontend (apps/frontend/dist) as a fallback for any GET that
 // no API route handled. No-op when dist/ is missing (pure dev with Astro on
