@@ -1,7 +1,7 @@
 ---
 id: 056-agent-view-mirror
 title: Mirror Claude agent view as a web panel
-status: active
+status: archived
 kind: code
 gate:
   - path: apps/backend/src/features/agents/agents.adapt.core.test.ts
@@ -10,10 +10,12 @@ gate:
     level: integration
   - path: apps/e2e/tests/agent-view.spec.ts
     level: e2e
-created: 2026-05-13
+created: 2026-05-13T00:00:00.000Z
 owner: main
-depends_on: [011-backend-feature-slice-plan]
+depends_on:
+  - 011-backend-feature-slice-plan
 supersedes: null
+archived: '2026-05-13'
 ---
 
 ## Intent
