@@ -1312,3 +1312,115 @@ body.resizing iframe {
 	background: var(--bg-hover);
 	color: var(--fg);
 }
+
+/* ── Agent view panel (spec 056) ─────────────────────────────────────────── */
+
+.agent-view {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 8px;
+	overflow-y: auto;
+	font-size: 12px;
+}
+
+.agent-view-banner {
+	padding: 8px 10px;
+	background: var(--bg-elev);
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	color: var(--fg-dim);
+	font-style: italic;
+}
+
+.agent-group {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.agent-group-heading {
+	font-size: 10px;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--fg-dim);
+	padding: 4px 6px 2px;
+	border-bottom: 1px solid var(--border);
+	margin-bottom: 2px;
+}
+
+.agent-group--needs-input .agent-group-heading {
+	color: var(--warn, #e6b550);
+}
+
+.agent-group--working .agent-group-heading {
+	color: var(--ok, #4caf80);
+}
+
+.agent-group-empty {
+	padding: 4px 8px;
+	color: var(--fg-dim);
+	opacity: 0.5;
+	font-style: italic;
+}
+
+.agent-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 8px;
+	border-radius: 5px;
+	cursor: pointer;
+	background: transparent;
+	border: 1px solid transparent;
+	transition:
+		background 0.1s,
+		border-color 0.1s;
+}
+
+.agent-row:hover {
+	background: var(--bg-hover);
+	border-color: var(--border);
+}
+
+.agent-row-info {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--fg);
+}
+
+.agent-row-needs {
+	font-size: 11px;
+	color: var(--warn, #e6b550);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 160px;
+}
+
+.agent-row-actions {
+	display: flex;
+	gap: 4px;
+	flex-shrink: 0;
+}
+
+.agent-row-attach {
+	padding: 2px 8px;
+	font-size: 11px;
+	background: var(--bg-elev);
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	color: var(--fg-dim);
+	cursor: pointer;
+	transition:
+		color 0.1s,
+		border-color 0.1s;
+}
+
+.agent-row-attach:hover {
+	color: var(--fg);
+	border-color: var(--accent);
+}
