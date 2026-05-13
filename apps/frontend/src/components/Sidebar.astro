@@ -11,12 +11,20 @@
 	<button id="default-session-btn" class="default-session" title="Default session">
 		<span class="dot"></span><span class="initial">⌂</span><span class="name">default</span>
 	</button>
-	<section id="sessions-section" class="sessions hidden">
-		<div class="section-label">Open</div>
-		<ul id="sessions"></ul>
-	</section>
-	<div class="sidebar-search">
-		<input id="project-filter" type="search" placeholder="search projects…" autocomplete="off" />
+	<div class="sidebar-tabs">
+		<button class="sidebar-tab active" data-tab="projects">Projects</button>
+		<button class="sidebar-tab" data-tab="agents">Active Agents</button>
 	</div>
-	<ul id="projects"></ul>
+	<div id="sidebar-tab-projects">
+		<section id="sessions-section" class="sessions hidden">
+			<div class="section-label">Open</div>
+			<ul id="sessions"></ul>
+		</section>
+		<div class="sidebar-search">
+			<input id="project-filter" type="search" placeholder="search projects…" autocomplete="off" />
+		</div>
+		<ul id="projects"></ul>
+	</div>
+	<div id="sidebar-tab-agents" class="hidden">
+	</div>
 </aside>

@@ -255,3 +255,7 @@ export function unmountAgentView(): void {
 	panelRoot = null;
 	agentRows = [];
 }
+
+export function getAgentRowCount(): number {
+	return agentRows.length;
+}
