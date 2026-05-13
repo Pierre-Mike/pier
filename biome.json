@@ -81,6 +81,16 @@
 					}
 				}
 			}
+		},
+		{
+			"includes": ["apps/e2e/tests/**"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noConsole": "off"
+					}
+				}
+			}
 		}
 	],
 	"files": {
