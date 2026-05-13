@@ -24,6 +24,7 @@ import Base from "../layouts/Base.astro";
 	<Sidebar />
 	<TerminalPane />
 	<ArtifactsPane />
+	<section id="agent-view-root" data-agent-view-root></section>
 	<LogsModal />
 	<PaletteModal />
 
@@ -71,6 +72,7 @@ import Base from "../layouts/Base.astro";
 	import { installPalette } from "../dashboard/palette";
 	import { openRepoFile } from "../dashboard/viewer";
 	import { initTheme } from "../dashboard/theme";
+	import { mountAgentView } from "../dashboard/agent-view";
 
 	async function init() {
 		initTheme();
@@ -79,6 +81,10 @@ import Base from "../layouts/Base.astro";
 		subscribeEvents(handleEvent);
 		wireObservers();
 		wireUI();
+		const agentViewRoot = document.getElementById("agent-view-root");
+		if (agentViewRoot) {
+			mountAgentView(agentViewRoot);
+		}
 		const last = localStorage.getItem("pier:active-project");
 		if (last && store.projects.some((p) => p.id === last)) {
 			void selectProject(last);
